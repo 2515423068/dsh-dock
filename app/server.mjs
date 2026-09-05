@@ -104,7 +104,7 @@ function writeJson(file, value) {
 }
 
 function readSettings() {
-  return readJson(SETTINGS_PATH, { proxy: '', githubMirror: '', npmRegistry: '' })
+  return { containerPortRange: '41800-41899', proxy: '', githubMirror: '', npmRegistry: '', ...readJson(SETTINGS_PATH, {}) }
 }
 
 function writeSettings(settings) {
@@ -354,12 +354,40 @@ async function pnpmBuild(harnessDir, task) {
   })
 }
 
+// ── 版本级懒构建共享 ────────────────────────────────────────────────────────
+// 构建产物(lib/ dist/ 与 .dsh-build 记录)只依赖版本源码,对同版本所有容器完全
+// 相同(记录内容为 commit/版本号/文件数/sha256,无绝对路径,可安全拷贝)。
+// 因此在版本层构建一次,创建/更新容器时随源码拷贝,免去逐容器 ~60s 的重复构建。
+const CLIENT_BUILD_RECORD = path.join('.dsh-build', 'client-build-environment.json')
+const versionBuildTasks = new Map() // versionDir -> 构建中的 Promise(并发去重)
+
+function ensureVersionPrebuilt(versionDir, line, task) {
+  if (fs.existsSync(path.join(versionDir, CLIENT_BUILD_RECORD))) {
+    line('共享构建产物已就绪,跳过构建')
+    return Promise.resolve()
+  }
+  const pending = versionBuildTasks.get(versionDir)
+  if (pending) {
+    line('该版本正由其他任务构建,等待共享产物...')
+    return pending
+  }
+  const building = (async () => {
+    line('该版本尚无共享构建产物,在版本层构建一次(同版本容器共享,仅此一次)...')
+    await pnpmBuild(versionDir, task)
+    line('版本层构建完成,后续同版本容器将直接拷贝产物')
+  })().finally(() => versionBuildTasks.delete(versionDir))
+  versionBuildTasks.set(versionDir, building)
+  return building
+}
+
 // 复制目录,仅排除 node_modules。
 // 注意必须保留 .git:harness 构建脚本会执行 `git rev-parse HEAD` 获取提交哈希。
 async function copyHarness(source, target) {
   await fs.promises.cp(source, target, {
     recursive: true,
-    filter: (src) => !/(^|\/)node_modules(\/|$)/.test(src),
+    // node_modules 由容器内离线安装重建;.tsbuildinfo 是 tsc 增量状态,
+    // 不拷贝,避免残留状态影响容器内可能的重新构建
+    filter: (src) => !/(^|\/)node_modules(\/|$)/.test(src) && !/\.tsbuildinfo$/.test(src),
   })
   sanitizeCopiedGit(target)
 }
@@ -446,6 +474,38 @@ function allocatePort() {
   })
 }
 
+// ── 容器稳定端口 ────────────────────────────────────────────────────────────
+// 端口在创建时从端口池分配并持久化到 container.json,此后每次启动固定使用。
+// 端口池可在设置中配置(默认 41800-41899)。启动时若端口被其他进程占用则报错
+// 而不换口,保证"同一容器永远同一端口"(URL 中 ?token 仍随启动轮换,系上游行为)。
+function containerPortRange() {
+  const m = String(readSettings().containerPortRange ?? '').match(/^(\d{2,5})\s*-\s*(\d{2,5})$/)
+  if (m) {
+    const start = Number(m[1])
+    const end = Number(m[2])
+    if (start >= 1024 && end <= 65535 && start < end && end - start <= 2000) return [start, end]
+  }
+  return [41800, 41899]
+}
+
+function allocateContainerPort() {
+  const [start, end] = containerPortRange()
+  const used = new Set(listContainerIds().map((id) => readJson(path.join(CONTAINERS_DIR, id, 'container.json'), {}).port).filter(Boolean))
+  used.add(PORT)
+  for (let p = start; p <= end; p++) {
+    if (!used.has(p)) return p
+  }
+  throw `容器端口池 ${start}-${end} 已用尽,请在设置中扩大范围或删除不用的容器`
+}
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', () => resolve(false))
+    server.listen(port, '127.0.0.1', () => server.close(() => resolve(true)))
+  })
+}
+
 // DSH host 的干净环境(剥离代理是关键,参见架构设计 3.1)
 // ★ DSH_HOME 必须指向容器自己的 profile:DSH 的 home 解析优先级为
 //   显式配置 → $DSH_HOME → 默认 ~/.dsh。若不设置,所有容器都会落到
@@ -522,7 +582,16 @@ async function startContainer(id) {
     fs.mkdirSync(path.join(dir, sub), { recursive: true })
   }
   const logPath = path.join(dir, 'logs', 'host.log')
-  const port = await allocatePort()
+  // 稳定端口:使用创建时分配并持久化的端口;旧容器(无 port 字段)在此迁移分配一次
+  let port = container.port
+  if (!port) {
+    port = allocateContainerPort()
+    container.port = port
+    saveContainer(id, container)
+  }
+  if (!(await isPortFree(port))) {
+    throw `容器端口 ${port} 被其他进程占用,无法启动;请释放端口后重试(服务已停止时可用 dshdock cleanup 清理遗留进程)`
+  }
   const webPatch = path.join(dir, 'web.patch.yml')
   fs.writeFileSync(webPatch, `- id: webserver\n  config:\n    host: 127.0.0.1\n    port: ${port}\n`)
 
@@ -742,6 +811,7 @@ async function handleApi(request, response, url) {
       proxy: String(body.proxy ?? '').trim(),
       githubMirror: String(body.githubMirror ?? '').trim(),
       npmRegistry: String(body.npmRegistry ?? '').trim(),
+      containerPortRange: String(body.containerPortRange ?? '').trim(),
     })
     return send(200, readSettings())
   }
@@ -780,6 +850,8 @@ async function handleApi(request, response, url) {
       await execFileAsync('git', [...gitProxyArgs(), 'clone', '--depth', '1', '--branch', tag, HARNESS_REPO, target])
       line('克隆完成,安装依赖(预热共享 store)...')
       await pnpmInstall(target, { line: (m) => line(m) })
+      // 防御:清掉任何随上游而来的构建记录,保证共享产物只由本机版本层构建产生
+      fs.rmSync(path.join(target, '.dsh-build'), { recursive: true, force: true })
       line('版本安装完成')
     }).catch(() => {
       fs.rmSync(path.join(VERSIONS_DIR, tag), { recursive: true, force: true })
@@ -808,6 +880,8 @@ async function handleApi(request, response, url) {
         name: meta.name ?? id,
         version: meta.version,
         profile: meta.profile,
+        port: meta.port ?? null,
+        devProtect: !!meta.devProtect,
         createdAt: meta.createdAt,
         status,
         url: status === 'running' ? runningHosts.get(id)?.url ?? record.url : null,
@@ -830,10 +904,19 @@ async function handleApi(request, response, url) {
     const id = `container-${Date.now()}-${randomUUID().slice(0, 8)}`
     const containerPath = containerDir(id)
     fs.mkdirSync(containerPath, { recursive: true })
-    saveContainer(id, { id, name, version, profile, createdAt: nowSeconds() })
+    // 创建时即分配稳定端口并持久化(端口池耗尽则整体失败,不留半成品)
+    let port
+    try {
+      port = allocateContainerPort()
+    } catch (error) {
+      fs.rmSync(containerPath, { recursive: true, force: true })
+      return send(400, { error: String(error) })
+    }
+    saveContainer(id, { id, name, version, profile, port, createdAt: nowSeconds() })
 
     runTask('container-create', id, `创建容器 ${name}`, async ({ line, task }) => {
-      line('复制版本源码(排除 node_modules)...')
+      await ensureVersionPrebuilt(versionDir, line, task)
+      line('复制版本源码(含共享构建产物,排除 node_modules)...')
       await copyHarness(versionDir, path.join(containerPath, 'harness'))
       allowAllBuilds(path.join(containerPath, 'harness'))
       line('生成 profile 骨架...')
@@ -841,8 +924,11 @@ async function handleApi(request, response, url) {
       fs.mkdirSync(path.join(containerPath, 'workspace'), { recursive: true })
       line('安装容器依赖...')
       await pnpmInstall(path.join(containerPath, 'harness'), task)
-      line('构建 DSH 前端...')
-      await pnpmBuild(path.join(containerPath, 'harness'), task)
+      // 保险丝:共享产物意外缺失(如版本层构建曾失败)时,回退容器内构建
+      if (!fs.existsSync(path.join(containerPath, 'harness', CLIENT_BUILD_RECORD))) {
+        line('共享构建产物缺失,回退容器内构建...')
+        await pnpmBuild(path.join(containerPath, 'harness'), task)
+      }
       line('容器创建完成')
     }).catch(async (error) => {
       // 创建失败:清理半成品
@@ -875,6 +961,35 @@ async function handleApi(request, response, url) {
       return send(200, { ok: true })
     }
 
+    if (route === `POST /api/containers/${id}/protect`) {
+      const { enabled } = await readJsonBody(request)
+      const container = getContainer(id)
+      container.devProtect = !!enabled
+      saveContainer(id, container)
+      log(`容器 ${container.name} 开发保护: ${container.devProtect ? '开启' : '关闭'}`)
+      return send(200, { ok: true, devProtect: container.devProtect })
+    }
+
+    // 修改容器固定端口:仅停止状态可改(运行中改端口会与监听中的 host 脱节),
+    // 校验范围/服务端口冲突/其他容器占用/当前实际被占用,下次启动生效
+    if (route === `POST /api/containers/${id}/port`) {
+      const { port } = await readJsonBody(request)
+      const p = Number(port)
+      if (!Number.isInteger(p) || p < 1024 || p > 65535) return send(400, { error: '端口必须是 1024-65535 的整数' })
+      if (p === PORT) return send(400, { error: `端口 ${p} 是 DSH Dock 服务自身端口,不可使用` })
+      const container = getContainer(id)
+      if (['running', 'starting'].includes(containerStatus(id))) return send(400, { error: '容器运行中,请先停止再修改端口' })
+      if (busyTaskFor(id)) return send(400, { error: '容器有进行中的任务(创建/更新/启动),请稍后再试' })
+      const clash = listContainerIds().some((other) => other !== id && readJson(path.join(CONTAINERS_DIR, other, 'container.json'), {}).port === p)
+      if (clash) return send(400, { error: `端口 ${p} 已分配给其他容器` })
+      if (!(await isPortFree(p))) return send(400, { error: `端口 ${p} 当前被其他进程占用,请换一个` })
+      const oldPort = container.port
+      container.port = p
+      saveContainer(id, container)
+      log(`容器 ${container.name} 端口: ${oldPort ?? '(未分配)'} → ${p}(下次启动生效)`)
+      return send(200, { ok: true, port: p })
+    }
+
     if (route === `POST /api/containers/${id}/stop`) {
       try {
         await stopContainer(id)
@@ -885,6 +1000,15 @@ async function handleApi(request, response, url) {
     }
 
     if (route === `DELETE /api/containers/${id}`) {
+      const busy = busyTaskFor(id)
+      if (busy) return send(400, { error: '容器正在创建/更新中,请等待当前任务完成' })
+      const delContainer = getContainer(id)
+      if (delContainer.devProtect) {
+        const body = await readJsonBody(request).catch(() => ({}))
+        if (!body.confirmDevProtect) {
+          return send(400, { error: '该容器受开发保护,删除前需在弹窗中确认', needConfirm: true })
+        }
+      }
       try {
         await stopContainer(id)
       } catch {}
@@ -911,13 +1035,17 @@ async function handleApi(request, response, url) {
         line('备份当前 harness...')
         fs.renameSync(harnessDir, backupDir)
         try {
-          line('复制新版本源码...')
+          await ensureVersionPrebuilt(newVersionDir, line, task)
+          line('复制新版本源码(含共享构建产物)...')
           await copyHarness(newVersionDir, harnessDir)
           allowAllBuilds(harnessDir)
           line('安装依赖...')
           await pnpmInstall(harnessDir, task)
-          line('构建 DSH 前端...')
-          await pnpmBuild(harnessDir, task)
+          // 保险丝:共享产物意外缺失时,回退容器内构建
+          if (!fs.existsSync(path.join(harnessDir, CLIENT_BUILD_RECORD))) {
+            line('共享构建产物缺失,回退容器内构建...')
+            await pnpmBuild(harnessDir, task)
+          }
           container.version = version
           saveContainer(id, container)
           line('更新完成,用户数据(profile/workspace)未受影响')
@@ -1095,6 +1223,12 @@ async function gracefulShutdown(signal) {
   shuttingDown = true
   log(`收到 ${signal},停止容器后退出...`)
   for (const id of [...runningHosts.keys()]) {
+    // 开发保护的容器在优雅关闭时豁免:进程保留,下次服务启动自动接管
+    const meta = readJson(path.join(CONTAINERS_DIR, id, 'container.json'), {})
+    if (meta.devProtect) {
+      log(`容器 ${meta.name ?? id} 受开发保护,进程保留(下次服务启动自动接管)`)
+      continue
+    }
     try {
       await stopContainer(id)
     } catch (error) {
@@ -1106,8 +1240,21 @@ async function gracefulShutdown(signal) {
   } catch {}
   process.exit(0)
 }
-process.on('SIGINT', () => gracefulShutdown('SIGINT'))
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+// 开发模式(DSHDOCK_DEV=1,由 dshdock bg/devrestart 设置):收到终止信号时直接退出。
+// 容器进程组是 detached 的,原样保留,由下一次服务启动自动接管 ——
+// 避免一个误发的 Ctrl+C/kill 就停光所有容器(含用户正在使用的 DSH 会话)。
+// 显式的 dshdock stop(POST /api/shutdown)在任何模式下都会先停容器再退出。
+if (process.env.DSHDOCK_DEV === '1') {
+  const devExit = (signal) => {
+    log(`开发模式收到 ${signal}:服务退出,容器进程保留(下次启动自动接管)`)
+    process.exit(0)
+  }
+  process.on('SIGINT', () => devExit('SIGINT'))
+  process.on('SIGTERM', () => devExit('SIGTERM'))
+} else {
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'))
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+}
 
 server.listen(PORT, '127.0.0.1', () => {
   const resolved = resolveDataRoot()

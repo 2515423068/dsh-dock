@@ -74,9 +74,20 @@ tr:last-child td { border-bottom: none; }
 .modal .m-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 .modal .m-body { padding: 14px 18px; overflow: auto; }
 pre.log { background: #141a24; color: #c8d3e0; padding: 14px; border-radius: 8px; font-size: 12px; line-height: 1.55; max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-all; }
-/* 容器卡片:版本选择框(替代更新按钮)+ 日志文件地址 */
+/* 容器卡片:版本选择框(替代更新按钮)+ 日志文件地址 + 开发保护开关 */
 .ver-select { width: auto; max-width: 210px; padding: 2px 6px; font-size: 12.5px; vertical-align: middle; }
 .logpath { font-size: 11.5px; color: var(--muted); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; margin-bottom: 8px; word-break: break-all; }
+/* 开发保护开关(switch 样式,置于卡片操作末尾) */
+.switch-wrap { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); user-select: none; }
+.switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider { position: absolute; inset: 0; background: #cfd6de; border-radius: 18px; transition: .2s; cursor: pointer; }
+.switch .slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch input:checked + .slider { background: var(--green); }
+.switch input:checked + .slider::before { transform: translateX(16px); }
+/* 端口:卡片内可点击修改 */
+.port-edit { cursor: pointer; }
+.port-edit:hover { color: var(--text); border-color: var(--text); }
 .empty { text-align: center; color: var(--muted); padding: 30px 0; font-size: 13.5px; }
 .chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .chip { border: 1px solid var(--border); border-radius: 14px; padding: 2px 10px; font-size: 12px; cursor: pointer; color: var(--muted); user-select: none; }
@@ -339,7 +350,7 @@ async function renderContainers() {
         <select id="c-version" style="width:180px"><option value="">加载中...</option></select>
         <select id="c-profile" style="width:130px"><option value="web">web</option><option value="headless">headless</option></select>
         <button class="primary" onclick="createContainer()">创建</button>
-        <span class="muted">创建过程包含依赖安装与前端构建,需要几分钟;进度见底部终端</span>
+        <span class="muted">首次创建某版本需构建一次(约 1 分钟),之后同版本容器约 10 秒;进度见底部终端</span>
       </div>
     </div>
     <div id="container-list"><div class="empty">加载中...</div></div>`
@@ -371,14 +382,16 @@ async function renderContainers() {
     } else {
       actions.push(`<button class="primary" onclick="startContainer('${c.id}')">启动</button>`)
     }
-    actions.push(`<button class="danger" onclick="removeContainer('${c.id}','${escapeHtml(c.name)}')">删除</button>`)
+    actions.push(`<button class="danger" onclick="removeContainer('${c.id}','${escapeHtml(c.name)}', ${c.devProtect ? 'true' : 'false'})">删除</button>`)
+    // 开发保护开关:置于操作末尾,switch 样式;开启后服务关闭/重启时保留此容器进程,删除需弹窗确认
+    actions.push(`<span class="switch-wrap" title="开启后:服务关闭/重启时保留此容器进程(下次启动自动接管);删除需弹窗确认">保护<label class="switch"><input type="checkbox" ${c.devProtect ? 'checked' : ''} onchange="toggleProtect('${c.id}', this.checked)"><span class="slider"></span></label></span>`)
     // 版本选择框:替代原「更新」按钮与版本文本位;默认当前版本,切换并确认后触发更新
     const versions = [...new Set([...(catalog.installed ?? []), c.version])]
     const versionSelect = `<select class="ver-select" data-current="${escapeHtml(c.version)}" ${busy ? 'disabled' : ''} onchange="confirmUpdate('${c.id}', this)">${versions.map((v) => `<option value="${escapeHtml(v)}" ${v === c.version ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select>`
     // 终端日志统一在底部终端栏显示;卡片只保留日志文件地址
     return `<div class="card">
-      <div class="head"><span class="name">${escapeHtml(c.name)}</span><span class="badge ${c.status}">${statusBadge}</span></div>
-      <div class="meta">${versionSelect} · profile ${escapeHtml(c.profile)} · 创建于 ${c.createdAt ? new Date(c.createdAt * 1000).toLocaleString('zh-CN') : '-'}</div>
+      <div class="head"><span class="name">${escapeHtml(c.name)}${c.devProtect ? ' 🛡' : ''}</span><span class="badge ${c.status}">${statusBadge}</span></div>
+      <div class="meta">${versionSelect} · <span class="chip port-edit" title="点击修改固定端口(下次启动生效)" onclick="editPort('${c.id}', ${c.port ?? 'null'}, '${c.status}')">端口 ${c.port ?? '未分配'}</span> · profile ${escapeHtml(c.profile)} · 创建于 ${c.createdAt ? new Date(c.createdAt * 1000).toLocaleString('zh-CN') : '-'}</div>
       <div class="logpath" title="host 运行日志文件位置">日志: ${escapeHtml(c.logPath ?? `DSHDock_Data/containers/${c.id}/logs/host.log`)}</div>
       ${c.url ? `<div class="url" style="margin-bottom:10px"><a href="${escapeHtml(c.url)}" target="_blank">${escapeHtml(c.url)}</a></div>` : ''}
       ${task?.status === 'failed' ? `<div class="muted" style="margin-bottom:8px">✗ ${escapeHtml(task.label)} 失败 — 详见底部终端</div>` : ''}
@@ -421,13 +434,49 @@ async function openContainer(id) {
     window.open(url, '_blank')
   } catch (error) { toast(`打开失败: ${error}`, true) }
 }
-async function removeContainer(id, name) {
+async function removeContainer(id, name, devProtect) {
   if (!confirm(`确定删除容器「${name}」?整个容器目录(含 workspace)将被移除!`)) return
+  // 受开发保护的容器:弹窗二次确认(服务端亦校验 confirmDevProtect)
+  if (devProtect) {
+    openModal('删除受保护的容器', `
+      <p>容器 <b>${escapeHtml(name)}</b> 已开启开发保护。</p>
+      <p class="error-text">删除会停止其进程并整目录移除,不可恢复。确定继续吗?</p>
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button onclick="closeModal()">取消</button>
+        <button class="danger" onclick="doRemove('${id}','${escapeHtml(name)}')">确认删除</button>
+      </div>`)
+    return
+  }
+  doRemove(id, name)
+}
+async function doRemove(id, name) {
   try {
-    await api(`/api/containers/${id}`, { method: 'DELETE' })
+    await api(`/api/containers/${id}`, { method: 'DELETE', body: { confirmDevProtect: true } })
+    closeModal()
     toast('已删除')
     renderContainers()
   } catch (error) { toast(`删除失败: ${error}`, true) }
+}
+async function toggleProtect(id, enabled) {
+  try {
+    const r = await api(`/api/containers/${id}/protect`, { method: 'POST', body: { enabled } })
+    toast(r.devProtect ? '已开启开发保护:服务关闭时保留此容器,删除需弹窗确认' : '已关闭开发保护')
+    renderContainers()
+  } catch (error) { toast(`操作失败: ${error}`, true) }
+}
+// 修改容器固定端口:仅停止状态可改(服务端亦校验),下次启动生效
+async function editPort(id, current, status) {
+  if (status === 'running' || status === 'starting') { toast('容器运行中,请先停止再修改端口', true); return }
+  const input = prompt('新的固定端口(1024-65535,下次启动生效):', current ?? '')
+  if (input === null) return
+  const port = Number(input)
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) { toast('端口必须是 1024-65535 的整数', true); return }
+  if (port === current) return
+  try {
+    const r = await api(`/api/containers/${id}/port`, { method: 'POST', body: { port } })
+    toast(`端口已改为 ${r.port}(下次启动生效)`)
+    renderContainers()
+  } catch (error) { toast(`修改端口失败: ${error}`, true) }
 }
 // 版本选择框触发更新:切换即询问,取消则回退显示当前版本
 function confirmUpdate(id, selectEl) {
@@ -489,6 +538,12 @@ async function renderSettings() {
       </div>
       <div class="row" style="margin-bottom:12px"><span style="width:120px"></span>${chipRow('s-registry', NPM_REGISTRY_PRESETS)}</div>
 
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">容器端口池</span>
+        <input id="s-portrange" placeholder="41800-41899" style="width:330px" value="${escapeHtml(settings.containerPortRange ?? '41800-41899')}">
+      </div>
+      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">容器创建时从此范围分配固定端口并持久化(每次启动不变;被其他进程占用则启动报错)</span></div>
+
       <p class="muted" style="margin-top:4px;line-height:1.7">
         作用范围:<b>HTTP 代理</b> → GitHub API(版本目录);<b>GitHub 镜像</b> → git 克隆(设置后克隆走镜像、不再用代理);<b>npm 镜像源</b> → pnpm 在线装依赖。<br>
         DSH host 进程始终运行在无代理环境(避免回环自检被代理劫持),不受以上配置影响。镜像快捷项已实测可用,失效时可手动填入其他前缀式镜像。
@@ -504,6 +559,7 @@ async function saveSettings() {
         proxy: $('#s-proxy').value.trim(),
         githubMirror: $('#s-mirror').value.trim(),
         npmRegistry: $('#s-registry').value.trim(),
+        containerPortRange: $('#s-portrange').value.trim(),
       },
     })
     toast('已保存')
