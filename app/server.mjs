@@ -463,6 +463,90 @@ function createProfileSkeleton(containerPath, profile) {
   fs.writeFileSync(path.join(directory, 'pnpm-workspace.yaml'), 'packages:\n  - .\n\nnodeLinker: hoisted\nautoInstallPeers: false\n')
 }
 
+// ── 新容器初始配置模板 ──────────────────────────────────────────────────────
+// 从已配置好的容器捕获 profile/settings.yaml(含「测试版公告已确认」/ provider
+// 定义 / 默认模型)与 .credentials.yaml 的 refs 块(API Key 值,键名 = provider
+// 的 apiKeyEnv,由 DSH 凭据存储解析)。新建容器时直接写入,首次打开不再出现
+// 「测试版公告」与「API Key 录入」弹窗。refs 是敏感值:模板文件一律 0600,
+// API 只回显键名,绝不回显值。
+const PROFILE_TEMPLATE_DIR = () => path.join(STATE_DIR, 'profile-template')
+const tplSettingsPath = () => path.join(PROFILE_TEMPLATE_DIR(), 'settings.yaml')
+const tplRefsPath = () => path.join(PROFILE_TEMPLATE_DIR(), 'credential-refs.yaml')
+const tplMetaPath = () => path.join(PROFILE_TEMPLATE_DIR(), 'meta.json')
+
+// 按顶层键切分 YAML:块 = 从 `key:` 行到下一个顶层键之前(缩进行与空行都归属该键)。
+// 仅用于无依赖的文本级合并,不做完整 YAML 解析。
+function splitYamlTopLevel(text) {
+  const sections = new Map()
+  let current = null
+  let buf = []
+  for (const line of String(text).split('\n')) {
+    const m = line.match(/^([A-Za-z][A-Za-z0-9_.-]*):/)
+    if (m) {
+      if (current) sections.set(current, buf.join('\n'))
+      current = m[1]
+      buf = [line]
+    } else if (current) {
+      buf.push(line)
+    }
+  }
+  if (current) sections.set(current, buf.join('\n'))
+  return sections
+}
+
+// 提取 .credentials.yaml 的 refs 块(原样保留缩进与值;无 refs 或为空返回 null)
+function extractCredentialRefs(text) {
+  const lines = String(text).split('\n')
+  const i = lines.findIndex((line) => /^refs:/.test(line))
+  if (i === -1) return null
+  const out = [lines[i]]
+  for (let j = i + 1; j < lines.length; j++) {
+    if (/^[A-Za-z]/.test(lines[j])) break
+    out.push(lines[j])
+  }
+  const block = out.join('\n').replace(/\n+$/, '')
+  return block.trimEnd().length > 'refs:'.length ? block : null
+}
+
+function profileTemplateInfo() {
+  if (!fs.existsSync(tplSettingsPath())) return { exists: false }
+  const meta = readJson(tplMetaPath(), {})
+  const sections = [...splitYamlTopLevel(fs.readFileSync(tplSettingsPath(), 'utf8')).keys()]
+  const refKeys = []
+  if (fs.existsSync(tplRefsPath())) {
+    for (const line of fs.readFileSync(tplRefsPath(), 'utf8').split('\n')) {
+      const m = line.match(/^\s{2,}([A-Za-z0-9_-]+):/)
+      if (m) refKeys.push(m[1])
+    }
+  }
+  return { exists: true, capturedAt: meta.capturedAt ?? null, source: meta.source ?? null, sections, refKeys }
+}
+
+// 注入到新建容器:settings.yaml 整文件拷贝(创建期该文件尚不存在,DSH 首次运行
+// 才生成,加载我们的版本后其余值走 schema 默认);凭据文件同理,已存在时保留
+// 其余顶层段、仅替换 refs 块。
+function applyProfileTemplate(containerPath, line) {
+  const info = { sections: [], refKeys: [] }
+  const profileDir = path.join(containerPath, 'profile')
+  fs.copyFileSync(tplSettingsPath(), path.join(profileDir, 'settings.yaml'))
+  fs.chmodSync(path.join(profileDir, 'settings.yaml'), 0o600)
+  info.sections = [...splitYamlTopLevel(fs.readFileSync(tplSettingsPath(), 'utf8')).keys()]
+  if (fs.existsSync(tplRefsPath())) {
+    const refsBlock = fs.readFileSync(tplRefsPath(), 'utf8').trimEnd()
+    const credPath = path.join(profileDir, '.credentials.yaml')
+    const base = fs.existsSync(credPath) ? fs.readFileSync(credPath, 'utf8') : 'version: 1\nrecords: {}\n'
+    const sections = splitYamlTopLevel(base)
+    sections.delete('refs')
+    const composed = [...sections.values()].join('\n').replace(/\n+$/, '')
+    fs.writeFileSync(credPath, (composed ? `${composed}\n` : '') + `${refsBlock}\n`, { mode: 0o600 })
+    for (const l of refsBlock.split('\n')) {
+      const m = l.match(/^\s{2,}([A-Za-z0-9_-]+):/)
+      if (m) info.refKeys.push(m[1])
+    }
+  }
+  line(`已注入初始配置: ${info.sections.join(' / ')}${info.refKeys.length ? `;API Key(${info.refKeys.join(' / ')})` : ''}`)
+}
+
 function allocatePort() {
   return new Promise((resolve, reject) => {
     const server = net.createServer()
@@ -821,6 +905,38 @@ async function handleApi(request, response, url) {
     return send(200, readSettings())
   }
 
+  // ── 新容器初始配置模板 ──
+  if (route === 'GET /api/profile-template') {
+    return send(200, profileTemplateInfo())
+  }
+  if (route === 'POST /api/profile-template') {
+    const { containerId } = await readJsonBody(request)
+    const cdir = path.join(CONTAINERS_DIR, String(containerId ?? ''))
+    const settingsSrc = path.join(cdir, 'profile', 'settings.yaml')
+    if (!containerId || !fs.existsSync(settingsSrc)) {
+      return send(400, { error: '来源容器还没有 profile/settings.yaml(先启动并完成一次模型配置,或换一个已配置的容器)' })
+    }
+    const credSrc = path.join(cdir, 'profile', '.credentials.yaml')
+    fs.mkdirSync(PROFILE_TEMPLATE_DIR(), { recursive: true })
+    fs.copyFileSync(settingsSrc, tplSettingsPath())
+    fs.chmodSync(tplSettingsPath(), 0o600)
+    const refsBlock = fs.existsSync(credSrc) ? extractCredentialRefs(fs.readFileSync(credSrc, 'utf8')) : null
+    if (refsBlock) {
+      fs.writeFileSync(tplRefsPath(), `${refsBlock}\n`, { mode: 0o600 })
+    } else {
+      fs.rmSync(tplRefsPath(), { force: true })
+    }
+    const source = readJson(path.join(cdir, 'container.json'), {}).name ?? containerId
+    writeJson(tplMetaPath(), { capturedAt: nowSeconds(), source })
+    log(`捕获新容器初始配置模板: 来源 ${source}, 配置段 ${profileTemplateInfo().sections.length} 个${refsBlock ? ',API Key refs 已提取(值不回显)' : ',无 refs'}`)
+    return send(200, profileTemplateInfo())
+  }
+  if (route === 'DELETE /api/profile-template') {
+    fs.rmSync(PROFILE_TEMPLATE_DIR(), { recursive: true, force: true })
+    log('已清除新容器初始配置模板')
+    return send(200, { ok: true })
+  }
+
   // 版本目录
   if (route === 'GET /api/versions/catalog') {
     const cache = readJson(CATALOG_PATH, null)
@@ -926,6 +1042,11 @@ async function handleApi(request, response, url) {
       allowAllBuilds(path.join(containerPath, 'harness'))
       line('生成 profile 骨架...')
       createProfileSkeleton(containerPath, profile)
+      // 新容器初始配置:模板存在时注入(settings.yaml + 凭据 refs),首次打开无弹窗
+      if (fs.existsSync(tplSettingsPath())) {
+        line('注入新容器初始配置(模板)...')
+        applyProfileTemplate(containerPath, line)
+      }
       fs.mkdirSync(path.join(containerPath, 'workspace'), { recursive: true })
       line('安装容器依赖...')
       await pnpmInstall(path.join(containerPath, 'harness'), task)
