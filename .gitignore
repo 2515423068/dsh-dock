@@ -1,0 +1,14 @@
+# ── 排除:文档仓库(Obsidian)与实例数据 ──
+/DSHDock_Docs/
+/DSHDock_Data/
+
+# ── 排除:运行产物与自带运行时(node/pnpm 二进制,体积大;版本清单保留入库) ──
+/logs/
+/runtime/*
+!/runtime/linux-x64/
+/runtime/linux-x64/*
+!/runtime/linux-x64/runtime-manifest.json
+
+# ── 杂项 ──
+*.log
+.DS_Store

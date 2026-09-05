@@ -1,0 +1,13 @@
+{
+  "target": "linux-x64",
+  "nodeVersion": "v24.11.1",
+  "pnpmVersion": "11.7.0",
+  "nodeSha256": "60e3b0a8500819514aca603487c254298cd776de0698d3cd08f11dba5b8289a8",
+  "pnpmIntegrity": "sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==",
+  "nodeEntry": "node/bin/node",
+  "npmEntry": "node/lib/node_modules/npm/bin/npm-cli.js",
+  "pnpmEntry": "pnpm/node_modules/pnpm/bin/pnpm.mjs",
+  "gitVersion": "",
+  "gitEntry": "",
+  "gitSha256": ""
+}

@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DSH Dock · 容器化管理</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --border: #e3e6ea;
+  --text: #1c2330; --muted: #6b7686;
+  --accent: #2563eb; --accent-hover: #1d4fd7;
+  --green: #16a34a; --green-bg: #e8f7ee;
+  --yellow: #d97706; --yellow-bg: #fdf3e3;
+  --red: #dc2626; --red-bg: #fdeaea;
+  --gray-bg: #eef0f3;
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+aside { width: 200px; background: #1c2330; color: #cfd6e0; padding: 18px 0; flex-shrink: 0; display: flex; flex-direction: column; }
+aside .logo { padding: 0 20px 18px; font-size: 18px; font-weight: 700; color: #fff; border-bottom: 1px solid #2c3547; margin-bottom: 10px; }
+aside .logo small { display: block; font-size: 11px; font-weight: 400; color: #8b95a7; margin-top: 2px; }
+aside nav { display: flex; flex-direction: column; }
+aside nav a { padding: 11px 20px; cursor: pointer; color: #cfd6e0; text-decoration: none; font-size: 14px; border-left: 3px solid transparent; }
+aside nav a:hover { background: #26304400; color: #fff; }
+aside nav a.active { background: #263044; color: #fff; border-left-color: var(--accent); }
+main { flex: 1; padding: 26px 32px; max-width: 1080px; padding-bottom: calc(var(--term-h, 220px) + 30px); }
+h1 { font-size: 20px; margin-bottom: 4px; }
+.subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 18px; }
+.panel h2 { font-size: 15px; margin-bottom: 12px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+button { border: 1px solid var(--border); background: #fff; color: var(--text); padding: 7px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s; }
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: var(--accent-hover); }
+button.danger:hover { border-color: var(--red); color: var(--red); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+input, select { border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; outline: none; background: #fff; }
+input:focus, select:focus { border-color: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+.badge.running { background: var(--green-bg); color: var(--green); }
+.badge.starting { background: var(--yellow-bg); color: var(--yellow); }
+.badge.stopped { background: var(--gray-bg); color: var(--muted); }
+.badge.failed { background: var(--red-bg); color: var(--red); }
+.card { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px; background: #fff; }
+.card .head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.card .name { font-weight: 600; font-size: 15px; }
+.card .meta { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+.card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.card .url a { color: var(--accent); font-size: 12.5px; text-decoration: none; word-break: break-all; }
+.muted { color: var(--muted); font-size: 12.5px; }
+.error-text { color: var(--red); font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
+#taskbar { position: fixed; left: 200px; right: 0; bottom: var(--term-h, 220px); background: #1c2330; color: #dfe5ec; padding: 10px 24px; font-size: 12.5px; display: none; align-items: center; gap: 12px; z-index: 45; }
+#taskbar .spinner { width: 14px; height: 14px; border: 2px solid #4a5678; border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* ── 底部终端窗口(全局常驻,可缩放/收起,跨页面保留) ── */
+#term { position: fixed; left: 200px; right: 0; bottom: 0; height: 220px; background: #141a24; color: #c8d3e0; display: flex; flex-direction: column; z-index: 40; border-top: 1px solid #2c3547; }
+#term-head { display: flex; align-items: center; gap: 10px; padding: 5px 14px; background: #1c2330; color: #8fa3b8; font-size: 12px; user-select: none; flex-shrink: 0; }
+#term-head b { color: #dfe5ec; font-size: 12.5px; }
+#term-head .sp { flex: 1; }
+#term-head a { cursor: pointer; }
+#term-head a:hover { color: #fff; }
+#term-body { flex: 1; overflow: auto; margin: 0; padding: 8px 14px; font: 12px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
+#term-resize { position: absolute; top: -4px; left: 0; right: 0; height: 8px; cursor: ns-resize; }
+#term.collapsed { height: auto !important; }
+#term.collapsed #term-body { display: none; }
+.modal-mask { position: fixed; inset: 0; background: rgba(15,20,30,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+.modal { background: #fff; border-radius: var(--radius); width: min(860px, 92vw); max-height: 84vh; display: flex; flex-direction: column; }
+.modal .m-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.modal .m-body { padding: 14px 18px; overflow: auto; }
+pre.log { background: #141a24; color: #c8d3e0; padding: 14px; border-radius: 8px; font-size: 12px; line-height: 1.55; max-height: 60vh; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+/* 容器卡片:版本选择框(替代更新按钮)+ 日志文件地址 */
+.ver-select { width: auto; max-width: 210px; padding: 2px 6px; font-size: 12.5px; vertical-align: middle; }
+.logpath { font-size: 11.5px; color: var(--muted); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; margin-bottom: 8px; word-break: break-all; }
+.empty { text-align: center; color: var(--muted); padding: 30px 0; font-size: 13.5px; }
+.chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--border); border-radius: 14px; padding: 2px 10px; font-size: 12px; cursor: pointer; color: var(--muted); user-select: none; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.inline-select { display: inline-flex; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">DSH Dock<small>DeepSeek Harness 容器化管理</small></div>
+  <nav id="nav">
+    <a data-page="versions" class="active">版本管理</a>
+    <a data-page="containers">容器管理</a>
+    <a data-page="settings">设置</a>
+  </nav>
+</aside>
+<main id="main"></main>
+
+<div id="taskbar"><div class="spinner"></div><span id="taskbar-text"></span></div>
+
+<div id="term">
+  <div id="term-head" ondblclick="termToggle()"><b>终端输出</b><span id="term-hint"></span><span class="sp"></span><a onclick="termClear()">清空</a><a id="term-toggle" onclick="termToggle()">收起 ▾</a></div>
+  <pre id="term-body"></pre>
+  <div id="term-resize"></div>
+</div>
+
+<div class="modal-mask" id="modal-mask">
+  <div class="modal">
+    <div class="m-head"><b id="modal-title"></b><button onclick="closeModal()">关闭</button></div>
+    <div class="m-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const $ = (sel) => document.querySelector(sel)
+const api = async (path, options = {}) => {
+  const response = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw body.error || `HTTP ${response.status}`
+  return body
+}
+
+let activeTasks = {} // refId -> task (用于按钮进度态)
+
+// ── 底部终端窗口(可缩放/收起,全局常驻,跨页面保留 —— 待办③) ──
+const termLines = []
+const TERM_MAX = 800
+function termRender() {
+  const el = $('#term-body')
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+  el.textContent = termLines.join('\n')
+  if (nearBottom) el.scrollTop = el.scrollHeight
+  $('#term-hint').textContent = `${termLines.length} 行`
+}
+function termAppend(line) {
+  termLines.push(String(line))
+  if (termLines.length > TERM_MAX) termLines.splice(0, termLines.length - TERM_MAX)
+  termRender()
+}
+function termClear() { termLines.length = 0; termRender() }
+function termToggle() {
+  const t = $('#term')
+  const collapsed = t.classList.toggle('collapsed')
+  $('#term-toggle').textContent = collapsed ? '展开 ▴' : '收起 ▾'
+  if (collapsed) {
+    document.documentElement.style.setProperty('--term-h', '34px')
+  } else {
+    document.documentElement.style.setProperty('--term-h', localStorage.getItem('dshdock.termHeight') || '220px')
+    termRender()
+  }
+}
+// 拖拽上边缘调整高度
+;(() => {
+  const handle = $('#term-resize'), term = $('#term')
+  handle.addEventListener('mousedown', (e) => {
+    const startY = e.clientY, startH = term.offsetHeight
+    const move = (ev) => {
+      const h = Math.min(window.innerHeight - 140, Math.max(34, startH + (startY - ev.clientY)))
+      term.style.height = h + 'px'
+      document.documentElement.style.setProperty('--term-h', h + 'px')
+      if (!term.classList.contains('collapsed')) localStorage.setItem('dshdock.termHeight', String(h))
+    }
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
+    document.addEventListener('mousemove', move)
+    document.addEventListener('mouseup', up)
+    e.preventDefault()
+  })
+})()
+if (localStorage.getItem('dshdock.termHeight')) {
+  $('#term').style.height = localStorage.getItem('dshdock.termHeight') + 'px'
+  document.documentElement.style.setProperty('--term-h', localStorage.getItem('dshdock.termHeight') + 'px')
+}
+
+// 把服务端任务列表合并进 activeTasks:页面切换/重连后,进行中任务的状态不丢(待办④)
+function mergeTaskSnapshot(list) {
+  const runningRefs = new Set()
+  for (const t of list) {
+    if (t.status === 'running') {
+      runningRefs.add(t.refId)
+      activeTasks[t.refId] = t
+    }
+  }
+  for (const refId of Object.keys(activeTasks)) {
+    if (!runningRefs.has(refId)) delete activeTasks[refId]
+  }
+  updateTaskbar()
+}
+async function syncTasks() {
+  try {
+    mergeTaskSnapshot(await api('/api/tasks'))
+  } catch {}
+}
+
+// ── SSE ──
+const es = new EventSource('/events')
+es.onmessage = (event) => {
+  try {
+    const { event: name, payload } = JSON.parse(event.data)
+    if (name === 'snapshot') {
+      mergeTaskSnapshot(payload)
+      // 回填最近几个任务的关键输出,方便接续观察
+      for (const t of [...payload].reverse().slice(-5)) {
+        termAppend(`──── ${t.label} ────`)
+        for (const l of (t.lines ?? []).slice(-60)) termAppend(l)
+        termAppend(t.status === 'running' ? `▶ ${t.label}(进行中)` : t.status === 'failed' ? `✘ ${t.label}: ${t.error ?? ''}` : `✔ ${t.label}`)
+      }
+    } else if (name === 'task') {
+      activeTasks[payload.refId] = payload
+      if (payload.status === 'running') termAppend(`▶ ${payload.label}`)
+      else if (payload.status === 'failed') termAppend(`✘ ${payload.label}: ${payload.error ?? ''}`)
+      else termAppend(`✔ ${payload.label}`)
+      if (payload.status !== 'running') {
+        setTimeout(() => { delete activeTasks[payload.refId]; renderCurrent() }, 1500)
+      }
+      updateTaskbar()
+      renderCurrent()
+    } else if (name === 'task-line') {
+      termAppend(payload.line)
+      const task = Object.values(activeTasks).find((t) => t.id === payload.id)
+      if (task) {
+        task.lines = task.lines || []
+        task.lines.push(payload.line)
+        updateTaskbar()
+      }
+    } else if (name === 'log') {
+      termAppend(payload)
+    }
+  } catch {}
+}
+
+function updateTaskbar() {
+  const running = Object.values(activeTasks).find((t) => t.status === 'running')
+  const bar = $('#taskbar')
+  if (!running) { bar.style.display = 'none'; return }
+  bar.style.display = 'flex'
+  const last = (running.lines ?? []).slice(-1)[0] ?? running.label
+  $('#taskbar-text').textContent = `${running.label} — ${last}`
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+function toast(message, isError = false) {
+  const bar = $('#taskbar')
+  bar.style.display = 'flex'
+  $('#taskbar-text').textContent = message
+  $('#taskbar .spinner').style.display = 'none'
+  if (isError) $('#taskbar-text').style.color = '#fca5a5'
+  setTimeout(() => {
+    bar.style.display = 'none'
+    $('#taskbar-text').style.color = ''
+    $('#taskbar .spinner').style.display = ''
+    updateTaskbar()
+  }, isError ? 6000 : 3000)
+}
+
+// ── 页面路由 ──
+let currentPage = 'versions'
+document.querySelectorAll('#nav a').forEach((a) => {
+  a.onclick = () => {
+    document.querySelectorAll('#nav a').forEach((x) => x.classList.remove('active'))
+    a.classList.add('active')
+    currentPage = a.dataset.page
+    renderCurrent()
+  }
+})
+async function renderCurrent() {
+  await syncTasks() // 先取回服务端任务状态,再渲染当前页(待办④)
+  if (currentPage === 'versions') renderVersions()
+  else if (currentPage === 'containers') renderContainers()
+  else if (currentPage === 'settings') renderSettings()
+}
+
+// ── 版本管理 ──
+async function renderVersions() {
+  const main = $('#main')
+  main.innerHTML = '<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div><div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>'
+  try {
+    const data = await api('/api/versions/catalog')
+    const installedSet = new Set(data.installed)
+    const rows = data.tags.map((tag) => {
+      const installed = installedSet.has(tag.name)
+      const task = activeTasks[`vi:${tag.name}`]
+      return `<tr>
+        <td><b>${escapeHtml(tag.name)}</b></td>
+        <td>${installed ? '<span class="badge running">已安装</span>' : '<span class="badge stopped">未安装</span>'}</td>
+        <td class="muted">${task ? escapeHtml((task.lines ?? []).slice(-1)[0] ?? '') : ''}</td>
+        <td style="text-align:right">
+          ${installed
+            ? `<button class="danger" onclick="removeVersion('${tag.name}')">删除</button>`
+            : `<button class="primary" ${task?.status === 'running' ? 'disabled' : ''} onclick="installVersion('${tag.name}')">${task?.status === 'running' ? '安装中…' : '安装'}</button>`}
+        </td>
+      </tr>`
+    })
+    const extraInstalled = data.installed.filter((v) => !data.tags.some((t) => t.name === v))
+      .map((v) => `<tr><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td class="muted">不在远端目录中(可能已删除)</td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
+    $('#version-list').innerHTML = `
+      <div class="row" style="margin-bottom:10px">
+        <button class="primary" onclick="refreshCatalog()">刷新目录</button>
+        <span class="muted">目录更新于 ${data.fetchedAt ? new Date(data.fetchedAt * 1000).toLocaleString('zh-CN') : '从未'}${data.warning ? ' · ' + escapeHtml(data.warning) : ''}</span>
+      </div>
+      <table><thead><tr><th>版本</th><th>状态</th><th>动态</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody>${rows.join('')}${extraInstalled.join('')}</tbody></table>
+      ${data.tags.length === 0 && data.installed.length === 0 ? '<div class="empty">目录为空,点击「刷新目录」从 GitHub 拉取</div>' : ''}`
+  } catch (error) {
+    $('#version-list').innerHTML = `<div class="error-text">${escapeHtml(error)}<br><br><button onclick="refreshCatalog()">重试</button></div>`
+  }
+}
+
+async function refreshCatalog() { await renderVersions() }
+async function installVersion(tag) {
+  try {
+    await api('/api/versions/install', { method: 'POST', body: { tag } })
+    toast(`开始安装 ${tag}`)
+    setTimeout(renderVersions, 300)
+  } catch (error) { toast(`安装失败: ${error}`, true) }
+}
+async function removeVersion(tag) {
+  if (!confirm(`确定删除版本 ${tag}?`)) return
+  try {
+    await api(`/api/versions/${encodeURIComponent(tag)}`, { method: 'DELETE' })
+    toast('已删除')
+    renderVersions()
+  } catch (error) { toast(`删除失败: ${error}`, true) }
+}
+
+// ── 容器管理 ──
+async function renderContainers() {
+  const main = $('#main')
+  main.innerHTML = `
+    <h1>容器管理</h1><div class="subtitle">每个容器是某个 DSH 版本的独立运行实例</div>
+    <div class="panel"><h2>创建容器</h2>
+      <div class="row">
+        <input id="c-name" placeholder="容器名称(字母数字-_)" style="width:220px">
+        <select id="c-version" style="width:180px"><option value="">加载中...</option></select>
+        <select id="c-profile" style="width:130px"><option value="web">web</option><option value="headless">headless</option></select>
+        <button class="primary" onclick="createContainer()">创建</button>
+        <span class="muted">创建过程包含依赖安装与前端构建,需要几分钟;进度见底部终端</span>
+      </div>
+    </div>
+    <div id="container-list"><div class="empty">加载中...</div></div>`
+
+  const [containers, catalog] = await Promise.all([
+    api('/api/containers').catch(() => []),
+    api('/api/versions/catalog').catch(() => ({ installed: [] })),
+  ])
+  const select = $('#c-version')
+  if (catalog.installed.length === 0) {
+    select.innerHTML = '<option value="">无已安装版本,请先到版本管理安装</option>'
+  } else {
+    select.innerHTML = catalog.installed.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')
+  }
+
+  const listHtml = containers.map((c) => {
+    const task = activeTasks[c.id]
+    const statusBadge = { running: '运行中', starting: '启动中', stopped: '已停止', failed: '失败' }[c.status] ?? c.status
+    const actions = []
+    // 创建/更新任务未完成时,锁定操作(与服务端 busyTaskFor 门禁一致)
+    const busy = task?.status === 'running' && (task.kind === 'container-create' || task.kind === 'container-update')
+    if (busy) {
+      actions.push(`<button disabled>${task.kind === 'container-create' ? '创建中…' : '更新中…'}</button>`)
+    } else if (c.status === 'running') {
+      actions.push(`<button class="primary" onclick="openContainer('${c.id}')">打开 DSH UI</button>`)
+      actions.push(`<button onclick="stopContainer('${c.id}')">停止</button>`)
+    } else if (c.status === 'starting') {
+      actions.push(`<button disabled>启动中…</button>`)
+    } else {
+      actions.push(`<button class="primary" onclick="startContainer('${c.id}')">启动</button>`)
+    }
+    actions.push(`<button class="danger" onclick="removeContainer('${c.id}','${escapeHtml(c.name)}')">删除</button>`)
+    // 版本选择框:替代原「更新」按钮与版本文本位;默认当前版本,切换并确认后触发更新
+    const versions = [...new Set([...(catalog.installed ?? []), c.version])]
+    const versionSelect = `<select class="ver-select" data-current="${escapeHtml(c.version)}" ${busy ? 'disabled' : ''} onchange="confirmUpdate('${c.id}', this)">${versions.map((v) => `<option value="${escapeHtml(v)}" ${v === c.version ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select>`
+    // 终端日志统一在底部终端栏显示;卡片只保留日志文件地址
+    return `<div class="card">
+      <div class="head"><span class="name">${escapeHtml(c.name)}</span><span class="badge ${c.status}">${statusBadge}</span></div>
+      <div class="meta">${versionSelect} · profile ${escapeHtml(c.profile)} · 创建于 ${c.createdAt ? new Date(c.createdAt * 1000).toLocaleString('zh-CN') : '-'}</div>
+      <div class="logpath" title="host 运行日志文件位置">日志: ${escapeHtml(c.logPath ?? `DSHDock_Data/containers/${c.id}/logs/host.log`)}</div>
+      ${c.url ? `<div class="url" style="margin-bottom:10px"><a href="${escapeHtml(c.url)}" target="_blank">${escapeHtml(c.url)}</a></div>` : ''}
+      ${task?.status === 'failed' ? `<div class="muted" style="margin-bottom:8px">✗ ${escapeHtml(task.label)} 失败 — 详见底部终端</div>` : ''}
+      <div class="actions">${actions.join('')}</div>
+    </div>`
+  }).join('')
+  $('#container-list').innerHTML = containers.length ? listHtml : '<div class="panel"><div class="empty">还没有容器,用上方表单创建第一个</div></div>'
+}
+
+async function createContainer() {
+  const name = $('#c-name').value.trim()
+  const version = $('#c-version').value
+  const profile = $('#c-profile').value
+  if (!name) return toast('请输入容器名称', true)
+  if (!version) return toast('没有可用的已安装版本', true)
+  try {
+    await api('/api/containers', { method: 'POST', body: { name, version, profile } })
+    $('#c-name').value = ''
+    toast(`容器 ${name} 创建中`)
+    setTimeout(renderContainers, 300)
+  } catch (error) { toast(`创建失败: ${error}`, true) }
+}
+async function startContainer(id) {
+  try {
+    await api(`/api/containers/${id}/start`, { method: 'POST' })
+    toast('启动中,探测就绪后自动标记运行(最长 120s)')
+    setTimeout(renderContainers, 500)
+  } catch (error) { toast(`启动失败: ${error}`, true) }
+}
+async function stopContainer(id) {
+  try {
+    await api(`/api/containers/${id}/stop`, { method: 'POST' })
+    toast('已停止')
+    renderContainers()
+  } catch (error) { toast(`停止失败: ${error}`, true) }
+}
+async function openContainer(id) {
+  try {
+    const { url } = await api(`/api/containers/${id}/url`)
+    window.open(url, '_blank')
+  } catch (error) { toast(`打开失败: ${error}`, true) }
+}
+async function removeContainer(id, name) {
+  if (!confirm(`确定删除容器「${name}」?整个容器目录(含 workspace)将被移除!`)) return
+  try {
+    await api(`/api/containers/${id}`, { method: 'DELETE' })
+    toast('已删除')
+    renderContainers()
+  } catch (error) { toast(`删除失败: ${error}`, true) }
+}
+// 版本选择框触发更新:切换即询问,取消则回退显示当前版本
+function confirmUpdate(id, selectEl) {
+  const target = selectEl.value
+  const current = selectEl.dataset.current
+  if (target === current) return
+  if (!confirm(`将容器更新到 ${target}?\n更新会先停止容器、替换 harness 并重装依赖;profile / workspace / 凭据等用户数据原样保留(向上兼容)。`)) {
+    selectEl.value = current
+    return
+  }
+  doUpdate(id, target)
+}
+async function doUpdate(id, version) {
+  try {
+    await api(`/api/containers/${id}/update`, { method: 'POST', body: { version } })
+    toast(`更新任务已开始 → ${version}(进度见底部终端)`)
+    renderContainers()
+  } catch (error) { toast(`更新失败: ${error}`, true) }
+}
+
+// ── 设置 ──
+const GH_MIRROR_PRESETS = [
+  { label: 'gh-proxy.com', value: 'https://gh-proxy.com' },
+  { label: 'ghfast.top', value: 'https://ghfast.top' },
+  { label: 'hk.gh-proxy.com', value: 'https://hk.gh-proxy.com' },
+]
+const NPM_REGISTRY_PRESETS = [
+  { label: 'npmmirror(推荐)', value: 'https://registry.npmmirror.com' },
+  { label: '腾讯云', value: 'https://mirrors.cloud.tencent.com/npm' },
+  { label: '华为云', value: 'https://mirrors.huaweicloud.com/repository/npm' },
+  { label: 'npm 官方', value: 'https://registry.npmjs.org' },
+]
+function chipRow(inputId, presets) {
+  return `<span class="chips">${presets.map((p) =>
+    `<span class="chip" onclick="document.getElementById('${inputId}').value='${p.value}'">${escapeHtml(p.label)}</span>`
+  ).join('')}</span>`
+}
+
+async function renderSettings() {
+  const settings = await api('/api/settings')
+  $('#main').innerHTML = `
+    <h1>设置</h1><div class="subtitle">配置保存在 ${escapeHtml('state/settings.json')}</div>
+    <div class="panel"><h2>网络</h2>
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">HTTP 代理</span>
+        <input id="s-proxy" placeholder="例如 http://127.0.0.1:7897(留空 = 直连)" style="width:330px" value="${escapeHtml(settings.proxy ?? '')}">
+      </div>
+      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span>${chipRow('s-proxy', [{ label: '✕ 清空', value: '' }])}</div>
+
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">GitHub 镜像</span>
+        <input id="s-mirror" placeholder="前缀式加速,留空 = 直连克隆" style="width:330px" value="${escapeHtml(settings.githubMirror ?? '')}">
+      </div>
+      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span>${chipRow('s-mirror', GH_MIRROR_PRESETS)}</div>
+
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">npm 镜像源</span>
+        <input id="s-registry" placeholder="留空 = npm 官方源" style="width:330px" value="${escapeHtml(settings.npmRegistry ?? '')}">
+      </div>
+      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span>${chipRow('s-registry', NPM_REGISTRY_PRESETS)}</div>
+
+      <p class="muted" style="margin-top:4px;line-height:1.7">
+        作用范围:<b>HTTP 代理</b> → GitHub API(版本目录);<b>GitHub 镜像</b> → git 克隆(设置后克隆走镜像、不再用代理);<b>npm 镜像源</b> → pnpm 在线装依赖。<br>
+        DSH host 进程始终运行在无代理环境(避免回环自检被代理劫持),不受以上配置影响。镜像快捷项已实测可用,失效时可手动填入其他前缀式镜像。
+      </p>
+      <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
+    </div>`
+}
+async function saveSettings() {
+  try {
+    await api('/api/settings', {
+      method: 'POST',
+      body: {
+        proxy: $('#s-proxy').value.trim(),
+        githubMirror: $('#s-mirror').value.trim(),
+        npmRegistry: $('#s-registry').value.trim(),
+      },
+    })
+    toast('已保存')
+  } catch (error) { toast(`保存失败: ${error}`, true) }
+}
+
+// ── 弹窗 ──
+function openModal(title, html) {
+  clearInterval(window.__logTimer)
+  $('#modal-title').textContent = title
+  $('#modal-body').innerHTML = html
+  $('#modal-mask').style.display = 'flex'
+}
+function closeModal() {
+  clearInterval(window.__logTimer)
+  $('#modal-mask').style.display = 'none'
+}
+$('#modal-mask').addEventListener('click', (e) => { if (e.target === $('#modal-mask')) closeModal() })
+
+// ── 部署目录引导 ──
+function renderOnboarding(suggestion) {
+  $('#nav').style.visibility = 'hidden'
+  $('#main').innerHTML = `
+    <h1>欢迎使用 DSH Dock</h1><div class="subtitle">首次使用,请选择部署目录 —— 所有版本、容器与数据都将存放在这里</div>
+    <div class="panel"><h2>选择部署目录</h2>
+      <div class="row">
+        <input id="ob-path" style="width:420px" value="${escapeHtml(suggestion || '')}" placeholder="绝对路径,例如 /home/user/DSHDock-data">
+        <button onclick="browseDirectory()">浏览...</button>
+        <button class="primary" onclick="submitOnboarding()">确定</button>
+      </div>
+      <p class="muted" style="margin-top:12px;line-height:1.7">
+        目录不存在会自动创建。选择后应用将初始化目录结构(versions/containers/state 等);DSH 运行时(node/pnpm)由应用自动解析,无需手动准备。
+      </p>
+      <div id="ob-error" class="error-text"></div>
+    </div>`
+}
+async function browseDirectory() {
+  const btn = event?.target
+  if (btn) { btn.disabled = true; btn.textContent = '选择中...' }
+  try {
+    const r = await api('/api/pick-directory', { method: 'POST' })
+    if (r.path) $('#ob-path').value = r.path
+    else if (r.error) $('#ob-error').textContent = r.error
+  } catch (error) {
+    $('#ob-error').textContent = String(error)
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '浏览...' }
+  }
+}
+async function submitOnboarding() {
+  const value = $('#ob-path').value.trim()
+  if (!value) return
+  try {
+    await api('/api/onboarding', { method: 'POST', body: { dataRoot: value } })
+    $('#nav').style.visibility = 'visible'
+    renderCurrent()
+  } catch (error) {
+    $('#ob-error').textContent = String(error)
+  }
+}
+
+async function boot() {
+  try {
+    const ob = await api('/api/onboarding')
+    if (ob.needed) return renderOnboarding(ob.suggestion)
+  } catch {}
+  renderCurrent()
+}
+boot()
+</script>
+</body>
+</html>
