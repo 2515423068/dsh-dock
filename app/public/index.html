@@ -170,9 +170,9 @@ body {
   transition: background 0.2s var(--ds-ease-in-out), color 0.2s var(--ds-ease-in-out);
 }
 
-/* ── 侧栏(DSH 浅色侧栏语言:发丝分隔 + r12 导航项)── */
+/* ── 侧栏(DSH 浅色侧栏语言:发丝分隔 + r12 导航项;可折叠 rail)── */
 aside {
-  width: 200px;
+  width: var(--sidebar-w, 200px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -180,24 +180,68 @@ aside {
   background: var(--dsw-sidebar-fill);
   border-right: 0.5px solid var(--dsw-border-l3);
   color: var(--dsw-label-primary);
+  overflow: hidden;
+  transition: width 0.3s var(--ds-ease-in-out);
 }
-.brand { padding: 10px 4px 14px; }
+/* 折叠编排(DSH slide+crossfade 简化):内容淡出 150ms → 列宽滑动 300ms → rail 布局淡入 */
+aside > * { transition: opacity 150ms var(--ds-ease-in-out); }
+aside.fading > * { opacity: 0; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 4px 14px; }
+.brand-text { min-width: 0; }
 .brand-name { display: block; font-size: 18px; font-weight: 600; line-height: 24px; letter-spacing: 0.04em; }
 .brand-sub { display: block; font-size: 11px; line-height: 14px; color: var(--dsw-label-tertiary); margin-top: 3px; }
+.icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  corner-shape: round;
+  background: transparent;
+  color: var(--dsw-label-secondary);
+  cursor: pointer;
+}
+.icon-btn:hover:not(:disabled) { background: var(--dsw-interactive-hover); color: var(--dsw-label-primary); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn .ic-mark { display: none; }
 aside nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 aside nav a {
-  display: block;
-  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
   border-radius: 12px;
   font-size: 14px;
   line-height: 22px;
   color: var(--dsw-label-primary);
   text-decoration: none;
   cursor: pointer;
+  white-space: nowrap;
   transition: background 0.2s var(--ds-ease-in-out);
 }
 aside nav a:hover { background: var(--dsw-sidebar-hover); }
 aside nav a.active { background: var(--dsw-sidebar-active); font-weight: 500; }
+.nav-icon { flex: none; width: 16px; height: 16px; }
+.nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* rail(收起态):56px 窄栏 + 36x36 圆形控件(DSH rail 规格);品牌标常驻,悬停露出展开钮 */
+aside.collapsed { width: 56px; padding: 18px 10px 6px; }
+aside.collapsed .brand-row { justify-content: center; padding: 0 0 12px; }
+aside.collapsed .brand-text { display: none; }
+aside.collapsed .icon-btn { width: 36px; height: 36px; color: var(--dsw-label-primary); }
+aside.collapsed .icon-btn .ic-panel { display: none; }
+aside.collapsed .icon-btn:hover .ic-panel { display: inline; }
+aside.collapsed .icon-btn .ic-mark { display: inline; }
+aside.collapsed .icon-btn:hover .ic-mark { display: none; }
+aside.collapsed nav { gap: 12px; }
+aside.collapsed nav a { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; corner-shape: round; }
+aside.collapsed .nav-label { display: none; }
+aside.collapsed .side-foot { display: none; }
 .side-foot { flex: none; padding: 10px 2px 0; border-top: 0.5px solid var(--dsw-border-l2); }
 .side-foot-label { font-size: 11px; line-height: 14px; color: var(--dsw-label-tertiary); margin-bottom: 6px; }
 .theme-seg { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--dsw-seg-track); }
@@ -352,7 +396,7 @@ tr:last-child td { border-bottom: none; }
 /* ── 底部终端(DSH TerminalBlock:跟随主题的代码面 + 代码字体)── */
 #term {
   position: fixed;
-  left: 200px;
+  left: var(--sidebar-w, 200px);
   right: 0;
   bottom: 0;
   height: 220px;
@@ -362,6 +406,7 @@ tr:last-child td { border-bottom: none; }
   flex-direction: column;
   z-index: 40;
   border-top: 0.5px solid var(--dsw-border-l2);
+  transition: left 0.3s var(--ds-ease-in-out);
 }
 #term-head {
   display: flex;
@@ -513,14 +558,34 @@ pre.log {
   })()
 </script>
 <aside>
-  <div class="brand">
-    <span class="brand-name">DSH Dock</span>
-    <span class="brand-sub">DeepSeek Harness 容器化管理</span>
+  <div class="brand-row">
+    <div class="brand-text">
+      <span class="brand-name">DSH Dock</span>
+      <span class="brand-sub">DeepSeek Harness 容器化管理</span>
+    </div>
+    <button type="button" class="icon-btn" id="sidebar-toggle" title="收起侧栏" aria-label="收起/展开侧栏" aria-expanded="true">
+      <svg class="ic-panel" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill-rule="evenodd" clip-rule="evenodd" d="M9.67272 0.522841C10.8339 0.522841 11.76 0.522714 12.4963 0.602493C13.2453 0.683657 13.8789 0.854248 14.4264 1.25197C14.7504 1.48739 15.0355 1.77247 15.2709 2.0965C15.6686 2.64394 15.8392 3.27758 15.9204 4.02655C16.0002 4.7629 16 5.68895 16 6.85014V9.14986C16 10.3111 16.0002 11.2371 15.9204 11.9735C15.8392 12.7224 15.6686 13.3561 15.2709 13.9035C15.0355 14.2275 14.7504 14.5126 14.4264 14.748C13.8789 15.1458 13.2453 15.3163 12.4963 15.3975C11.76 15.4773 10.8339 15.4772 9.67272 15.4772H6.3273C5.16611 15.4772 4.24006 15.4773 3.50371 15.3975C2.75474 15.3163 2.1211 15.1458 1.57366 14.748C1.24963 14.5126 0.964549 14.2275 0.729131 13.9035C0.331407 13.3561 0.160817 12.7224 0.0796529 11.9735C-0.000126137 11.2371 1.25338e-09 10.3111 1.25338e-09 9.14986V6.85014C1.25329e-09 5.68895 -0.000126137 4.7629 0.0796529 4.02655C0.160817 3.27758 0.331407 2.64394 0.729131 2.0965C0.964549 1.77247 1.24963 1.48739 1.57366 1.25197C2.1211 0.854248 2.75474 0.683657 3.50371 0.602493C4.24006 0.522714 5.16611 0.522841 6.3273 0.522841H9.67272ZM5.54303 1.88715V14.1118C5.78636 14.1128 6.04709 14.1169 6.3273 14.1169H9.67272C10.8639 14.1169 11.7032 14.1164 12.3493 14.0465C12.9824 13.9779 13.3497 13.8494 13.6268 13.6482C13.8354 13.4966 14.0195 13.3125 14.1711 13.1039C14.3723 12.8268 14.5007 12.4595 14.5693 11.8264C14.6393 11.1803 14.6398 10.341 14.6398 9.14986V6.85014C14.6398 5.65896 14.6393 4.81967 14.5693 4.1736C14.5007 3.54048 14.3723 3.17318 14.1711 2.89609C14.0195 2.68747 13.8354 2.50337 13.6268 2.35179C13.3497 2.1506 12.9824 2.02212 12.3493 1.95353C11.7032 1.88358 10.8639 1.88307 9.67272 1.88307H6.3273C6.04709 1.88307 5.78636 1.8862 5.54303 1.88715ZM4.1828 1.91166C3.99125 1.9216 3.8148 1.93577 3.65076 1.95353C3.01764 2.02212 2.65034 2.1506 2.37325 2.35179C2.16463 2.50337 1.98052 2.68747 1.82895 2.89609C1.62776 3.17318 1.49928 3.54048 1.43069 4.1736C1.36074 4.81967 1.36023 5.65896 1.36023 6.85014V9.14986C1.36023 10.341 1.36074 11.1803 1.43069 11.8264C1.49928 12.4595 1.62776 12.8268 1.82895 13.1039C1.98052 13.3125 2.16463 13.4966 2.37325 13.6482C2.65034 13.8494 3.01764 13.9779 3.65076 14.0465C3.81478 14.0642 3.99127 14.0774 4.1828 14.0873V1.91166Z" fill="currentColor"/>
+      </svg>
+      <svg class="ic-mark" viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="0.5" y="0.5" width="15" height="15" rx="4.5" style="fill: currentColor"/>
+        <text x="8" y="11.6" text-anchor="middle" font-size="9.5" font-weight="600" style="fill: var(--dsw-sidebar-fill)">D</text>
+      </svg>
+    </button>
   </div>
   <nav id="nav">
-    <a data-page="versions" class="active">版本管理</a>
-    <a data-page="containers">容器管理</a>
-    <a data-page="settings">设置</a>
+    <a data-page="versions" class="active" title="版本管理">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.83z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      <span class="nav-label">版本管理</span>
+    </a>
+    <a data-page="containers" title="容器管理">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span class="nav-label">容器管理</span>
+    </a>
+    <a data-page="settings" title="设置">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+      <span class="nav-label">设置</span>
+    </a>
   </nav>
   <div class="side-foot">
     <div class="side-foot-label">外观</div>
@@ -586,6 +651,35 @@ document.querySelectorAll('#theme-seg button').forEach((b) => {
   b.onclick = () => setTheme(b.dataset.theme)
 })
 applyTheme(localStorage.getItem(THEME_KEY) || 'system')
+
+// ── 侧栏折叠(DSH rail 语言:内容淡出 150ms → 列宽滑动 300ms → rail 布局淡入)──
+const SIDEBAR_KEY = 'dshdock.sidebar'
+const SIDEBAR_W = { expanded: '200px', collapsed: '56px' }
+function setSidebarWidth(w) {
+  document.documentElement.style.setProperty('--sidebar-w', w)
+}
+// 直接套用折叠/展开态(boot 恢复与编排中段共用;不做动画)
+function markSidebar(collapsed) {
+  const aside = document.querySelector('aside')
+  const btn = $('#sidebar-toggle')
+  aside.classList.toggle('collapsed', collapsed)
+  setSidebarWidth(collapsed ? SIDEBAR_W.collapsed : SIDEBAR_W.expanded)
+  btn.title = collapsed ? '展开侧栏' : '收起侧栏'
+  btn.setAttribute('aria-expanded', String(!collapsed))
+}
+function toggleSidebar() {
+  const aside = document.querySelector('aside')
+  const collapsing = !aside.classList.contains('collapsed')
+  aside.classList.add('fading')
+  setTimeout(() => {
+    markSidebar(collapsing)
+    localStorage.setItem(SIDEBAR_KEY, collapsing ? 'collapsed' : 'expanded')
+    requestAnimationFrame(() => requestAnimationFrame(() => aside.classList.remove('fading')))
+  }, 160)
+}
+$('#sidebar-toggle').onclick = toggleSidebar
+// 恢复上次折叠状态(主脚本先于首帧执行,直接套用、不动画)
+if (localStorage.getItem(SIDEBAR_KEY) === 'collapsed') markSidebar(true)
 
 // ── 底部终端窗口(可缩放/收起,全局常驻,跨页面保留 —— 待办③) ──
 const termLines = []
