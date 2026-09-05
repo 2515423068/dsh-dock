@@ -242,6 +242,24 @@ aside.collapsed nav { gap: 12px; }
 aside.collapsed nav a { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; corner-shape: round; }
 aside.collapsed .nav-label { display: none; }
 aside.collapsed .side-foot { display: none; }
+
+/* 侧栏宽度拖拽命中条(DSH AppFrame handle:8px 骑在列缝上,侧栏仅命中条、无可见件) */
+#sidebar-resize {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sidebar-w, 200px) - 4px);
+  width: 8px;
+  cursor: col-resize;
+  z-index: 41;
+  touch-action: none;
+  transition: left 0.3s var(--ds-ease-in-out);
+}
+/* 拖拽按指针节奏写入宽度:过渡必须 detach,否则列脱手(DSH AppFrame[data-dragging] 同款) */
+body[data-dragging] #sidebar-resize { transition: none; }
+body[data-dragging] aside { transition: none; }
+body[data-dragging] #term { transition: none; }
+body[data-dragging] { user-select: none; }
 .side-foot { flex: none; padding: 10px 2px 0; border-top: 0.5px solid var(--dsw-border-l2); }
 .side-foot-label { font-size: 11px; line-height: 14px; color: var(--dsw-label-tertiary); margin-bottom: 6px; }
 .theme-seg { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--dsw-seg-track); }
@@ -652,18 +670,27 @@ document.querySelectorAll('#theme-seg button').forEach((b) => {
 })
 applyTheme(localStorage.getItem(THEME_KEY) || 'system')
 
-// ── 侧栏折叠(DSH rail 语言:内容淡出 150ms → 列宽滑动 300ms → rail 布局淡入)──
+// ── 侧栏折叠 + 宽度拖拽(DSH rail/AppFrame handle 语言)──
 const SIDEBAR_KEY = 'dshdock.sidebar'
-const SIDEBAR_W = { expanded: '200px', collapsed: '56px' }
+const SIDEBAR_W_KEY = 'dshdock.sidebarWidth'
+const SIDEBAR_RAIL_W = '56px'
+const SIDEBAR_MIN = 160
+const SIDEBAR_MAX = 440
+const SIDEBAR_RAIL_SNAP = 110 // 拖拽越过该宽度即吸附为 rail
 function setSidebarWidth(w) {
   document.documentElement.style.setProperty('--sidebar-w', w)
 }
-// 直接套用折叠/展开态(boot 恢复与编排中段共用;不做动画)
-function markSidebar(collapsed) {
+// 展开宽度(持久化;越界/缺省回退 200)
+function sidebarWidth() {
+  const raw = Number(localStorage.getItem(SIDEBAR_W_KEY))
+  return Number.isFinite(raw) && raw >= SIDEBAR_MIN && raw <= SIDEBAR_MAX ? raw : 200
+}
+// 直接套用折叠/展开态(boot 恢复、编排中段、拖拽越界吸附共用;不做动画)
+function setSidebarState(collapsed) {
   const aside = document.querySelector('aside')
   const btn = $('#sidebar-toggle')
   aside.classList.toggle('collapsed', collapsed)
-  setSidebarWidth(collapsed ? SIDEBAR_W.collapsed : SIDEBAR_W.expanded)
+  setSidebarWidth(collapsed ? SIDEBAR_RAIL_W : `${sidebarWidth()}px`)
   btn.title = collapsed ? '展开侧栏' : '收起侧栏'
   btn.setAttribute('aria-expanded', String(!collapsed))
 }
@@ -672,14 +699,57 @@ function toggleSidebar() {
   const collapsing = !aside.classList.contains('collapsed')
   aside.classList.add('fading')
   setTimeout(() => {
-    markSidebar(collapsing)
+    setSidebarState(collapsing)
     localStorage.setItem(SIDEBAR_KEY, collapsing ? 'collapsed' : 'expanded')
     requestAnimationFrame(() => requestAnimationFrame(() => aside.classList.remove('fading')))
   }, 160)
 }
 $('#sidebar-toggle').onclick = toggleSidebar
-// 恢复上次折叠状态(主脚本先于首帧执行,直接套用、不动画)
-if (localStorage.getItem(SIDEBAR_KEY) === 'collapsed') markSidebar(true)
+// 恢复上次宽度与折叠状态(主脚本先于首帧执行,直接套用、不动画)
+setSidebarWidth(`${sidebarWidth()}px`)
+if (localStorage.getItem(SIDEBAR_KEY) === 'collapsed') setSidebarState(true)
+
+// 宽度拖拽:8px 命中条骑在列缝上,拖拽按指针节奏写入(过渡由 body[data-dragging] 关闭)
+// move/up 挂在 window 上:拖出命中条、指针捕获失效等场景都能继续跟手
+;(() => {
+  const handle = document.createElement('div')
+  handle.id = 'sidebar-resize'
+  document.body.appendChild(handle)
+  let dragging = false
+  const persist = () => {
+    const aside = document.querySelector('aside')
+    if (aside.classList.contains('collapsed')) {
+      localStorage.setItem(SIDEBAR_KEY, 'collapsed')
+    } else {
+      localStorage.setItem(SIDEBAR_KEY, 'expanded')
+      const w = document.documentElement.style.getPropertyValue('--sidebar-w')
+      localStorage.setItem(SIDEBAR_W_KEY, String(parseInt(w, 10) || 200))
+    }
+  }
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return
+    dragging = true
+    document.body.setAttribute('data-dragging', '')
+    e.preventDefault()
+  })
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return
+    if (e.clientX < SIDEBAR_RAIL_SNAP) {
+      setSidebarState(true) // 吸附 rail(固定 56px)
+    } else {
+      setSidebarState(false)
+      setSidebarWidth(`${Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, e.clientX + 2))}px`)
+    }
+  })
+  const endDrag = () => {
+    if (!dragging) return
+    dragging = false
+    document.body.removeAttribute('data-dragging')
+    persist()
+  }
+  window.addEventListener('pointerup', endDrag)
+  window.addEventListener('pointercancel', endDrag)
+})()
 
 // ── 底部终端窗口(可缩放/收起,全局常驻,跨页面保留 —— 待办③) ──
 const termLines = []
