@@ -3,8 +3,8 @@
 /DSHDock_Data/
 
 # ── 排除:数据根目录的组成物(若 DATA_ROOT 收编到项目根,这些目录会出现在根上) ──
+# 注意:/plugin/ 不在此列 —— dsh-dock-bridge 插件源码入库于 plugin/dsh-dock-bridge/
 /pnpm-store/
-/plugin/
 /containers/
 /versions/
 /state/
