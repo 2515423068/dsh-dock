@@ -558,6 +558,40 @@ function allocatePort() {
   })
 }
 
+// ── 新容器默认工作区 ────────────────────────────────────────────────────────
+// 目录放在容器内(随容器一起删除),并在 DSH 的 workspace 存储单元(schema version 2,
+// 形态照抄运行中实例)里预注册为唯一工作区 —— 首次打开 WebUI 即落在该工作区,
+// 无需手动选择,方便 agent 建完容器直接开工测试。
+function createDefaultWorkspace(containerPath, containerName) {
+  const workspaceDir = path.join(containerPath, 'workspace')
+  fs.mkdirSync(workspaceDir, { recursive: true })
+  fs.writeFileSync(
+    path.join(workspaceDir, 'README.md'),
+    `# ${containerName} 默认工作区\n\n本目录是容器「${containerName}」的 DSH 默认工作区,随容器一起删除(整目录在容器内)。\n创建它的目的:agent/用户建完容器即可在此直接开工测试,无需再手动选择工作区。\n`,
+  )
+  const storagesDir = path.join(containerPath, 'profile', 'storages')
+  fs.mkdirSync(storagesDir, { recursive: true })
+  fs.chmodSync(storagesDir, 0o700)
+  const now = new Date().toISOString()
+  const id = randomUUID()
+  const storage = {
+    unit: { name: 'workspace', version: 2 },
+    global: { initialized: true, workspaceIds: [id], archivedSessionIds: [] },
+    tables: {
+      workspaces: {
+        [id]: {
+          path: workspaceDir,
+          title: containerName,
+          sessionIds: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+    },
+  }
+  fs.writeFileSync(path.join(storagesDir, 'workspace.json'), JSON.stringify(storage, null, 2), { mode: 0o600 })
+}
+
 // ── 容器稳定端口 ────────────────────────────────────────────────────────────
 // 端口在创建时从端口池分配并持久化到 container.json,此后每次启动固定使用。
 // 端口池可在设置中配置(默认 41800-41899)。启动时若端口被其他进程占用则报错
@@ -1047,7 +1081,8 @@ async function handleApi(request, response, url) {
         line('注入新容器初始配置(模板)...')
         applyProfileTemplate(containerPath, line)
       }
-      fs.mkdirSync(path.join(containerPath, 'workspace'), { recursive: true })
+      line('创建默认工作区(随容器删除,首次打开免选工作区)...')
+      createDefaultWorkspace(containerPath, name)
       line('安装容器依赖...')
       await pnpmInstall(path.join(containerPath, 'harness'), task)
       // 保险丝:共享产物意外缺失(如版本层构建曾失败)时,回退容器内构建
