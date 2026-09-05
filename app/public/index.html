@@ -66,6 +66,7 @@ body {
   --dsw-bg-base: var(--dsw-nb-00);
   --dsw-bg-layer-2: var(--dsw-nb-00);
   --dsw-bg-code: var(--dsw-nb-50);
+  --dsw-bg-module-platform: var(--dsw-nb-60);
   --dsw-sidebar-fill: var(--dsw-nb-50);
   --dsw-sidebar-hover: var(--dsw-nb-75);
   --dsw-sidebar-active: var(--dsw-nb-100);
@@ -97,7 +98,6 @@ body {
   --dsw-contrast-track: rgba(255, 255, 255, 0.3);
   --dsw-chip-bg: var(--dsw-nb-60);
   --dsw-chip-hover: var(--dsw-nb-75);
-  --dsw-seg-track: var(--dsw-nb-150);
   --dsw-switch-track: var(--dsw-nb-200);
   --dsw-scrollbar-thumb: var(--dsw-neutral-200);
   --dsw-scrollbar-thumb-hover: var(--dsw-neutral-300);
@@ -112,6 +112,7 @@ body[data-ds-dark-theme] {
   --dsw-bg-base: var(--dsw-nb-950);
   --dsw-bg-layer-2: var(--dsw-nb-850);
   --dsw-bg-code: var(--dsw-nb-900);
+  --dsw-bg-module-platform: var(--dsw-nb-800);
   --dsw-sidebar-fill: var(--dsw-nb-900);
   --dsw-sidebar-hover: var(--dsw-nb-850);
   --dsw-sidebar-active: var(--dsw-nb-750);
@@ -143,7 +144,6 @@ body[data-ds-dark-theme] {
   --dsw-contrast-track: rgba(0, 0, 0, 0.2);
   --dsw-chip-bg: var(--dsw-nb-850);
   --dsw-chip-hover: var(--dsw-nb-800);
-  --dsw-seg-track: var(--dsw-nb-875);
   --dsw-switch-track: var(--dsw-nb-700);
   --dsw-scrollbar-thumb: var(--dsw-neutral-700);
   --dsw-scrollbar-thumb-hover: var(--dsw-neutral-600);
@@ -241,7 +241,6 @@ aside.collapsed .icon-btn:hover .ic-mark { display: none; }
 aside.collapsed nav { gap: 12px; }
 aside.collapsed nav a { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; corner-shape: round; }
 aside.collapsed .nav-label { display: none; }
-aside.collapsed .side-foot { display: none; }
 
 /* 侧栏宽度拖拽命中条(DSH AppFrame handle:8px 骑在列缝上,侧栏仅命中条、无可见件) */
 #sidebar-resize {
@@ -260,27 +259,39 @@ body[data-dragging] #sidebar-resize { transition: none; }
 body[data-dragging] aside { transition: none; }
 body[data-dragging] #term { transition: none; }
 body[data-dragging] { user-select: none; }
-.side-foot { flex: none; padding: 10px 2px 0; border-top: 0.5px solid var(--dsw-border-l2); }
-.side-foot-label { font-size: 11px; line-height: 14px; color: var(--dsw-label-tertiary); margin-bottom: 6px; }
-.theme-seg { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: var(--dsw-seg-track); }
-.theme-seg button {
-  flex: 1;
-  height: 26px;
-  padding: 0 4px;
-  border: none;
-  border-radius: 8px;
+/* ── 设置页 · 外观(DSH AppearanceRow:主题 cube,选中 = 平台底 + 静态 bluish-400 描边)── */
+.appearance-cubes { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.theme-cube {
+  box-sizing: border-box;
+  flex: 1 1 120px;
+  max-width: 200px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 20px 12px;
+  border: 0.5px solid var(--dsw-border-l4);
+  border-radius: 16px;
   background: transparent;
-  color: var(--dsw-label-secondary);
-  font-size: 12px;
-  line-height: 18px;
-}
-.theme-seg button:hover:not(:disabled) { background: transparent; color: var(--dsw-label-primary); }
-.theme-seg button.active {
-  background: var(--dsw-bg-layer-2);
   color: var(--dsw-label-primary);
-  font-weight: 500;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  font: 400 13px/20px var(--dsw-font-family);
+  cursor: pointer;
+  transition: background 0.2s var(--ds-ease-in-out), border-color 0.2s var(--ds-ease-in-out);
 }
+.theme-cube:hover:not(.selected) { background: var(--dsw-interactive-hover); }
+.theme-cube.selected { background: var(--dsw-bg-module-platform); border-color: var(--dsw-nb-400); }
+.theme-cube .swatch {
+  flex: none;
+  width: 44px;
+  height: 28px;
+  border-radius: 8px;
+  border: 0.5px solid var(--dsw-border-l3);
+  background: rgb(255, 255, 255);
+}
+.theme-cube[data-theme='dark'] .swatch { background: rgb(21, 21, 23); }
+.theme-cube[data-theme='system'] .swatch { background: linear-gradient(135deg, rgb(255, 255, 255) 50%, rgb(21, 21, 23) 50%); }
 
 /* ── 主内容 ── */
 main { flex: 1; padding: 28px 36px 34px; max-width: 1080px; padding-bottom: calc(var(--term-h, 220px) + 30px); }
@@ -605,14 +616,6 @@ pre.log {
       <span class="nav-label">设置</span>
     </a>
   </nav>
-  <div class="side-foot">
-    <div class="side-foot-label">外观</div>
-    <div class="theme-seg" id="theme-seg">
-      <button type="button" data-theme="light">浅色</button>
-      <button type="button" data-theme="dark">深色</button>
-      <button type="button" data-theme="system">跟随系统</button>
-    </div>
-  </div>
 </aside>
 <main id="main"></main>
 
@@ -652,11 +655,14 @@ const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 function resolveThemeDark(pref) {
   return pref === 'dark' || (pref === 'system' && darkQuery.matches)
 }
+function themePref() {
+  return localStorage.getItem(THEME_KEY) || 'system'
+}
 function applyTheme(pref) {
   document.body.toggleAttribute('data-ds-dark-theme', resolveThemeDark(pref))
-  document.querySelectorAll('#theme-seg button').forEach((b) => {
+  document.querySelectorAll('.theme-cube').forEach((b) => {
     const on = b.dataset.theme === pref
-    b.classList.toggle('active', on)
+    b.classList.toggle('selected', on)
     b.setAttribute('aria-pressed', String(on))
   })
 }
@@ -664,11 +670,8 @@ function setTheme(pref) {
   localStorage.setItem(THEME_KEY, pref)
   applyTheme(pref)
 }
-darkQuery.addEventListener('change', () => applyTheme(localStorage.getItem(THEME_KEY) || 'system'))
-document.querySelectorAll('#theme-seg button').forEach((b) => {
-  b.onclick = () => setTheme(b.dataset.theme)
-})
-applyTheme(localStorage.getItem(THEME_KEY) || 'system')
+darkQuery.addEventListener('change', () => applyTheme(themePref()))
+applyTheme(themePref())
 
 // ── 侧栏折叠 + 宽度拖拽(DSH rail/AppFrame handle 语言)──
 const SIDEBAR_KEY = 'dshdock.sidebar'
@@ -1134,6 +1137,14 @@ async function renderSettings() {
   const settings = await api('/api/settings')
   $('#main').innerHTML = `
     <h1>设置</h1><div class="subtitle">配置保存在 ${escapeHtml('state/settings.json')}</div>
+    <div class="panel"><h2>外观</h2>
+      <div class="appearance-cubes">
+        <button type="button" class="theme-cube" data-theme="light" aria-pressed="false"><span class="swatch" aria-hidden="true"></span><span>浅色</span></button>
+        <button type="button" class="theme-cube" data-theme="dark" aria-pressed="false"><span class="swatch" aria-hidden="true"></span><span>深色</span></button>
+        <button type="button" class="theme-cube" data-theme="system" aria-pressed="false"><span class="swatch" aria-hidden="true"></span><span>跟随系统</span></button>
+      </div>
+      <p class="muted" style="margin-top:10px">偏好保存在本浏览器(localStorage);跟随系统时随操作系统的深色模式自动切换,与容器的 DSH 会话设置互不影响。</p>
+    </div>
     <div class="panel"><h2>网络</h2>
       <div class="row" style="margin-bottom:6px">
         <span style="width:120px" class="muted">HTTP 代理</span>
@@ -1171,6 +1182,11 @@ async function renderSettings() {
       </p>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
     </div>`
+  // 外观 cube:渲染后绑定点击并同步选中态
+  document.querySelectorAll('#main .theme-cube').forEach((b) => {
+    b.onclick = () => setTheme(b.dataset.theme)
+  })
+  applyTheme(themePref())
 }
 async function saveSettings() {
   try {
