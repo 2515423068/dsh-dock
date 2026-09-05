@@ -544,6 +544,12 @@ async function renderSettings() {
       </div>
       <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">容器创建时从此范围分配固定端口并持久化(每次启动不变;被其他进程占用则启动报错)</span></div>
 
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">启动后打开 UI</span>
+        <label class="switch" style="margin-top:5px"><input type="checkbox" id="s-autoopen" ${settings.autoOpenUiOnStart === false ? '' : 'checked'}><span class="slider"></span></label>
+      </div>
+      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">点击「启动」后就绪时自动打开该容器的 DSH WebUI(由 DSH 上游弹出,带 token);关闭则不弹,自行点卡片上的链接</span></div>
+
       <p class="muted" style="margin-top:4px;line-height:1.7">
         作用范围:<b>HTTP 代理</b> → GitHub API(版本目录);<b>GitHub 镜像</b> → git 克隆(设置后克隆走镜像、不再用代理);<b>npm 镜像源</b> → pnpm 在线装依赖。<br>
         DSH host 进程始终运行在无代理环境(避免回环自检被代理劫持),不受以上配置影响。镜像快捷项已实测可用,失效时可手动填入其他前缀式镜像。
@@ -560,6 +566,7 @@ async function saveSettings() {
         githubMirror: $('#s-mirror').value.trim(),
         npmRegistry: $('#s-registry').value.trim(),
         containerPortRange: $('#s-portrange').value.trim(),
+        autoOpenUiOnStart: $('#s-autoopen').checked,
       },
     })
     toast('已保存')

@@ -1,8 +1,8 @@
 #!/bin/sh
-# 用法: dshdock [前台默认, Ctrl+C 退出] / dshdock bg [后台+浏览器] / stop / status / restart / fg [--no-browser] / devrestart
+# 用法: dshdock [前台默认, Ctrl+C 退出] / dshdock bg [后台] / stop / status / restart / fg / devrestart / cleanup [-port N]
 # 用法:
-#   dshdock              启动服务并打开浏览器
-#   dshdock --no-browser 只启动服务
+#   dshdock              前台启动(不自动开浏览器,终端输出可点击的访问链接)
+#   dshdock bg [--no-browser] 后台启动(同样只输出链接;--no-browser 仅为兼容保留)
 #   dshdock stop         优雅关闭(先停运行中的容器)
 #   dshdock status       查看服务与容器状态
 #   dshdock restart      重启服务(优雅:先停所有容器)
@@ -19,6 +19,15 @@ server_pid() {
   pid="$(cat "$PID_FILE" 2>/dev/null)"
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo "$pid"; return; fi
   pgrep -f "$APP/server[.]mjs" | head -1
+}
+
+# 终端超链接(OSC 8):支持的终端可直接点击打开;不支持的退化为纯文本 URL
+print_link() {
+  if [ -t 1 ] && [ -n "$TERM" ] && [ "$TERM" != "dumb" ]; then
+    printf '\033]8;;%s\033\\%s\033]8;;\033\\\n' "$1" "$1"
+  else
+    printf '%s\n' "$1"
+  fi
 }
 
 start_server() {
@@ -47,9 +56,9 @@ cmd_start() {
     exit 1
   }
   start_server || exit 1
-  echo "DSH Dock: $BASE_URL/"
-  [ "$1" = "--no-browser" ] && exit 0
-  exec xdg-open "$BASE_URL/"
+  echo "DSH Dock 已就绪,访问地址(点击打开):"
+  print_link "$BASE_URL/"
+  exit 0
 }
 
 cmd_uninstall_data() {
@@ -131,8 +140,8 @@ cmd_fg() {
     echo "✗ 服务已在后台运行,先执行 dshdock stop 再用前台模式"
     exit 1
   fi
-  echo "DSH Dock 前台模式: $BASE_URL/ (Ctrl+C 停止所有容器并退出)"
-  [ "$2" = "--no-browser" ] || ( sleep 2; xdg-open "$BASE_URL/" >/dev/null 2>&1 ) &
+  echo "DSH Dock 前台模式 (Ctrl+C 停止所有容器并退出),访问地址(点击打开):"
+  print_link "$BASE_URL/"
   cd "$APP" && exec node server.mjs
 }
 

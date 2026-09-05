@@ -104,7 +104,7 @@ function writeJson(file, value) {
 }
 
 function readSettings() {
-  return { containerPortRange: '41800-41899', proxy: '', githubMirror: '', npmRegistry: '', ...readJson(SETTINGS_PATH, {}) }
+  return { containerPortRange: '41800-41899', autoOpenUiOnStart: true, proxy: '', githubMirror: '', npmRegistry: '', ...readJson(SETTINGS_PATH, {}) }
 }
 
 function writeSettings(settings) {
@@ -597,11 +597,14 @@ async function startContainer(id) {
 
   const offset = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0
   const logFd = fs.openSync(logPath, 'a')
+  // 启动后就绪时是否自动打开浏览器由设置决定:上游 web-startup 插件解析主命令行的
+  // --no-open(设置开=默认弹带 token 标签;dshdock 不代开,避免与上游弹窗重复)
   const child = spawn(nodeBin(), [
     '--import', 'tsx/esm',
     'apps/cli/src/bin.ts',
     '--profile', container.profile,
     '--patch', webPatch,
+    ...(readSettings().autoOpenUiOnStart === false ? ['--no-open'] : []),
   ], {
     cwd: harnessDir,
     detached: true,
@@ -812,6 +815,8 @@ async function handleApi(request, response, url) {
       githubMirror: String(body.githubMirror ?? '').trim(),
       npmRegistry: String(body.npmRegistry ?? '').trim(),
       containerPortRange: String(body.containerPortRange ?? '').trim(),
+      // 未传字段时保留现值(避免仅改其他设置的调用把开关悄悄关掉)
+      autoOpenUiOnStart: body.autoOpenUiOnStart === undefined ? readSettings().autoOpenUiOnStart : !!body.autoOpenUiOnStart,
     })
     return send(200, readSettings())
   }
