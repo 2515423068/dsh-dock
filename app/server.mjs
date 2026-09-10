@@ -1012,14 +1012,14 @@ async function handleApi(request, response, url) {
     const cache = readJson(CATALOG_PATH, null)
     const installed = installedVersions()
     if (cache && url.searchParams.get('refresh') !== '1') {
-      return send(200, { fetchedAt: cache.fetchedAt, tags: cache.tags, installed })
+      return send(200, { fetchedAt: cache.fetchedAt, tags: cache.tags, installed, repo: HARNESS_REPO })
     }
     try {
       const tags = await fetchCatalogFromGithub()
       writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags })
-      return send(200, { fetchedAt: nowSeconds(), tags, installed })
+      return send(200, { fetchedAt: nowSeconds(), tags, installed, repo: HARNESS_REPO })
     } catch (error) {
-      if (cache) return send(200, { fetchedAt: cache.fetchedAt, tags: cache.tags, installed, warning: `刷新失败,使用缓存: ${error}` })
+      if (cache) return send(200, { fetchedAt: cache.fetchedAt, tags: cache.tags, installed, warning: `刷新失败,使用缓存: ${error}`, repo: HARNESS_REPO })
       return send(500, { error: `获取版本目录失败: ${error}` })
     }
   }

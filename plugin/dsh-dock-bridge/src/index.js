@@ -13,6 +13,7 @@
  * profiles have no connection; some compositions ship no skills registry).
  */
 import { fileURLToPath } from 'node:url'
+import { mountPageChannel } from './channel.js'
 import { detectSelf } from './env.js'
 import { createDockClient } from './http.js'
 import { createPageHandler } from './page.js'
@@ -67,21 +68,30 @@ export function apply(ctx, config) {
     ctx.effect(() => skills.register(skillDefinition()), 'dshdock-bridge: skill')
   }
 
-  // The connection service activates after this row (bundle rows load first,
-  // but activation order is not guaranteed), so register the page channel in
-  // an injection scope that waits for it. In a composition that never
-  // provides connection (headless), the scope stays pending and the channel
-  // is simply absent — tools remain unaffected.
+  // The connection and webServer services activate after this row (bundle rows
+  // load first, but activation order is not guaranteed), so register the page
+  // channel in an injection scope that waits for both. In a composition that
+  // never provides connection (headless), the scope stays pending and the
+  // channel is simply absent — tools remain unaffected.
+  //
+  // The channel is mounted on webServer directly (see channel.js): since DSH
+  // v0.1.5, connection.rpc.handle cannot resolve webServer from the Connection
+  // provider's context and throws `cannot get property "webServer" without
+  // inject`, so the official per-channel registration is unusable here.
   if (ctx.baseUrl === undefined) return
   const profileDir = fileURLToPath(ctx.baseUrl)
-  ctx.inject(['connection'], (scope) => {
+  ctx.inject(['connection', 'webServer'], (scope) => {
     scope.effect(
-      () => scope.connection.rpc.handle('/dshdock-plugins', createPageHandler({
-        request: client.request,
-        baseUrl: settings.baseUrl,
-        profileDir,
-        selfId,
-      })),
+      () => mountPageChannel({
+        connection: scope.connection,
+        webServer: scope.webServer,
+        handler: createPageHandler({
+          request: client.request,
+          baseUrl: settings.baseUrl,
+          profileDir,
+          selfId,
+        }),
+      }),
       'dshdock-bridge: page channel',
     )
   })

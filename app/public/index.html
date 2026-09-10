@@ -388,6 +388,9 @@ tr:last-child td { border-bottom: none; }
 .card .url a:hover, .card .url a:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 .muted { color: var(--dsw-label-tertiary); font-size: 12.5px; line-height: 20px; }
+/* 外链(版本更新说明 / DSH 仓库):与卡片链接同语言 */
+.ext-link { color: var(--dsw-link); font-size: 12.5px; line-height: 20px; font-weight: 500; text-decoration: none; white-space: nowrap; }
+.ext-link:hover, .ext-link:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 .error-text { color: var(--dsw-state-error); font-size: 13px; line-height: 20px; margin-top: 8px; white-space: pre-wrap; }
 .empty { text-align: center; color: var(--dsw-label-tertiary); padding: 30px 0; font-size: 13.5px; line-height: 22px; }
 
@@ -929,17 +932,22 @@ async function renderCurrent() {
 }
 
 // ── 版本管理 ──
+// DSH 上游仓库(服务端目录接口同时回传 repo,此处为兜底常量)
+const DSH_REPO_FALLBACK = 'https://github.com/deepseek-ai/deepseek-harness'
 async function renderVersions(refresh = false) {
   const main = $('#main')
   main.innerHTML = '<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div><div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>'
   try {
     const data = await api('/api/versions/catalog' + (refresh ? '?refresh=1' : ''))
+    const repo = data.repo || DSH_REPO_FALLBACK
+    const releaseUrl = (tag) => `${repo}/releases/tag/${encodeURIComponent(tag)}`
     const installedSet = new Set(data.installed)
     const rows = data.tags.map((tag) => {
       const installed = installedSet.has(tag.name)
       const task = activeTasks[`vi:${tag.name}`]
       return `<tr>
         <td><b>${escapeHtml(tag.name)}</b></td>
+        <td><a class="ext-link" href="${releaseUrl(tag.name)}" target="_blank" rel="noreferrer noopener">更新说明 ↗</a></td>
         <td>${installed ? '<span class="badge running">已安装</span>' : '<span class="badge stopped">未安装</span>'}</td>
         <td class="muted">${task ? escapeHtml((task.lines ?? []).slice(-1)[0] ?? '') : ''}</td>
         <td style="text-align:right">
@@ -950,13 +958,15 @@ async function renderVersions(refresh = false) {
       </tr>`
     })
     const extraInstalled = data.installed.filter((v) => !data.tags.some((t) => t.name === v))
-      .map((v) => `<tr><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td class="muted">不在远端目录中(可能已删除)</td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
+      .map((v) => `<tr><td><b>${escapeHtml(v)}</b></td><td><a class="ext-link" href="${releaseUrl(v)}" target="_blank" rel="noreferrer noopener">更新说明 ↗</a></td><td><span class="badge running">已安装</span></td><td class="muted">不在远端目录中(可能已删除)</td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
     $('#version-list').innerHTML = `
       <div class="row" style="margin-bottom:10px">
         <button class="primary" onclick="refreshCatalog()">刷新目录</button>
+        <a class="ext-link" href="${repo}" target="_blank" rel="noreferrer noopener">DSH GitHub 仓库 ↗</a>
+        <a class="ext-link" href="${repo}/releases" target="_blank" rel="noreferrer noopener">全部版本更新说明 ↗</a>
         <span class="muted">目录更新于 ${data.fetchedAt ? new Date(data.fetchedAt * 1000).toLocaleString('zh-CN') : '从未'}${data.warning ? ' · ' + escapeHtml(data.warning) : ''}</span>
       </div>
-      <table><thead><tr><th>版本</th><th>状态</th><th>动态</th><th style="text-align:right">操作</th></tr></thead>
+      <table><thead><tr><th>版本</th><th>更新说明</th><th>状态</th><th>动态</th><th style="text-align:right">操作</th></tr></thead>
       <tbody>${rows.join('')}${extraInstalled.join('')}</tbody></table>
       ${data.tags.length === 0 && data.installed.length === 0 ? '<div class="empty">目录为空,点击「刷新目录」从 GitHub 拉取</div>' : ''}`
   } catch (error) {
