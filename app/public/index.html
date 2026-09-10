@@ -1056,11 +1056,8 @@ function noteTypes(body) {
   if (/优化|提升|改进|性能|Improve|Perf|Refine|Polish/i.test(text)) types.push('perf')
   return types
 }
-function typeChips(types, limit = Number.POSITIVE_INFINITY) {
-  const shown = types.slice(0, limit)
-  const rest = types.length - shown.length
-  return shown.map((type) => `<span class="chip ${type}">${NOTE_TYPE_LABEL[type]}</span>`).join('')
-    + (rest > 0 ? `<span class="chip">+${rest}</span>` : '')
+function typeChips(types) {
+  return types.map((type) => `<span class="chip ${type}">${NOTE_TYPE_LABEL[type]}</span>`).join('')
 }
 /** 列表单元格:类型徽标 + 单行省略摘要 + 详情按钮。 */
 function versionNotesCell(tag) {
