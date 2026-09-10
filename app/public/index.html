@@ -393,19 +393,21 @@ tr:last-child td { border-bottom: none; }
 .ext-link:hover, .ext-link:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 /* ── 版本管理:左列表 + 右更新说明详情(主内容区右侧原本留白)── */
-main.page-versions { max-width: 1440px; }
-/* 左列表 + 右详情:flex 布局,右栏按比例伸缩(34%,300–620px),填满可用宽度 */
-.versions-layout { display: flex; align-items: flex-start; gap: 18px; }
-.versions-layout .versions-list { flex: 1 1 0; min-width: 0; }
+/* 版本页不设 max-width:让右详情一直填到视口右侧 */
+main.page-versions { max-width: none; }
+/* 左列表固定宽度(--ver-list-w),右详情 flex:1 吃掉全部剩余空白 */
+.versions-layout { --ver-list-w: 820px; display: flex; align-items: flex-start; gap: 18px; }
+.versions-layout .versions-list { flex: 0 1 var(--ver-list-w); min-width: 480px; }
 .versions-layout .panel { margin-bottom: 0; }
-@media (max-width: 1180px) {
+@media (max-width: 1120px) {
   .versions-layout { flex-direction: column; }
-  .notes-panel { flex: 1 1 auto; width: 100%; max-width: none; position: static; }
+  .versions-layout .versions-list { flex: 0 0 auto; width: 100%; min-width: 0; }
+  .notes-panel { position: static; width: 100%; max-width: none; }
 }
 /* 固定列宽,保证行高与列比例不随说明长短变化 */
 #version-list table { width: 100%; table-layout: fixed; }
-#version-list th:nth-child(1), #version-list td:nth-child(1) { width: 30%; }
-#version-list th:nth-child(2), #version-list td:nth-child(2) { width: 20%; }
+#version-list th:nth-child(1), #version-list td:nth-child(1) { width: 24%; }
+#version-list th:nth-child(2), #version-list td:nth-child(2) { width: 16%; }
 #version-list th:nth-child(4), #version-list td:nth-child(4) { width: 78px; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
 #version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
@@ -413,15 +415,15 @@ main.page-versions { max-width: 1440px; }
 .ver-notes { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .ver-notes-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
 .ver-notes.none .ver-notes-text { color: var(--dsw-label-tertiary); }
-.chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; }
+.chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
 .chip.breaking { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
 .chip.feat { color: var(--dsw-state-success); background: var(--dsw-state-success-bg); }
 .chip.fix { color: var(--dsw-link); background: color-mix(in srgb, var(--dsw-link) 12%, transparent); }
 .chip.perf { color: var(--dsw-state-warn); background: var(--dsw-state-warn-bg); }
 .link-btn { flex: 0 0 auto; border: 0; background: none; padding: 0 2px; color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; font-family: inherit; }
 .link-btn:hover, .link-btn:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
-/* 右侧详情面板:按比例伸缩,吸顶不随长列表滚走 */
-.notes-panel { position: sticky; top: 12px; flex: 0 1 34%; min-width: 300px; max-width: 620px; }
+/* 右侧详情面板:吃掉列表以外的全部宽度,吸顶不随长列表滚走 */
+.notes-panel { position: sticky; top: 12px; flex: 1 1 auto; min-width: 320px; }
 .notes-panel .np-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .notes-panel .np-title { font-size: 14px; font-weight: 500; line-height: 22px; }
 .notes-panel .np-lang { display: inline-flex; gap: 2px; margin-left: auto; }
@@ -1041,8 +1043,11 @@ function noteTypes(body) {
   if (/优化|提升|改进|性能|Improve|Perf|Refine|Polish/i.test(text)) types.push('perf')
   return types
 }
-function typeChips(types) {
-  return types.map((type) => `<span class="chip ${type}">${NOTE_TYPE_LABEL[type]}</span>`).join('')
+function typeChips(types, limit = Number.POSITIVE_INFINITY) {
+  const shown = types.slice(0, limit)
+  const rest = types.length - shown.length
+  return shown.map((type) => `<span class="chip ${type}">${NOTE_TYPE_LABEL[type]}</span>`).join('')
+    + (rest > 0 ? `<span class="chip">+${rest}</span>` : '')
 }
 /** 列表单元格:类型徽标 + 单行省略摘要 + 详情按钮。 */
 function versionNotesCell(tag) {
@@ -1055,7 +1060,7 @@ function versionNotesCell(tag) {
   const stored = typeof notes.summary === 'string' ? notes.summary.trim() : ''
   const source = typeof notes.zh === 'string' && notes.zh.trim().length > 0 ? notes.zh : body
   const summary = stored.length > 0 ? stored : summarizeNotes(source)
-  return `<div class="ver-notes">${typeChips(noteTypes(body))}`
+  return `<div class="ver-notes">${typeChips(noteTypes(body), 2)}`
     + `<span class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>`
     + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
 }
