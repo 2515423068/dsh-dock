@@ -1524,7 +1524,11 @@ function serveStatic(response, pathname) {
     response.end('前端文件缺失')
     return
   }
-  response.writeHead(200, { 'Content-Type': MIME[path.extname(filePath)] ?? 'application/octet-stream' })
+  // 前端是本地静态单页,改完必须刷新即见:禁止浏览器缓存(否则用户会看到旧布局/旧逻辑)
+  response.writeHead(200, {
+    'Content-Type': MIME[path.extname(filePath)] ?? 'application/octet-stream',
+    'Cache-Control': 'no-store, must-revalidate',
+  })
   fs.createReadStream(filePath).pipe(response)
 }
 

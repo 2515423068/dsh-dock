@@ -407,11 +407,14 @@ main.page-versions { max-width: none; container-type: inline-size; container-nam
   .versions-layout .notes-panel { position: static; flex: 0 0 auto; width: 100%; }
 }
 /* 固定列宽,保证行高与列比例不随说明长短变化;
-   操作列留足「安装中…」按钮 + td 左右各 10px 内边距,否则按钮会向左溢出压住更新说明 */
+   操作列左对齐(与其它列一致):不同宽度的按钮共享左边缘,宽的「安装中…」不会向左凸出顶住更新说明。
+   104px 要容下按钮 + td 左右各 10px 内边距,否则 table-layout:fixed 下按钮会溢出到相邻列 */
 #version-list table { width: 100%; table-layout: fixed; }
 #version-list th:nth-child(1), #version-list td:nth-child(1) { width: 22%; }
 #version-list th:nth-child(2), #version-list td:nth-child(2) { width: 15%; }
-#version-list th:nth-child(4), #version-list td:nth-child(4) { width: 104px; white-space: nowrap; text-align: right; }
+#version-list th:nth-child(4), #version-list td:nth-child(4) { width: 104px; white-space: nowrap; }
+/* 保险:按钮任何情况下都不得超过本列内容宽(border-box,故 max-width 已含内边距) */
+#version-list td:nth-child(4) button { max-width: 100%; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
 #version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
 /* 更新说明在列表里只占一行:类型徽标 + 单行省略摘要 + 详情;整格裁切,绝不外溢到操作列 */
@@ -1148,7 +1151,7 @@ async function renderVersions(refresh = false) {
         <td><b>${escapeHtml(tag.name)}</b></td>
         <td>${installed ? '<span class="badge running">已安装</span>' : '<span class="badge stopped">未安装</span>'}${progress}</td>
         <td>${versionNotesCell(tag)}</td>
-        <td style="text-align:right">
+        <td>
           ${installed
             ? `<button class="danger" onclick="removeVersion('${tag.name}')">删除</button>`
             : `<button class="primary" ${task?.status === 'running' ? 'disabled' : ''} onclick="installVersion('${tag.name}')">${task?.status === 'running' ? '安装中…' : '安装'}</button>`}
@@ -1156,7 +1159,7 @@ async function renderVersions(refresh = false) {
       </tr>`
     })
     const extraInstalled = data.installed.filter((v) => !versionCatalogTags.some((t) => t.name === v))
-      .map((v) => `<tr data-tag="${escapeHtml(v)}"><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td><div class="ver-notes none"><span class="ver-notes-text">不在远端目录中(可能已删除)</span></div></td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
+      .map((v) => `<tr data-tag="${escapeHtml(v)}"><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td><div class="ver-notes none"><span class="ver-notes-text">不在远端目录中(可能已删除)</span></div></td><td><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
     const withNotes = versionCatalogTags.filter((tag) => tag.notes?.body).length
     $('#version-list').innerHTML = `
       <div class="row" style="margin-bottom:10px">
@@ -1164,7 +1167,7 @@ async function renderVersions(refresh = false) {
         <a class="ext-link" href="${repo}" target="_blank" rel="noreferrer noopener">DSH GitHub 仓库 ↗</a>
         <span class="muted">目录更新于 ${data.fetchedAt ? new Date(data.fetchedAt * 1000).toLocaleString('zh-CN') : '从未'}${data.warning ? ' · ' + escapeHtml(data.warning) : ''}${withNotes > 0 ? ` · 更新说明 ${withNotes} 条` : ''}</span>
       </div>
-      <table><thead><tr><th>版本</th><th>状态</th><th>更新说明</th><th style="text-align:right">操作</th></tr></thead>
+      <table><thead><tr><th>版本</th><th>状态</th><th>更新说明</th><th>操作</th></tr></thead>
       <tbody>${rows.join('')}${extraInstalled.join('')}</tbody></table>
       ${versionCatalogTags.length === 0 && data.installed.length === 0 ? '<div class="empty">目录为空,点击「刷新目录」从 GitHub 拉取</div>' : ''}`
     // 刷新/任务事件会整页重渲染,保留用户已选中的详情
