@@ -397,11 +397,11 @@ tr:last-child td { border-bottom: none; }
    右栏必须 flex-basis:0(用 auto 会按正文内容宽度索要空间,把固定宽的列表压缩)。
    折叠/堆叠判断用容器查询按 main 实际宽度,而不是视口宽度 —— 侧栏拖宽后视口不变但可用宽度变小。 */
 main.page-versions { max-width: none; container-type: inline-size; container-name: versions; }
-.versions-layout { --ver-list-w: 760px; display: flex; align-items: flex-start; gap: 18px; }
+.versions-layout { --ver-list-w: 900px; display: flex; align-items: flex-start; gap: 18px; }
 .versions-layout .versions-list { flex: 0 0 var(--ver-list-w); min-width: 0; }
 .versions-layout .panel { margin-bottom: 0; }
-/* 可用宽度容不下「列表 + 详情最小 300px」时改为上下堆叠 */
-@container versions (max-width: 1099px) {
+/* 可用宽度容不下「列表 + 详情最小 280px」时改为上下堆叠(阈值 = --ver-list-w + 18 + 280) */
+@container versions (max-width: 1197px) {
   .versions-layout { flex-direction: column; }
   .versions-layout .versions-list { flex: 0 0 auto; width: 100%; }
   .versions-layout .notes-panel { position: static; flex: 0 0 auto; width: 100%; }
@@ -417,9 +417,11 @@ main.page-versions { max-width: none; container-type: inline-size; container-nam
 #version-list td:nth-child(4) button { max-width: 100%; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
 #version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
-/* 更新说明在列表里只占一行:类型徽标 + 单行省略摘要 + 详情;整格裁切,绝不外溢到操作列 */
-.ver-notes { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
-.ver-notes-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
+/* 更新说明在列表里占两行:第一行类型徽标(+详情按钮),第二行单行省略摘要;整格裁切不外溢 */
+.ver-notes { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
+.ver-notes-tags { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ver-notes-tags .link-btn { margin-left: auto; }
+.ver-notes-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
 .ver-notes.none .ver-notes-text { color: var(--dsw-label-tertiary); }
 .chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
 .chip.breaking { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
@@ -429,7 +431,7 @@ main.page-versions { max-width: none; container-type: inline-size; container-nam
 .link-btn { flex: 0 0 auto; border: 0; background: none; padding: 0 2px; color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; font-family: inherit; }
 .link-btn:hover, .link-btn:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 /* 右侧详情面板:吃掉列表以外的全部宽度,吸顶不随长列表滚走(flex-basis:0 才不会抢列表空间) */
-.notes-panel { position: sticky; top: 12px; flex: 1 1 0; min-width: 300px; }
+.notes-panel { position: sticky; top: 12px; flex: 1 1 0; min-width: 280px; }
 .notes-panel .np-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .notes-panel .np-title { font-size: 14px; font-weight: 500; line-height: 22px; }
 .notes-panel .np-lang { display: inline-flex; gap: 2px; margin-left: auto; }
@@ -1018,8 +1020,9 @@ function tidyNoteLine(line) {
     .replace(/[。.;；,、]\s*$/, '')
     .trim()
 }
-/** 摘要截断:优先在最后一个分隔符处断开,避免把一个词/@菜单切成两半。 */
-function clampSummary(text, limit = 60) {
+/** 摘要截断:优先在最后一个分隔符处断开,避免把一个词/@菜单切成两半。
+    长度按列表里摘要列的一行宽度来定(900px 列表下约 33 个汉字),保证一行放得下、不出现省略号。 */
+function clampSummary(text, limit = 34) {
   if (text.length <= limit) return text
   const cut = text.slice(0, limit)
   const at = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(','), cut.lastIndexOf(' '))
@@ -1066,9 +1069,11 @@ function versionNotesCell(tag) {
   const stored = typeof notes.summary === 'string' ? notes.summary.trim() : ''
   const source = typeof notes.zh === 'string' && notes.zh.trim().length > 0 ? notes.zh : body
   const summary = stored.length > 0 ? stored : summarizeNotes(source)
-  return `<div class="ver-notes">${typeChips(noteTypes(body), 2)}`
-    + `<span class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>`
+  // 第一行标签 + 详情,第二行摘要
+  return `<div class="ver-notes">`
+    + `<div class="ver-notes-tags">${typeChips(noteTypes(body), 2)}`
     + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
+    + `<div class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</div></div>`
 }
 /** 完整正文排版:短行=小标题,· 开头=条目,其余=段落(连续空行只保留一个)。 */
 function renderNotesBody(body) {
