@@ -1031,7 +1031,9 @@ function versionNotesCell(tag) {
   if (typeof body !== 'string' || body.trim().length === 0) {
     return '<div class="ver-notes none"><span class="ver-notes-text">无更新说明</span></div>'
   }
-  const summary = summarizeNotes(body)
+  // 服务端若写入 notes.summary(如日后接 LLM 摘要)则优先,否则用本地启发式
+  const stored = typeof tag.notes.summary === 'string' ? tag.notes.summary.trim() : ''
+  const summary = stored.length > 0 ? stored : summarizeNotes(body)
   return `<div class="ver-notes">${typeChips(noteTypes(body))}`
     + `<span class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>`
     + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
