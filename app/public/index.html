@@ -394,9 +394,14 @@ tr:last-child td { border-bottom: none; }
 
 /* ── 版本管理:左列表 + 右更新说明详情(主内容区右侧原本留白)── */
 main.page-versions { max-width: 1440px; }
-.versions-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 430px); gap: 18px; align-items: start; }
+/* 左列表 + 右详情:flex 布局,右栏按比例伸缩(34%,300–620px),填满可用宽度 */
+.versions-layout { display: flex; align-items: flex-start; gap: 18px; }
+.versions-layout .versions-list { flex: 1 1 0; min-width: 0; }
 .versions-layout .panel { margin-bottom: 0; }
-@media (max-width: 1180px) { .versions-layout { grid-template-columns: minmax(0, 1fr); } .notes-panel { position: static; } }
+@media (max-width: 1180px) {
+  .versions-layout { flex-direction: column; }
+  .notes-panel { flex: 1 1 auto; width: 100%; max-width: none; position: static; }
+}
 /* 固定列宽,保证行高与列比例不随说明长短变化 */
 #version-list table { width: 100%; table-layout: fixed; }
 #version-list th:nth-child(1), #version-list td:nth-child(1) { width: 30%; }
@@ -415,10 +420,14 @@ main.page-versions { max-width: 1440px; }
 .chip.perf { color: var(--dsw-state-warn); background: var(--dsw-state-warn-bg); }
 .link-btn { flex: 0 0 auto; border: 0; background: none; padding: 0 2px; color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; font-family: inherit; }
 .link-btn:hover, .link-btn:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
-/* 右侧详情面板:吸顶,不随长列表滚走 */
-.notes-panel { position: sticky; top: 12px; }
+/* 右侧详情面板:按比例伸缩,吸顶不随长列表滚走 */
+.notes-panel { position: sticky; top: 12px; flex: 0 1 34%; min-width: 300px; max-width: 620px; }
 .notes-panel .np-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .notes-panel .np-title { font-size: 14px; font-weight: 500; line-height: 22px; }
+.notes-panel .np-lang { display: inline-flex; gap: 2px; margin-left: auto; }
+.notes-panel .lang-btn { border: 0; background: none; padding: 0 7px; border-radius: 7px; corner-shape: round; color: var(--dsw-label-tertiary); font-size: 12px; line-height: 20px; cursor: pointer; font-family: inherit; }
+.notes-panel .lang-btn:hover, .notes-panel .lang-btn:focus-visible { color: var(--dsw-label-primary); }
+.notes-panel .lang-btn.active { color: var(--dsw-link); background: color-mix(in srgb, var(--dsw-link) 12%, transparent); }
 .notes-panel .np-close { margin-left: auto; }
 .notes-panel .np-body { max-height: calc(100vh - 320px); overflow: auto; margin-top: 10px; padding-right: 4px; }
 .notes-panel .notes-placeholder { color: var(--dsw-label-tertiary); font-size: 13px; line-height: 22px; padding: 22px 4px; }
@@ -980,6 +989,16 @@ const NOTE_LANG_NAV = /^(中文\s*[|｜]\s*English|English\s*[|｜]\s*中文)$/
 const hasCjk = (text) => /[\u4e00-\u9fff]/.test(text)
 let versionCatalogTags = [] // 最近一次目录数据(详情面板按 tag 取正文,避免正文内联进每行)
 let selectedVersionTag = null
+// 详情面板语言(服务端已按锚点切成 zh/en;无切分时退回全量正文)
+let notesLang = (() => {
+  try { return window.localStorage.getItem('dshdock-notes-lang') || 'zh' } catch { return 'zh' }
+})()
+/** 切换详情面板语言并立即重渲染当前选中版本。 */
+function setNotesLang(lang) {
+  notesLang = lang
+  try { window.localStorage.setItem('dshdock-notes-lang', lang) } catch { /* 无存储时仅本次会话生效 */ }
+  if (selectedVersionTag !== null) showVersionNotes(selectedVersionTag)
+}
 
 /** 去掉 bullet 前缀、@作者提及(含逗号分隔的作者列表)与句末分隔符/标点,便于拼一行摘要。 */
 function tidyNoteLine(line) {
@@ -1027,13 +1046,15 @@ function typeChips(types) {
 }
 /** 列表单元格:类型徽标 + 单行省略摘要 + 详情按钮。 */
 function versionNotesCell(tag) {
-  const body = tag?.notes?.body
-  if (typeof body !== 'string' || body.trim().length === 0) {
+  const notes = tag?.notes
+  const body = typeof notes?.body === 'string' ? notes.body : ''
+  if (body.trim().length === 0) {
     return '<div class="ver-notes none"><span class="ver-notes-text">无更新说明</span></div>'
   }
-  // 服务端若写入 notes.summary(如日后接 LLM 摘要)则优先,否则用本地启发式
-  const stored = typeof tag.notes.summary === 'string' ? tag.notes.summary.trim() : ''
-  const summary = stored.length > 0 ? stored : summarizeNotes(body)
+  // 服务端若写入 notes.summary(如日后接 LLM 摘要)则优先,否则用本地启发式(优先中文段)
+  const stored = typeof notes.summary === 'string' ? notes.summary.trim() : ''
+  const source = typeof notes.zh === 'string' && notes.zh.trim().length > 0 ? notes.zh : body
+  const summary = stored.length > 0 ? stored : summarizeNotes(source)
   return `<div class="ver-notes">${typeChips(noteTypes(body))}`
     + `<span class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>`
     + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
@@ -1064,7 +1085,7 @@ function renderNotesBody(body) {
 function versionNotesPlaceholder() {
   return '<p class="notes-placeholder">点击左侧「详情」查看该版本的完整更新说明。<br>说明由服务端在刷新目录时抓取并保存在本地。</p>'
 }
-/** 右侧详情面板:显示某版本的完整更新说明(不离开列表页)。 */
+/** 右侧详情面板:显示某版本的完整更新说明(可切中/英/全部,不离开列表页)。 */
 function showVersionNotes(tagName) {
   const head = $('#notes-panel-head')
   const panel = $('#notes-panel-body')
@@ -1074,23 +1095,33 @@ function showVersionNotes(tagName) {
     row.classList.toggle('active', row.dataset.tag === tagName)
   })
   const tag = versionCatalogTags.find((entry) => entry?.name === tagName)
-  const body = tag?.notes?.body
-  if (typeof body !== 'string' || body.trim().length === 0) {
+  const notes = tag?.notes
+  const zh = typeof notes?.zh === 'string' ? notes.zh.trim() : ''
+  const en = typeof notes?.en === 'string' ? notes.en.trim() : ''
+  const full = typeof notes?.body === 'string' ? notes.body.trim() : ''
+  if (full.length === 0 && zh.length === 0) {
     head.innerHTML = `<span class="np-title">${escapeHtml(tagName)}</span>`
     panel.innerHTML = '<p class="notes-placeholder">该版本未提供更新说明(远端没有对应 Release 正文)。</p>'
     return
   }
-  const date = tag.notes.publishedAt
-    ? `<span class="muted">${escapeHtml(String(tag.notes.publishedAt).slice(0, 10))} 发布</span>`
+  const bilingual = zh.length > 0 && en.length > 0
+  const shown = bilingual ? (notesLang === 'en' ? en : notesLang === 'all' ? full : zh) : full
+  const langToggle = bilingual
+    ? `<span class="np-lang">${[['zh', '中文'], ['en', 'English'], ['all', '全部']]
+        .map(([key, label]) => `<button class="lang-btn${notesLang === key ? ' active' : ''}" onclick="setNotesLang('${key}')">${label}</button>`)
+        .join('')}</span>`
     : ''
-  head.innerHTML = `<span class="np-title">${escapeHtml(tagName)}</span>${typeChips(noteTypes(body))}${date}`
-  panel.innerHTML = renderNotesBody(body)
+  const date = notes.publishedAt
+    ? `<span class="muted">${escapeHtml(String(notes.publishedAt).slice(0, 10))} 发布</span>`
+    : ''
+  head.innerHTML = `<span class="np-title">${escapeHtml(tagName)}</span>${typeChips(noteTypes(full))}${date}${langToggle}`
+  panel.innerHTML = renderNotesBody(shown)
 }
 async function renderVersions(refresh = false) {
   const main = $('#main')
   main.innerHTML = `<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div>
     <div class="versions-layout">
-      <div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>
+      <div class="panel versions-list"><div id="version-list"><div class="empty">加载中...</div></div></div>
       <div class="panel notes-panel">
         <div class="np-head" id="notes-panel-head"><span class="np-title">更新说明</span></div>
         <div id="notes-panel-body">${versionNotesPlaceholder()}</div>

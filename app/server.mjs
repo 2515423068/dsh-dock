@@ -317,11 +317,10 @@ async function fetchReleaseNotesViaApi() {
   for (const release of parsed) {
     const tag = release?.tag_name
     if (typeof tag !== 'string' || tag.length === 0) continue
-    const body = typeof release.body === 'string' ? release.body.trim() : ''
-    if (body.length === 0) continue
-    const cleaned = cleanReleaseBody(body)
-    if (cleaned.length === 0) continue
-    notes[tag] = { body: clampText(cleaned, NOTES_BODY_LIMIT), publishedAt: release.published_at ?? null }
+    const raw = typeof release.body === 'string' ? release.body : ''
+    if (raw.trim().length === 0) continue
+    const note = buildReleaseNote(raw, release.published_at ?? null)
+    if (note !== null) notes[tag] = note
   }
   if (Object.keys(notes).length === 0) throw '未解析到任何 release 说明'
   return notes
@@ -335,15 +334,45 @@ async function fetchReleaseNotesViaAtom() {
     const href = block.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? ''
     const tag = href.split('/releases/tag/')[1]
     if (tag === undefined || tag.length === 0) continue
-    const body = stripMarkup(block.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] ?? '')
-    if (body.length === 0) continue
-    notes[decodeURIComponent(tag)] = {
-      body: clampText(body, NOTES_BODY_LIMIT),
-      publishedAt: block.match(/<updated>([^<]+)<\/updated>/)?.[1] ?? null,
-    }
+    const raw = block.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] ?? ''
+    if (raw.trim().length === 0) continue
+    const note = buildReleaseNote(raw, block.match(/<updated>([^<]+)<\/updated>/)?.[1] ?? null)
+    if (note !== null) notes[decodeURIComponent(tag)] = note
   }
   if (Object.keys(notes).length === 0) throw '未解析到任何 release 说明'
   return notes
+}
+
+// 双语 Release 的语言锚点:实测 16/16 覆盖 —— 14 条用 id="cn-<tag>"/"en-<tag>",
+// dsh-v0.1.3-alpha.2 用 id="chinese"/"english",dsh-v0.1.0-rc.7 用 id="cn"/"en"。
+// 第一个带 en 锚点的标题即英文段起点;无锚点时退到已知英文章节标题。
+const RELEASE_EN_HEADING = /<h[1-6][^>]*\bid\s*=\s*"(?:en|english)[^"]*"[^>]*>/i
+const RELEASE_EN_KNOWN = /<h[1-6][^>]*>\s*(?:New Features|Features|Bug Fixes|Improvements|Other Changes|Breaking Changes)\s*<\/h[1-6]>/i
+
+/** 按语言锚点把双语正文切成 `{ zh, en }`(纯结构解析,不需要 LLM)。 */
+function splitBilingualRelease(raw) {
+  const text = String(raw ?? '').replace(/\r\n?/g, '\n')
+  const at = RELEASE_EN_HEADING.exec(text) ?? RELEASE_EN_KNOWN.exec(text)
+  if (at === null || at.index === 0) return { zh: text, en: '' }
+  return { zh: text.slice(0, at.index), en: text.slice(at.index) }
+}
+
+/**
+ * Build one cached note from a raw Release body.
+ * @param raw - GitHub API Markdown body or Atom HTML content.
+ * @param publishedAt - release timestamp when known.
+ * @returns `{body, zh, en, publishedAt}` (null when nothing readable remains).
+ */
+function buildReleaseNote(raw, publishedAt) {
+  const parts = splitBilingualRelease(raw)
+  const zh = cleanReleaseBody(parts.zh)
+  const en = cleanReleaseBody(parts.en)
+  const body = [zh, en].filter((part) => part.length > 0).join('\n\n')
+  if (body.length === 0) return null
+  const note = { body: clampText(body, NOTES_BODY_LIMIT), publishedAt }
+  if (zh.length > 0) note.zh = clampText(zh, NOTES_BODY_LIMIT)
+  if (en.length > 0) note.en = clampText(en, NOTES_BODY_LIMIT)
+  return note
 }
 
 /** HTML 实体解码(仅 Atom 正文用到;未知/越界实体丢弃)。 */
@@ -381,6 +410,8 @@ function cleanReleaseBody(markdown) {
     markdown
       .replace(/\r\n?/g, '\n')                 // GitHub 正文是 CRLF
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接/锚点 → 文字
+      .replace(/^[ \t]*(?:中文|English)[ \t]*[|｜][ \t]*(?:中文|English)[ \t]*$/gm, '') // 语言导航行
+      .replace(/^[^\n]*·[ \t]*(?:中文|English)[ \t]*$/gm, '') // "0.1.3-alpha.2 · 中文"
       .replace(/^[ \t]*([-*_])\1{2,}[ \t]*$/gm, '') // 分隔线
       .replace(/^#{1,6}[ \t]*/gm, '')          // 标题标记
       .replace(/\*\*([^*]+)\*\*/g, '$1')       // 粗体
