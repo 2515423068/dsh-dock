@@ -240,15 +240,51 @@ function gitProxyArgs() {
   return ['-c', `http.proxy=${proxy}`, '-c', `https.proxy=${proxy}`]
 }
 
+// GitHub API 匿名请求仅 60 次/小时/IP(共享代理出口极易耗尽,403 返回错误对象),
+// 失败时回退 git ls-remote(走镜像/代理,git 协议无配额)。
 async function fetchCatalogFromGithub() {
+  const errors = []
+  try {
+    return await fetchCatalogViaApi()
+  } catch (error) {
+    errors.push(`GitHub API: ${error}`)
+  }
+  try {
+    return await fetchCatalogViaLsRemote()
+  } catch (error) {
+    errors.push(`git ls-remote: ${error}`)
+  }
+  throw errors.join('; ')
+}
+
+async function fetchCatalogViaApi() {
   const proxy = readSettings().proxy?.trim()
   const args = ['-sS', '--max-time', '30', '-H', 'User-Agent: dsh-web']
   if (proxy) args.push('-x', proxy)
   args.push(HARNESS_API)
   const { stdout } = await execFileAsync('curl', args, { timeout: 40_000 })
-  const parsed = JSON.parse(stdout)
-  if (!Array.isArray(parsed)) throw 'GitHub API 返回异常'
+  let parsed
+  try {
+    parsed = JSON.parse(stdout)
+  } catch {
+    throw '响应不是 JSON'
+  }
+  if (!Array.isArray(parsed)) throw parsed?.message ? String(parsed.message) : '返回异常'
   return parsed.map((entry) => ({ name: entry.name, sha: entry.commit?.sha ?? null }))
+}
+
+async function fetchCatalogViaLsRemote() {
+  const args = ['ls-remote', '--tags', '--refs', ...gitProxyArgs(), gitCloneUrl()]
+  const { stdout } = await execFileAsync('git', args, { timeout: 60_000 })
+  const tags = stdout
+    .split('\n')
+    .map((line) => {
+      const [sha, ref] = line.split('\t')
+      return ref?.startsWith('refs/tags/') ? { name: ref.slice('refs/tags/'.length), sha: sha ?? null } : null
+    })
+    .filter(Boolean)
+  if (tags.length === 0) throw '未解析到任何 tag'
+  return tags.reverse() // ls-remote 按 ref 名升序输出,反转使最新在前
 }
 
 // ── 版本管理 ────────────────────────────────────────────────────────────────

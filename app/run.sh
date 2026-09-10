@@ -10,7 +10,13 @@
 PORT="${DSHWEB_PORT:-7940}"
 SELF="$(readlink -f "$0")"
 APP="$(cd "$(dirname "$SELF")" && pwd)"
-DATA="$(cd "$APP/.." && pwd)"
+# DATA_ROOT 解析优先级与服务端一致:env DSHBOX_DATA_ROOT → ~/.config/dshdock/config.json dataRoot → APP/..
+# 不对齐则 PID/日志路径与服务端实际写入位置错位,devrestart/stop 会找不到服务进程
+DATA="$DSHBOX_DATA_ROOT"
+if [ -z "$DATA" ]; then
+  DATA="$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.config/dshdock/config.json'))).get('dataRoot',''))" 2>/dev/null)"
+fi
+[ -z "$DATA" ] && DATA="$(cd "$APP/.." && pwd)"
 LOG="$DATA/logs/stdout.log"
 PID_FILE="$DATA/state/dshdock.pid"
 BASE_URL="http://127.0.0.1:$PORT"

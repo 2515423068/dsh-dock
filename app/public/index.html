@@ -929,11 +929,11 @@ async function renderCurrent() {
 }
 
 // ── 版本管理 ──
-async function renderVersions() {
+async function renderVersions(refresh = false) {
   const main = $('#main')
   main.innerHTML = '<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div><div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>'
   try {
-    const data = await api('/api/versions/catalog')
+    const data = await api('/api/versions/catalog' + (refresh ? '?refresh=1' : ''))
     const installedSet = new Set(data.installed)
     const rows = data.tags.map((tag) => {
       const installed = installedSet.has(tag.name)
@@ -964,7 +964,7 @@ async function renderVersions() {
   }
 }
 
-async function refreshCatalog() { await renderVersions() }
+async function refreshCatalog() { await renderVersions(true) }
 async function installVersion(tag) {
   try {
     await api('/api/versions/install', { method: 'POST', body: { tag } })
