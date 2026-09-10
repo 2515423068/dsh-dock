@@ -1,7 +1,8 @@
 /**
- * Versions card: the catalog as rows (tag + installed/remote-only state),
- * install with inline progress, delete with confirmation, and catalog
- * refresh. Feeds the containers card's version selects through the store.
+ * Versions card: the catalog as a WebUI-shaped table (version / status /
+ * activity / actions), install with inline progress, delete with
+ * confirmation, and catalog refresh. Feeds the containers card's version
+ * selects through the store.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -9,7 +10,7 @@ import { Button, IconDownloadOutline16, IconRefreshOutline16, IconTrashOutline16
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
-import { ConfirmDialog, ErrorNote, SectionCard, TaskInline } from './parts.tsx'
+import { ConfirmDialog, ErrorNote, SectionCard } from './parts.tsx'
 
 /** The versions card body; rendered only when the service side is usable. */
 export function VersionsCard({ t, store }: {
@@ -47,45 +48,61 @@ export function VersionsCard({ t, store }: {
       )}
       {rows.length === 0 && <p className={css.empty}>{t('versions.empty')}</p>}
       {cachedAt !== undefined && rows.length > 0 && <p className={css.footerNote}>{cachedAt}</p>}
-      <ul className={css.rows}>
-        {rows.map(row => {
-          const installing = store.pending('version-install', row.tag)
-          const task = store.taskFor('version-install', row.tag)
-          return (
-            <li key={row.tag} className={css.row}>
-              <div className={css.rowMain}>
-                <span className={css.rowTitle}>{row.tag}</span>
-                <span className={css.rowMeta}>{row.installed ? t('versions.installed') : t('versions.remote')}</span>
-              </div>
-              <div className={css.rowActions}>
-                {!row.installed && (
-                  <Button
-                    size="sm"
-                    icon={<IconDownloadOutline16 size={14} />}
-                    disabled={installing}
-                    onClick={() => { void store.installVersion(row.tag).catch(() => {}) }}
-                  >
-                    {installing ? t('versions.installing') : t('versions.install')}
-                  </Button>
-                )}
-                {row.installed && (
-                  <Button
-                    size="sm"
-                    icon={<IconTrashOutline16 size={14} />}
-                    disabled={store.isBusy(`versionDelete:${row.tag}`)}
-                    onClick={() => { setConfirmTag(row.tag) }}
-                  >
-                    {t('versions.delete')}
-                  </Button>
-                )}
-              </div>
-              {task !== undefined && (
-                <TaskInline task={task} runningLabel={t('versions.installing')} failedLabel={t('task.failed')} />
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      {rows.length > 0 && (
+        <table className={css.table}>
+          <thead>
+            <tr>
+              <th>{t('versions.version')}</th>
+              <th>{t('versions.state')}</th>
+              <th>{t('versions.dynamic')}</th>
+              <th className={css.cellRight}>{t('versions.action')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const installing = store.pending('version-install', row.tag)
+              const task = store.taskFor('version-install', row.tag)
+              const lastLine = task?.lines !== undefined && task.lines.length > 0
+                ? task.lines[task.lines.length - 1]
+                : undefined
+              return (
+                <tr key={row.tag}>
+                  <td><b>{row.tag}</b></td>
+                  <td>
+                    <span className={css.statusLabel} data-status={row.installed ? 'running' : 'stopped'}>
+                      {row.installed ? t('versions.installed') : t('versions.remote')}
+                    </span>
+                  </td>
+                  <td className={css.mutedCell}>{row.remote ? (lastLine ?? '') : t('versions.remoteExtra')}</td>
+                  <td className={css.cellRight}>
+                    {!row.installed && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        icon={<IconDownloadOutline16 size={14} />}
+                        disabled={installing}
+                        onClick={() => { void store.installVersion(row.tag).catch(() => {}) }}
+                      >
+                        {installing ? t('versions.installing') : t('versions.install')}
+                      </Button>
+                    )}
+                    {row.installed && (
+                      <Button
+                        size="sm"
+                        icon={<IconTrashOutline16 size={14} />}
+                        disabled={store.isBusy(`versionDelete:${row.tag}`)}
+                        onClick={() => { setConfirmTag(row.tag) }}
+                      >
+                        {t('versions.delete')}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
 
       <ConfirmDialog
         open={confirmTag !== undefined}

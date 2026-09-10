@@ -1,25 +1,29 @@
 /**
- * Containers card: the roster with status dots, self badge, and inline
- * actions; the new-container inline form; per-row task progress; and the
- * destructive confirmations (delete always, and the self-container strong
- * path for stop/update/delete with an acknowledge step).
+ * Containers card: one WebUI-shaped card per container (head with name and
+ * status pill; meta with the inline version select, port chip, profile and
+ * creation time; log path; url; flat actions plus the protect checkbox),
+ * the new-container inline form, per-row task progress, and the destructive
+ * confirmations (delete always, and the self-container strong path for
+ * stop/update/delete with an acknowledge step).
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Button, IconEllipsisOutline16, IconPlayOutline16, IconPlusOutline16, IconRightUpOutline16, IconStopFill16, Input, Menu,
+  Button, IconPlayOutline16, IconPlusOutline16, IconStopFill16, Input, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ContainerRow, DockTask } from './api.ts'
 import type { DockT } from './locales.ts'
+import { markProtectChoice } from './use-dock.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
-import { ConfirmDialog, ErrorNote, SectionCard, StatusDotFor, TaskInline } from './parts.tsx'
+import { ConfirmDialog, ErrorNote, SectionCard, TaskInline } from './parts.tsx'
 
 /** One pending destructive action awaiting confirmation. */
 type ConfirmAction =
   | { readonly kind: 'delete'; readonly row: ContainerRow }
   | { readonly kind: 'stop'; readonly row: ContainerRow }
   | { readonly kind: 'update'; readonly row: ContainerRow; readonly version: string }
+  | { readonly kind: 'port'; readonly row: ContainerRow; readonly port: number }
 
 /** Newest running (else failed) task across a row's kinds. */
 function rowTask(store: DockStore, row: ContainerRow): DockTask | undefined {
@@ -41,7 +45,6 @@ export function ContainersCard({ t, store }: {
   const [portFor, setPortFor] = useState<ContainerRow>()
   const [portValue, setPortValue] = useState('')
   const [portNote, setPortNote] = useState<string>()
-  const [menuFor, setMenuFor] = useState<string>()
   const [updateFor, setUpdateFor] = useState<ContainerRow>()
   const [updateVersion, setUpdateVersion] = useState('')
 
@@ -61,7 +64,18 @@ export function ContainersCard({ t, store }: {
 
   const submitPort = async (): Promise<void> => {
     if (portFor === undefined) return
-    const saved = await store.setPort(portFor.id, Number(portValue))
+    const port = Number(portValue)
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      setPortNote(t('containers.portPlaceholder'))
+      return
+    }
+    // Retargeting the self container's port takes effect on next start and
+    // invalidates the current bookmarked address: confirm it explicitly.
+    if (portFor.self) {
+      setConfirmAction({ kind: 'port', row: portFor, port })
+      return
+    }
+    const saved = await store.setPort(portFor.id, port)
     if (saved) {
       setPortFor(undefined)
       setPortValue('')
@@ -74,13 +88,23 @@ export function ContainersCard({ t, store }: {
     ? ''
     : confirmAction.kind === 'update'
       ? `${t('containers.update')} · ${confirmAction.row.name}`
-      : `${t('containers.delete')} · ${confirmAction.row.name}`
+      : confirmAction.kind === 'port'
+        ? `${t('containers.port')} · ${confirmAction.row.name}`
+        : confirmAction.kind === 'stop'
+          ? `${t('containers.stop')} · ${confirmAction.row.name}`
+          : `${t('containers.delete')} · ${confirmAction.row.name}`
   const confirmBody = confirmAction === undefined
     ? ''
     : confirmAction.kind === 'update'
       ? `${confirmAction.row.name} → ${confirmAction.version}`
-      : t('containers.deleteConfirm', { name: confirmAction.row.name })
-  const selfDanger = confirmAction !== undefined && confirmAction.row.self
+      : confirmAction.kind === 'port'
+        ? t('containers.portSelfConfirm', { name: confirmAction.row.name, port: String(confirmAction.port) })
+        : confirmAction.kind === 'stop' && confirmAction.row.self
+          ? t('containers.selfDanger')
+          : t('containers.deleteConfirm', { name: confirmAction.row.name })
+  const selfDanger = confirmAction !== undefined
+    && confirmAction.kind !== 'port'
+    && confirmAction.row.self
 
   return (
     <SectionCard
@@ -108,80 +132,116 @@ export function ContainersCard({ t, store }: {
       )}
       {store.containers.length === 0 && <p className={css.empty}>{t('containers.empty')}</p>}
       <ul className={css.rows}>
-        {store.containers.map(row => {
+        {[...store.containers].sort((a, b) => Number(b.self) - Number(a.self)).map(row => {
           const task = rowTask(store, row)
           const rowBusy = store.pending('container-create', row.id)
             || store.pending('container-start', row.id)
             || store.pending('container-update', row.id)
             || store.isBusy(`stop:${row.id}`) || store.isBusy(`delete:${row.id}`)
-          const stoppable = row.status === 'running' || row.status === 'starting'
-          const startable = row.status === 'stopped' || row.status === 'failed'
+          const creatingOrUpdating = store.pending('container-create', row.id)
+            || store.pending('container-update', row.id)
           return (
             <li key={row.id} className={css.row}>
-              <div className={css.rowMain}>
-                <StatusDotFor status={row.status} />
-                <span className={css.rowTitle}>{row.name}</span>
+              <div className={css.rowHead}>
+                <span className={css.rowTitle}>{row.name}{row.devProtect === true ? ' 🛡' : ''}</span>
                 {row.self && <span className={css.selfBadge}>{t('containers.self')}</span>}
-                <span className={css.rowMeta}>
-                  {row.version ?? ''}
-                  {row.profile !== undefined && ` · ${row.profile}`}
-                  {row.port !== undefined && ` · ${String(row.port)}`}
-                </span>
-                <span className={css.statusLabel}>{t(`containers.status.${row.status}`)}</span>
+                <span className={css.statusLabel} data-status={row.status}>{t(`containers.status.${row.status}`)}</span>
               </div>
-              <div className={css.rowActions}>
-                {row.url !== undefined && (
-                  <a className={css.link} href={row.url} target="_blank" rel="noreferrer">
-                    {t('containers.open')} <IconRightUpOutline16 size={12} />
-                  </a>
-                )}
-                {startable && (
-                  <Button size="sm" icon={<IconPlayOutline16 size={14} />} disabled={rowBusy} onClick={() => { void store.startContainer(row.id).catch(() => {}) }}>
-                    {t('containers.start')}
-                  </Button>
-                )}
-                {stoppable && (
-                  <Button
-                    size="sm"
-                    icon={<IconStopFill16 size={14} />}
-                    disabled={rowBusy}
-                    onClick={() => { if (row.self) setConfirmAction({ kind: 'stop', row }); else void store.stopContainer(row.id).catch(() => {}) }}
-                  >
-                    {t('containers.stop')}
-                  </Button>
-                )}
-                <Menu
-                  open={menuFor === row.id}
-                  anchor={(
-                    <Button size="sm" aria-label={t('more')} onClick={() => { setMenuFor(value => value === row.id ? undefined : row.id) }}>
-                      <IconEllipsisOutline16 size={14} />
-                    </Button>
-                  )}
-                  items={[
-                    { id: 'update', label: t('containers.update') },
-                    { id: 'port', label: t('containers.port') },
-                    { id: 'protect', label: row.devProtect === true ? t('containers.protectOn') : t('containers.protectOff') },
-                    { id: 'delete', label: t('containers.delete'), danger: true },
-                  ]}
-                  onSelect={(id) => {
-                    setMenuFor(undefined)
-                    if (id === 'update') {
-                      setUpdateFor(row)
-                      setUpdateVersion('')
-                    } else if (id === 'port') {
-                      setPortFor(row)
-                      setPortValue(row.port !== undefined ? String(row.port) : '')
-                      setPortNote(undefined)
-                    } else if (id === 'protect') {
-                      void store.setProtect(row.id, row.devProtect !== true)
-                    } else if (id === 'delete') {
-                      setConfirmAction({ kind: 'delete', row })
-                    }
+              <div className={css.rowMeta}>
+                <select
+                  className={css.verSelect}
+                  value={row.version ?? ''}
+                  disabled={rowBusy}
+                  aria-label={t('containers.versionLabel')}
+                  onChange={event => {
+                    const next = event.target.value
+                    if (next.length === 0 || next === row.version) return
+                    setUpdateFor(row)
+                    setUpdateVersion(next)
                   }}
-                  onClose={() => { setMenuFor(undefined) }}
-                  align="end"
-                  compact
-                />
+                >
+                  {row.version === undefined && <option value="">—</option>}
+                  {[...new Set([...installedVersions, ...(row.version === undefined ? [] : [row.version])])].map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+                {' · '}
+                <Pill
+                  onClick={() => {
+                    setPortFor(row)
+                    setPortValue(row.port !== undefined ? String(row.port) : '')
+                    setPortNote(undefined)
+                  }}
+                >
+                  {row.port !== undefined ? t('containers.portChip', { port: String(row.port) }) : t('containers.portUnset')}
+                </Pill>
+                {` · profile ${row.profile ?? ''} · ${t('containers.createdAt', { time: row.createdAt !== undefined ? new Date(row.createdAt * 1000).toLocaleString() : '-' })}`}
+              </div>
+              <div className={css.logPath}>{t('containers.logPath')} {row.logPath ?? `DSHDock_Data/containers/${row.id}/logs/host.log`}</div>
+              {row.url !== undefined && (
+                <div className={css.rowUrl}>
+                  <a className={css.link} href={row.url} target="_blank" rel="noreferrer">
+                    {row.url}
+                  </a>
+                </div>
+              )}
+              <div className={css.rowActions}>
+                {creatingOrUpdating
+                  ? (
+                    <Button size="sm" disabled>
+                      {store.pending('container-create', row.id) ? t('containers.creating') : t('containers.updating')}
+                    </Button>
+                    )
+                  : row.status === 'running'
+                    ? (
+                      <>
+                        {row.url !== undefined && (
+                          <Button size="sm" variant="primary" onClick={() => { window.open(row.url, '_blank', 'noopener,noreferrer') }}>
+                            {t('containers.open')}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          icon={<IconStopFill16 size={14} />}
+                          disabled={store.isBusy(`stop:${row.id}`)}
+                          onClick={() => { if (row.self) setConfirmAction({ kind: 'stop', row }); else void store.stopContainer(row.id).catch(() => {}) }}
+                        >
+                          {t('containers.stop')}
+                        </Button>
+                      </>
+                      )
+                    : row.status === 'starting'
+                      ? <Button size="sm" disabled>{t('containers.starting')}</Button>
+                      : (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          icon={<IconPlayOutline16 size={14} />}
+                          disabled={store.isBusy(`start:${row.id}`)}
+                          onClick={() => { void store.startContainer(row.id).catch(() => {}) }}
+                        >
+                          {t('containers.start')}
+                        </Button>
+                        )}
+                <Button
+                  size="sm"
+                  disabled={store.isBusy(`delete:${row.id}`)}
+                  onClick={() => { setConfirmAction({ kind: 'delete', row }) }}
+                >
+                  {t('containers.delete')}
+                </Button>
+                <label className={css.checkboxRow} title={t('containers.protectHint')}>
+                  <input
+                    type="checkbox"
+                    checked={row.devProtect === true}
+                    disabled={store.isBusy(`protect:${row.id}`)}
+                    onChange={() => {
+                      if (row.self) markProtectChoice(row.id)
+                      void store.setProtect(row.id, row.devProtect !== true)
+                    }}
+                  />
+                  <span>{t('containers.protect')}</span>
+                </label>
               </div>
               {task !== undefined && (
                 <TaskInline
@@ -247,7 +307,7 @@ export function ContainersCard({ t, store }: {
         open={confirmAction !== undefined}
         title={confirmTitle}
         body={confirmBody}
-        confirmLabel={confirmAction?.kind === 'stop' ? t('containers.stop') : confirmAction?.kind === 'update' ? t('containers.confirm') : t('containers.delete')}
+        confirmLabel={confirmAction?.kind === 'stop' ? t('containers.stop') : confirmAction?.kind === 'delete' ? t('containers.delete') : t('containers.confirm')}
         cancelLabel={t('cancel')}
         danger
         acknowledgeLabel={selfDanger ? t('containers.selfAcknowledge') : undefined}
@@ -258,6 +318,20 @@ export function ContainersCard({ t, store }: {
           if (action === undefined) return
           if (action.kind === 'stop') void store.stopContainer(action.row.id, true).catch(() => {})
           else if (action.kind === 'update') void store.updateContainer(action.row.id, action.version, true).catch(() => {})
+          else if (action.kind === 'port') {
+            const target = action.row
+            const port = action.port
+            void (async () => {
+              const saved = await store.setPort(target.id, port)
+              if (saved) {
+                setPortFor(undefined)
+                setPortValue('')
+                setPortNote(undefined)
+              } else {
+                setPortNote(t('error.operationFailed'))
+              }
+            })()
+          }
           else void store.deleteContainer(action.row.id, action.row.self).catch(() => {})
         }}
         onClose={() => { setConfirmAction(undefined) }}

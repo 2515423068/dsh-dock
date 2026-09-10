@@ -2,14 +2,12 @@
  * The `/dshdock-plugins` page channel (design §3.7): the browser half of the
  * "DSH Dock" settings section talks to this handler over the generic
  * connection RPC channel (browser-trust fence applied by the connection
- * layer). Plugin management works directly on the profile (works on an
- * independent DSH); container/version/settings operations proxy an
+ * layer). Container/version/settings/template operations proxy an
  * allowlisted subset of the DSH Dock REST service verbatim, so the server's
  * own gates (busy / devProtect / port pool) stay authoritative.
  */
 import { probeService } from './env.js'
 import { DockError, errorFacts } from './http.js'
-import { installPlugin, listPlugins, setPluginEnabled, uninstallPlugin } from './plugins.js'
 import { readPatchText, setEntryConfig, writePatchText } from './patch.js'
 
 const BRIDGE_ROW_ID = 'dshdock-bridge'
@@ -19,6 +17,7 @@ const REST_ALLOWLIST = [
   '/api/containers',
   '/api/versions',
   '/api/settings',
+  '/api/profile-template',
   '/api/tasks',
 ]
 
@@ -94,21 +93,6 @@ export function createPageHandler({ request, baseUrl, profileDir, selfId }) {
           }
           writePatchText(profileDir, result.text)
           return ok({ baseUrl: next, reloaded: true })
-        }
-        case 'list': {
-          return ok(listPlugins(profileDir))
-        }
-        case 'install': {
-          return ok(await installPlugin(profileDir, body.spec, signal))
-        }
-        case 'uninstall': {
-          return ok(await uninstallPlugin(profileDir, String(body.name ?? ''), signal))
-        }
-        case 'enable': {
-          return ok(setPluginEnabled(profileDir, String(body.name ?? ''), true))
-        }
-        case 'disable': {
-          return ok(setPluginEnabled(profileDir, String(body.name ?? ''), false))
         }
         default:
           return fail({ code: 'not-found', message: `未知端点: ${endpoint}`, details: {} })

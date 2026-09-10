@@ -1,17 +1,20 @@
 /**
- * Settings card: DSH Dock service settings (network, port pool, auto-open)
- * plus the bridge's own service address (baseUrl). When the service is
- * unreachable the DSH-Dock fields degrade into the guide; the baseUrl field
- * stays usable because it lives in the plugin's activation row.
+ * Settings card: mirrors the DSH Dock WebUI settings page — the network
+ * group (proxy / mirrors / registry with shortcut chips, two-box port pool,
+ * auto-open switch with hints, scope note, bottom save button) plus the
+ * new-container initial-config template group. The bridge's own service
+ * address (baseUrl) stays as a third group because it lives in the plugin's
+ * activation row. When the service is unreachable the DSH-Dock groups
+ * degrade away; the baseUrl group stays usable.
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconQuestionOutline14, Input, Pill, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DockSettings } from './api.ts'
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
-import { ErrorNote, SectionCard } from './parts.tsx'
+import { ConfirmDialog, ErrorNote, SectionCard } from './parts.tsx'
 
 const EMPTY: DockSettings = {
   proxy: '',
@@ -21,18 +24,57 @@ const EMPTY: DockSettings = {
   autoOpenUiOnStart: true,
 }
 
+/** Same shortcut chips the WebUI offers under the mirror fields. */
+const GH_PRESETS = [
+  { label: 'gh-proxy.com', value: 'https://gh-proxy.com' },
+  { label: 'ghfast.top', value: 'https://ghfast.top' },
+  { label: 'hk.gh-proxy.com', value: 'https://hk.gh-proxy.com' },
+]
+const NPM_PRESETS = [
+  { label: 'npmmirror', value: 'https://registry.npmmirror.com' },
+  { label: '腾讯云', value: 'https://mirrors.cloud.tencent.com/npm' },
+  { label: '华为云', value: 'https://mirrors.huaweicloud.com/repository/npm' },
+  { label: 'npm 官方', value: 'https://registry.npmjs.org' },
+]
+
+/** Split a stored `start-end` range into its two boxes. */
+function splitRange(raw: string): [string, string] {
+  const match = raw.match(/^\s*([^-]*?)\s*(?:-\s*([^-]*?))?\s*$/)
+  return [(match?.[1] ?? '').trim(), (match?.[2] ?? '').trim()]
+}
+
+/** Inline `?` hint: the label stays clean, the explanation rides a tooltip. */
+function Hint({ text }: { text: string }): ReactNode {
+  return (
+    <Tooltip label={text} side="right" maxWidth={320}>
+      <span className={css.hintIcon} tabIndex={0} role="img" aria-label={text}>
+        <IconQuestionOutline14 size={12} />
+      </span>
+    </Tooltip>
+  )
+}
+
 /** The settings card body. */
 export function SettingsCard({ t, store }: {
   t: DockT
   store: DockStore
 }): ReactNode {
   const [draft, setDraft] = useState<DockSettings>(EMPTY)
+  const [portStart, setPortStart] = useState('')
+  const [portEnd, setPortEnd] = useState('')
+  const [tplSource, setTplSource] = useState('')
+  const [tplConfirmClear, setTplConfirmClear] = useState(false)
   const [baseUrl, setBaseUrlField] = useState('')
   const [savedNote, setSavedNote] = useState<string>()
-  const opError = store.opErrorFor(['settings', 'baseUrl'])
+  const opError = store.opErrorFor(['settings', 'baseUrl', 'template'])
 
   useEffect(() => {
-    if (store.settings !== undefined) setDraft(store.settings)
+    if (store.settings !== undefined) {
+      setDraft(store.settings)
+      const [start, end] = splitRange(store.settings.containerPortRange)
+      setPortStart(start)
+      setPortEnd(end)
+    }
   }, [store.settings])
   useEffect(() => {
     if (store.status !== undefined) setBaseUrlField(store.status.baseUrl)
@@ -44,6 +86,19 @@ export function SettingsCard({ t, store }: {
     || draft.npmRegistry !== store.settings.npmRegistry
     || draft.containerPortRange !== store.settings.containerPortRange
     || draft.autoOpenUiOnStart !== store.settings.autoOpenUiOnStart)
+
+  const setRange = (start: string, end: string): void => {
+    setPortStart(start)
+    setPortEnd(end)
+    const trimmedStart = start.trim()
+    const trimmedEnd = end.trim()
+    setDraft(previous => ({
+      ...previous,
+      containerPortRange: trimmedStart.length === 0 && trimmedEnd.length === 0
+        ? ''
+        : `${trimmedStart}-${trimmedEnd}`,
+    }))
+  }
 
   const save = async (): Promise<void> => {
     setSavedNote(undefined)
@@ -57,27 +112,34 @@ export function SettingsCard({ t, store }: {
     setSavedNote(saved ? t('status.baseUrlSaved') : t('error.operationFailed'))
   }
 
-  const field = (key: 'proxy' | 'githubMirror' | 'npmRegistry' | 'containerPortRange', label: string): ReactNode => (
-    <div className={css.formRow}>
-      <span className={css.formLabel}>{label}</span>
-      <Input value={draft[key]} onChange={event => { setDraft({ ...draft, [key]: event.target.value }) }} />
-    </div>
+  const capture = async (containerId: string): Promise<void> => {
+    setSavedNote(undefined)
+    const saved = await store.captureTemplate(containerId)
+    setSavedNote(saved ? t('settings.saved') : t('error.operationFailed'))
+  }
+
+  const clear = async (): Promise<void> => {
+    setTplConfirmClear(false)
+    setSavedNote(undefined)
+    const saved = await store.clearTemplate()
+    setSavedNote(saved ? t('settings.saved') : t('error.operationFailed'))
+  }
+
+  const chip = (label: string, apply: () => void): ReactNode => (
+    <Pill key={label} onClick={apply}>{label}</Pill>
   )
 
+  const effectiveSource = tplSource !== '' ? tplSource : (store.containers[0]?.id ?? '')
+  const tpl = store.template
+
   return (
-    <SectionCard
-      title={t('settings.title')}
-      actions={store.serviceUp && (dirty || savedNote !== undefined)
-        ? (
-          <Button size="sm" variant="primary" disabled={store.isBusy('settings')} onClick={() => { void save() }}>
-            {store.isBusy('settings') ? t('settings.saving') : t('settings.save')}
-          </Button>
-        )
-        : undefined}
-    >
+    <SectionCard title={t('settings.title')}>
       <p className={css.intro}>{t('settings.intro')}</p>
       {store.settingsError !== undefined && (
         <ErrorNote title={store.settingsError.title} detail={store.settingsError.detail} />
+      )}
+      {store.templateError !== undefined && (
+        <ErrorNote title={store.templateError.title} detail={store.templateError.detail} />
       )}
       {opError !== undefined && (
         <ErrorNote title={opError.title} detail={opError.detail} output={opError.output} />
@@ -85,13 +147,74 @@ export function SettingsCard({ t, store }: {
       {savedNote !== undefined && <p className={css.footerNote}>{savedNote}</p>}
 
       {store.serviceUp && (
-        <div className={css.formGrid}>
-          {field('proxy', t('settings.proxy'))}
-          {field('githubMirror', t('settings.githubMirror'))}
-          {field('npmRegistry', t('settings.npmRegistry'))}
-          {field('containerPortRange', t('settings.portRange'))}
-          <div className={css.formRow}>
-            <span className={css.formLabel}>{t('settings.autoOpen')}</span>
+        <>
+          <h4 className={css.subTitle}>{t('settings.network')} <Hint text={t('settings.scopeNote')} /></h4>
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.proxy')}</span>
+            <Input
+              className={css.grow}
+              value={draft.proxy}
+              onChange={event => { setDraft({ ...draft, proxy: event.target.value }) }}
+            />
+          </div>
+          <div className={css.rowLine}>
+            <span className={css.labelCol} />
+            <div className={css.chipRow}>
+              {chip(t('settings.clear'), () => { setDraft({ ...draft, proxy: '' }) })}
+            </div>
+          </div>
+
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.githubMirror')}</span>
+            <Input
+              className={css.grow}
+              value={draft.githubMirror}
+              onChange={event => { setDraft({ ...draft, githubMirror: event.target.value }) }}
+            />
+          </div>
+          <div className={css.rowLine}>
+            <span className={css.labelCol} />
+            <div className={css.chipRow}>
+              {GH_PRESETS.map(preset => chip(preset.label, () => { setDraft({ ...draft, githubMirror: preset.value }) }))}
+            </div>
+          </div>
+
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.npmRegistry')}</span>
+            <Input
+              className={css.grow}
+              value={draft.npmRegistry}
+              onChange={event => { setDraft({ ...draft, npmRegistry: event.target.value }) }}
+            />
+          </div>
+          <div className={css.rowLine}>
+            <span className={css.labelCol} />
+            <div className={css.chipRow}>
+              {NPM_PRESETS.map(preset => chip(preset.label, () => { setDraft({ ...draft, npmRegistry: preset.value }) }))}
+            </div>
+          </div>
+
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.portRange')} <Hint text={t('settings.portRangeHint')} /></span>
+            <Input
+              className={css.rangeInput}
+              value={portStart}
+              inputMode="numeric"
+              placeholder={t('settings.portRangeStart')}
+              onChange={event => { setRange(event.target.value, portEnd) }}
+            />
+            <span aria-hidden="true">-</span>
+            <Input
+              className={css.rangeInput}
+              value={portEnd}
+              inputMode="numeric"
+              placeholder={t('settings.portRangeEnd')}
+              onChange={event => { setRange(portStart, event.target.value) }}
+            />
+          </div>
+
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.autoOpen')} <Hint text={t('settings.autoOpenHint')} /></span>
             <label className={css.checkboxRow}>
               <input
                 type="checkbox"
@@ -100,12 +223,62 @@ export function SettingsCard({ t, store }: {
               />
             </label>
           </div>
-        </div>
+
+          <div className={css.saveRow}>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!dirty || store.isBusy('settings')}
+              onClick={() => { void save() }}
+            >
+              {store.isBusy('settings') ? t('settings.saving') : t('settings.save')}
+            </Button>
+          </div>
+
+          <h4 className={css.subTitle}>{t('settings.template')}</h4>
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.templateLabel')} <Hint text={t('settings.templateHint')} /></span>
+            {tpl !== undefined && tpl.exists
+              ? (
+                <Pill>
+                  {t('settings.templateCaptured', {
+                    source: tpl.source ?? '?',
+                    sections: String(tpl.sections?.length ?? 0),
+                    keys: (tpl.refKeys !== undefined && tpl.refKeys.length > 0)
+                      ? tpl.refKeys.join(' / ')
+                      : t('settings.templateNoKeys'),
+                  })}
+                </Pill>
+                )
+              : <span className={css.mutedCell}>{t('settings.templateNone')}</span>}
+            <select
+              className={css.verSelect}
+              value={effectiveSource}
+              onChange={event => { setTplSource(event.target.value) }}
+            >
+              {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
+              {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+            </select>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={effectiveSource.length === 0 || store.isBusy('template')}
+              onClick={() => { void capture(effectiveSource) }}
+            >
+              {t('settings.templateImport')}
+            </Button>
+            {tpl !== undefined && tpl.exists && (
+              <Button size="sm" onClick={() => { setTplConfirmClear(true) }}>
+                {t('settings.templateClear')}
+              </Button>
+            )}
+          </div>
+        </>
       )}
 
       <div className={css.formGrid}>
         <div className={css.formRow}>
-          <span className={css.formLabel}>{t('settings.baseUrl')}</span>
+          <span className={css.formLabel}>{t('settings.baseUrl')} <Hint text={t('settings.baseUrlNote')} /></span>
           <div className={css.baseUrlRow}>
             <Input
               className={css.grow}
@@ -122,9 +295,20 @@ export function SettingsCard({ t, store }: {
               {t('status.baseUrlSave')}
             </Button>
           </div>
-          <p className={css.formHint}>{t('settings.baseUrlNote')}</p>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={tplConfirmClear}
+        title={t('settings.templateClear')}
+        body={t('settings.templateClearConfirm')}
+        confirmLabel={t('settings.templateClear')}
+        cancelLabel={t('cancel')}
+        danger
+        busy={store.isBusy('template')}
+        onConfirm={() => { void clear() }}
+        onClose={() => { setTplConfirmClear(false) }}
+      />
     </SectionCard>
   )
 }

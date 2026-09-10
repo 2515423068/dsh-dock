@@ -38,7 +38,7 @@ export function apply(ctx: ClientContext): void {
   if (connection === undefined) return
 
   const call = async <T,>(endpoint: string, payload?: unknown): Promise<T> => {
-    const result = await connection.rpc.call('/dshdock-plugins', endpoint, payload, undefined)
+    const result = await connection.rpc.call('/dshdock-plugins', endpoint, payload ?? null, undefined)
     if (result.ok) return result.value as T
     throw new Error(result.error.message)
   }

@@ -43,6 +43,8 @@ export interface ContainerRow {
   readonly status: 'running' | 'starting' | 'stopped' | 'failed'
   readonly url?: string
   readonly createdAt?: number
+  /** Host log file path, as reported by the service (WebUI `logpath` line). */
+  readonly logPath?: string
   readonly self: boolean
 }
 
@@ -50,6 +52,8 @@ export interface ContainerRow {
 export interface VersionRow {
   readonly tag: string
   readonly installed: boolean
+  /** False for installed versions missing from the remote catalog (WebUI extra rows). */
+  readonly remote: boolean
 }
 
 /** `GET /api/versions/catalog` projection. */
@@ -67,25 +71,6 @@ export interface RawVersionCatalog {
   readonly installed?: readonly string[]
 }
 
-/** One profile extension plugin. */
-export interface PluginRow {
-  readonly name: string
-  readonly version?: string
-  readonly spec?: string
-  readonly kind: 'file' | 'link' | 'registry' | 'none'
-  readonly installed: boolean
-  readonly active: boolean
-  readonly disabled: boolean
-  readonly self: boolean
-}
-
-/** `list` answer for the plugins card. */
-export interface PluginList {
-  readonly ok: boolean
-  readonly recognized?: boolean
-  readonly plugins: readonly PluginRow[]
-}
-
 /** DSH Dock service settings (`GET/POST /api/settings`). */
 export interface DockSettings {
   readonly proxy: string
@@ -93,6 +78,15 @@ export interface DockSettings {
   readonly npmRegistry: string
   readonly containerPortRange: string
   readonly autoOpenUiOnStart: boolean
+}
+
+/** New-container initial-config template (`GET/POST/DELETE /api/profile-template`). */
+export interface ProfileTemplate {
+  readonly exists: boolean
+  readonly capturedAt?: number | null
+  readonly source?: string | null
+  readonly sections?: readonly string[]
+  readonly refKeys?: readonly string[]
 }
 
 /** One DSH Dock background task (tool and page share this projection). */
@@ -106,16 +100,6 @@ export interface DockTask {
   readonly startedAt?: number
   readonly finishedAt?: number
   readonly lines?: readonly string[]
-}
-
-/** Payload shape returned by the plugin-operation endpoints. */
-export interface PluginOpAnswer {
-  readonly ok: boolean
-  readonly error?: string
-  readonly hint?: string
-  readonly output?: readonly string[]
-  readonly plugins?: readonly PluginRow[]
-  readonly recognized?: boolean
 }
 
 /** Renderable operation failure carried by answers that are not exceptions. */

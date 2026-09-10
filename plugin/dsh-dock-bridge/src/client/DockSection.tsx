@@ -1,9 +1,7 @@
 /**
- * The "DSH Dock" top-level settings section: environment banner plus four
- * cards (containers / versions / plugins / settings). When the service is
- * unreachable or this DSH is independent, the service-backed cards degrade
- * into the guide (installation steps + service-address field) while the
- * plugins card keeps working — it never touches the service.
+ * The "DSH Dock" top-level settings section: environment banner plus three
+ * cards (containers / versions / settings). When the service is unreachable
+ * or this DSH is independent, service-backed cards degrade into the guide.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -11,7 +9,6 @@ import { Button, IconWarningOutline16, Input } from '@deepseek-ai/dsh-client-ui-
 import type { PropsLocale, PropsRuntime, InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DockT } from './locales.ts'
 import { ContainersCard } from './ContainersCard.tsx'
-import { PluginsCard } from './PluginsCard.tsx'
 import { SettingsCard } from './SettingsCard.tsx'
 import { VersionsCard } from './VersionsCard.tsx'
 import css from './DockSection.module.css'
@@ -35,6 +32,7 @@ export type DockSectionProps =
 export function DockSection(props: DockSectionProps): ReactNode {
   const { call, t } = props
   const store = useDock(call)
+  const [activeTab, setActiveTab] = useState<'containers' | 'versions' | 'settings'>('containers')
   const status = store.status
   const usable = store.serviceUp && status !== undefined
   const degradeHint = store.bound ? t('status.serviceDownHint') : t('status.independentHint')
@@ -65,16 +63,32 @@ export function DockSection(props: DockSectionProps): ReactNode {
           {store.bound ? t('status.bound') : t('status.notBound')}
         </p>
       )}
-      {usable
-        ? <ContainersCard t={t} store={store} />
-        : <DegradedCard title={t('containers.title')} hint={degradeHint} />}
-      {usable
-        ? <VersionsCard t={t} store={store} />
-        : <DegradedCard title={t('versions.title')} hint={degradeHint} />}
-      <PluginsCard t={t} store={store} />
-      {usable
-        ? <SettingsCard t={t} store={store} />
-        : <DegradedCard title={t('settings.title')} hint={degradeHint} />}
+      <div className={css.tabs} role="tablist" aria-label={t('title')}>
+        {(['containers', 'versions', 'settings'] as const).map(tab => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            className={css.tab}
+            data-active={activeTab === tab ? 'true' : undefined}
+            aria-selected={activeTab === tab}
+            onClick={() => { setActiveTab(tab) }}
+          >
+            {t(`${tab}.title`)}
+          </button>
+        ))}
+      </div>
+      <div className={css.tabPanel} role="tabpanel">
+        {activeTab === 'containers' && (usable
+          ? <ContainersCard t={t} store={store} />
+          : <DegradedCard title={t('containers.title')} hint={degradeHint} />)}
+        {activeTab === 'versions' && (usable
+          ? <VersionsCard t={t} store={store} />
+          : <DegradedCard title={t('versions.title')} hint={degradeHint} />)}
+        {activeTab === 'settings' && (usable
+          ? <SettingsCard t={t} store={store} />
+          : <DegradedCard title={t('settings.title')} hint={degradeHint} />)}
+      </div>
     </div>
   )
 }

@@ -539,6 +539,30 @@ pre.log {
 .port-edit { cursor: pointer; }
 .port-edit:hover { color: var(--dsw-label-primary); background: var(--dsw-chip-hover); }
 
+/* ── 行内提示气泡(hover/focus 显示,内容写在 .tip-bubble 里)── */
+.tip { position: relative; display: inline-block; cursor: help; }
+.tip .tip-bubble {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 300px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--dsw-contrast-fill);
+  color: var(--dsw-contrast-label);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  white-space: normal;
+  word-break: break-word;
+  z-index: 60;
+  box-shadow: 0 0 1px 0 rgba(0, 0, 0, 0.2), 0 12px 32px 0 rgba(0, 0, 0, 0.08);
+}
+.tip:hover .tip-bubble, .tip:focus-visible .tip-bubble { display: block; }
+
 /* ── 镜像快捷 chip ── */
 .chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .chip {
@@ -1132,6 +1156,15 @@ function chipRow(inputId, presets) {
     `<span class="chip" onclick="document.getElementById('${inputId}').value='${p.value}'">${escapeHtml(p.label)}</span>`
   ).join('')}</span>`
 }
+// 容器端口池:起止拆分/合并(服务端只存 `start-end` 字符串)
+function portRangeSplit(raw) {
+  const m = String(raw ?? '41800-41899').match(/^\s*([^-]*?)\s*(?:-\s*([^-]*?))?\s*$/)
+  return [(m?.[1] ?? '').trim(), (m?.[2] ?? '').trim()]
+}
+function joinPortRange(start, end) {
+  const s = String(start ?? '').trim(), e = String(end ?? '').trim()
+  return s === '' && e === '' ? '' : `${s}-${e}`
+}
 
 async function renderSettings() {
   const settings = await api('/api/settings')
@@ -1149,7 +1182,7 @@ async function renderSettings() {
       </div>
       <p class="muted" style="margin-top:10px">偏好保存在本浏览器(localStorage);跟随系统时随操作系统的深色模式自动切换,与容器的 DSH 会话设置互不影响。</p>
     </div>
-    <div class="panel"><h2>网络</h2>
+    <div class="panel"><h2>网络 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">作用范围:HTTP 代理 → GitHub API(版本目录);GitHub 镜像 → git 克隆(设置后克隆走镜像、不再用代理);npm 镜像源 → pnpm 在线装依赖。DSH host 进程始终运行在无代理环境(避免回环自检被代理劫持),不受以上配置影响。镜像快捷项已实测可用,失效时可手动填入其他前缀式镜像。</span></span></h2>
       <div class="row" style="margin-bottom:6px">
         <span style="width:120px" class="muted">HTTP 代理</span>
         <input id="s-proxy" placeholder="例如 http://127.0.0.1:7897(留空 = 直连)" style="width:330px" value="${escapeHtml(settings.proxy ?? '')}">
@@ -1169,32 +1202,26 @@ async function renderSettings() {
       <div class="row" style="margin-bottom:12px"><span style="width:120px"></span>${chipRow('s-registry', NPM_REGISTRY_PRESETS)}</div>
 
       <div class="row" style="margin-bottom:6px">
-        <span style="width:120px" class="muted">容器端口池</span>
-        <input id="s-portrange" placeholder="41800-41899" style="width:330px" value="${escapeHtml(settings.containerPortRange ?? '41800-41899')}">
+        <span style="width:120px" class="muted">容器端口池 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">容器创建时从此范围分配固定端口并持久化(每次启动不变;被其他进程占用则启动报错)</span></span></span>
+        <input id="s-portrange-start" placeholder="起始端口 41800" inputmode="numeric" style="width:150px" value="${escapeHtml(portRangeSplit(settings.containerPortRange)[0])}">
+        <span class="muted">-</span>
+        <input id="s-portrange-end" placeholder="结束端口 41899" inputmode="numeric" style="width:150px" value="${escapeHtml(portRangeSplit(settings.containerPortRange)[1])}">
       </div>
-      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">容器创建时从此范围分配固定端口并持久化(每次启动不变;被其他进程占用则启动报错)</span></div>
-
       <div class="row" style="margin-bottom:6px">
-        <span style="width:120px" class="muted">启动后打开 UI</span>
+        <span style="width:120px" class="muted">启动后打开 UI <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">点击「启动」后就绪时自动打开该容器的 DSH WebUI(由 DSH 上游弹出,带 token);关闭则不弹,自行点卡片上的链接</span></span></span>
         <label class="switch" style="margin-top:5px"><input type="checkbox" id="s-autoopen" ${settings.autoOpenUiOnStart === false ? '' : 'checked'}><span class="slider"></span></label>
       </div>
-      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">点击「启动」后就绪时自动打开该容器的 DSH WebUI(由 DSH 上游弹出,带 token);关闭则不弹,自行点卡片上的链接</span></div>
-
-      <p class="muted" style="margin-top:4px;line-height:1.7">
-        作用范围:<b>HTTP 代理</b> → GitHub API(版本目录);<b>GitHub 镜像</b> → git 克隆(设置后克隆走镜像、不再用代理);<b>npm 镜像源</b> → pnpm 在线装依赖。<br>
-        DSH host 进程始终运行在无代理环境(避免回环自检被代理劫持),不受以上配置影响。镜像快捷项已实测可用,失效时可手动填入其他前缀式镜像。
-      </p>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
     </div>
     <div class="panel"><h2>新容器初始配置</h2>
       <div class="row" style="margin-bottom:6px;flex-wrap:wrap">
-        <span style="width:120px" class="muted">配置模板</span>
+        <span style="width:120px" class="muted">配置模板 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">从已配置好的容器捕获配置(测试版公告已确认 / provider 定义 / 默认模型)与 API Key(凭据 refs,仅存本地 0600 文件,接口只回显键名不回显值);新建容器自动注入,首次打开不再出现「测试版公告」和「API Key 录入」弹窗。重复导入即更新模板;模板不随源容器后续改动自动更新。</span></span></span>
         ${tpl.exists ? `<span class="chip" title="捕获于 ${tpl.capturedAt ? new Date(tpl.capturedAt * 1000).toLocaleString('zh-CN') : '-'}">已捕获: ${escapeHtml(tpl.source ?? '?')} · ${tpl.sections.length} 段 · API Key ${tpl.refKeys.length ? escapeHtml(tpl.refKeys.join(' / ')) : '无'}</span>
         <button onclick="clearProfileTemplate()">清除</button>` : '<span class="muted">未捕获</span>'}
         <select id="s-tplsrc" style="width:170px">${(containers ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">(无容器)</option>'}</select>
         <button class="primary" onclick="captureProfileTemplate()">从容器导入</button>
       </div>
-      <div class="row" style="margin-bottom:12px"><span style="width:120px"></span><span class="muted">从已配置好的容器捕获配置(测试版公告已确认 / provider 定义 / 默认模型)与 API Key(凭据 refs,仅存本地 0600 文件,接口只回显键名不回显值);新建容器自动注入,首次打开不再出现「测试版公告」和「API Key 录入」弹窗。重复导入即更新模板;模板不随源容器后续改动自动更新。</span></div>
+
     </div>`
   // 外观 cube:渲染后绑定点击并同步选中态
   document.querySelectorAll('#main .theme-cube').forEach((b) => {
@@ -1210,7 +1237,7 @@ async function saveSettings() {
         proxy: $('#s-proxy').value.trim(),
         githubMirror: $('#s-mirror').value.trim(),
         npmRegistry: $('#s-registry').value.trim(),
-        containerPortRange: $('#s-portrange').value.trim(),
+        containerPortRange: joinPortRange($('#s-portrange-start').value, $('#s-portrange-end').value),
         autoOpenUiOnStart: $('#s-autoopen').checked,
       },
     })

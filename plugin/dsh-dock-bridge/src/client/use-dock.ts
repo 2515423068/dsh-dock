@@ -1,6 +1,6 @@
 /**
  * Data hook behind the "DSH Dock" section. One cohesive view state for the
- * four cards: environment status, containers, versions, profile plugins,
+ * three cards: environment status, containers, versions,
  * service settings, and the watched background tasks. Mutations go through
  * the `/dshdock-plugins` channel; long tasks are followed by 1s polling of
  * the service task list (the same kind+refId semantics the tools use), and
@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ContainerRow, DockSettings, DockStatus, DockTask, OpError, PluginList, PluginOpAnswer, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ContainerRow, DockSettings, DockStatus, DockTask, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -43,6 +43,33 @@ function asOpError(error: unknown): OpError {
 }
 
 /**
+ * Per-container record of the user's protect choice (browser-local): the
+ * automatic default-enable fires at most once, then manual choice wins.
+ */
+function protectChoiceKey(id: string): string {
+  return `dshdock-autoprotect:${id}`
+}
+
+/** Whether this browser already settled the protect default for one container. */
+function hasProtectChoice(id: string): boolean {
+  try {
+    return window.localStorage.getItem(protectChoiceKey(id)) !== null
+  } catch {
+    return true
+  }
+}
+
+/** Record the protect choice: called by the auto-enable and by the manual checkbox. */
+export function markProtectChoice(id: string): void {
+  try {
+    window.localStorage.setItem(protectChoiceKey(id), '1')
+  } catch {
+    // Private mode and the like: without storage the default stays one-shot
+    // per session via the attempted ref instead.
+  }
+}
+
+/**
  * The section's whole data/operation surface.
  * @param call - channel caller provided by the plugin apply closure.
  */
@@ -53,16 +80,18 @@ export function useDock(call: DockCall): DockStore {
   const [containersError, setContainersError] = useState<OpError>()
   const [versions, setVersions] = useState<VersionCatalog>()
   const [versionsError, setVersionsError] = useState<OpError>()
-  const [plugins, setPlugins] = useState<PluginList>()
-  const [pluginsError, setPluginsError] = useState<OpError>()
   const [settings, setSettings] = useState<DockSettings>()
   const [settingsError, setSettingsError] = useState<OpError>()
+  const [template, setTemplate] = useState<ProfileTemplate>()
+  const [templateError, setTemplateError] = useState<OpError>()
   const [tasks, setTasks] = useState<readonly DockTask[]>([])
   const [busyOps, setBusyOps] = useState<ReadonlySet<string>>(() => new Set())
   const [opError, setOpError] = useState<OpError & { key: string }>()
   const [watching, setWatching] = useState<readonly Watch[]>([])
   const callRef = useRef(call)
   callRef.current = call
+  const statusRef = useRef<DockStatus>()
+  statusRef.current = status
 
   const serviceUp = status?.serviceReachable === true
 
@@ -95,7 +124,11 @@ export function useDock(call: DockCall): DockStore {
   const refreshContainers = useCallback(async () => {
     setContainersError(undefined)
     try {
-      setContainers(await rest<readonly ContainerRow[]>('GET', '/api/containers', undefined, '容器列表加载失败'))
+      const rows = await rest<readonly ContainerRow[]>('GET', '/api/containers', undefined, '容器列表加载失败')
+      // The service rows carry no self marker (tools stamp it server-side);
+      // the page stamps it from the probed self container id instead.
+      const selfId = statusRef.current?.selfContainerId
+      setContainers(rows.map(row => ({ ...row, self: selfId !== undefined && row.id === selfId })))
     } catch (error) {
       setContainersError(asOpError(error))
     }
@@ -107,10 +140,17 @@ export function useDock(call: DockCall): DockStore {
     try {
       const raw = await rest<RawVersionCatalog>('GET', `/api/versions/catalog${refreshCatalog ? '?refresh=1' : ''}`, undefined, '版本目录加载失败')
       const installed = new Set(raw.installed ?? [])
+      const seen = new Set<string>()
       const versions = (raw.tags ?? []).map((entry) => {
         const tag = typeof entry === 'string' ? entry : entry?.name ?? ''
-        return { tag, installed: installed.has(tag) }
+        seen.add(tag)
+        return { tag, installed: installed.has(tag), remote: true }
       }).filter(entry => entry.tag.length > 0)
+      // Installed versions missing from the remote catalog render as extra
+      // rows (same as the WebUI `extraInstalled` rows).
+      for (const name of installed) {
+        if (!seen.has(name)) versions.push({ tag: name, installed: true, remote: false })
+      }
       setVersions({ fetchedAt: raw.fetchedAt, warning: raw.warning, versions })
     } catch (error) {
       setVersionsError(asOpError(error))
@@ -128,14 +168,15 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [rest])
 
-  const refreshPlugins = useCallback(async () => {
-    setPluginsError(undefined)
+  const refreshTemplate = useCallback(async () => {
+    setTemplateError(undefined)
     try {
-      setPlugins(await callRef.current<PluginList>('list'))
+      setTemplate(await rest<ProfileTemplate>('GET', '/api/profile-template', undefined, '配置模板加载失败'))
     } catch (error) {
-      setPluginsError(asOpError(error))
+      setTemplateError(asOpError(error))
     }
-  }, [])
+  }, [rest])
+
 
   const refreshTasks = useCallback(async () => {
     try {
@@ -181,23 +222,23 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [watching, rest, refreshContainers, refreshVersions])
 
-  // Initial load: status first; service-dependent lists only when reachable,
-  // plugins always (they need no service).
+  // Initial load: status first; service-dependent lists load when reachable.
   useEffect(() => {
     void refreshStatus()
-    void refreshPlugins()
-  }, [refreshStatus, refreshPlugins])
+  }, [refreshStatus])
   useEffect(() => {
     if (!serviceUp) {
       setContainers([])
       setVersions(undefined)
       setSettings(undefined)
+      setTemplate(undefined)
       return
     }
     void refreshContainers()
     void refreshVersions()
     void refreshSettings()
-  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings])
+    void refreshTemplate()
+  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings, refreshTemplate])
 
   const taskFor = useCallback((kind: string, refId: string): DockTask | undefined =>
     tasks.find(entry => entry.kind === kind && entry.refId === refId), [tasks])
@@ -266,6 +307,23 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshContainers])
 
+  // A container running this plugin is a dev container by definition: default
+  // the self row to devProtect, at most once per container. A manual choice
+  // (recorded by markProtectChoice, including the checkbox below) wins
+  // permanently; a failure surfaces through the shared op error instead of
+  // retry-looping.
+  const protectAttempted = useRef<string>()
+  useEffect(() => {
+    if (!serviceUp) return
+    const selfRow = containers.find(row => row.self)
+    if (selfRow === undefined || selfRow.devProtect === true) return
+    if (protectAttempted.current === selfRow.id) return
+    protectAttempted.current = selfRow.id
+    if (hasProtectChoice(selfRow.id)) return
+    markProtectChoice(selfRow.id)
+    void setProtect(selfRow.id, true)
+  }, [serviceUp, containers, setProtect])
+
   const installVersion = useCallback(async (tag: string) => {
     await mutate(`install:${tag}`, () => rest('POST', '/api/versions/install', { tag }, '安装失败'))
     watch('version-install', tag)
@@ -286,33 +344,26 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshSettings])
 
-  /** Plugin operations return the channel answer (never throw for op failures). */
-  const pluginOp = useCallback(async (endpoint: string, payload: unknown): Promise<PluginOpAnswer> => {
-    setPluginsError(undefined)
+  const captureTemplate = useCallback(async (containerId: string) => {
     try {
-      return await callRef.current<PluginOpAnswer>(endpoint, payload)
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+      await mutate('template', () => rest('POST', '/api/profile-template', { containerId }, '模板捕获失败'))
+      void refreshTemplate()
+      return true
+    } catch {
+      return false
     }
-  }, [])
+  }, [mutate, rest, refreshTemplate])
 
-  const installPlugin = useCallback(async (spec: string) => {
-    const answer = await pluginOp('install', { spec })
-    if (answer.plugins !== undefined) setPlugins({ ok: answer.ok, plugins: answer.plugins, recognized: true })
-    return answer
-  }, [pluginOp])
+  const clearTemplate = useCallback(async () => {
+    try {
+      await mutate('template', () => rest('DELETE', '/api/profile-template', undefined, '模板清除失败'))
+      void refreshTemplate()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshTemplate])
 
-  const uninstallPlugin = useCallback(async (name: string) => {
-    const answer = await pluginOp('uninstall', { name })
-    if (answer.plugins !== undefined) setPlugins({ ok: answer.ok, plugins: answer.plugins, recognized: true })
-    return answer
-  }, [pluginOp])
-
-  const setPluginEnabled = useCallback(async (name: string, enabled: boolean) => {
-    const answer = await pluginOp(enabled ? 'enable' : 'disable', { name })
-    if (answer.plugins !== undefined) setPlugins({ ok: answer.ok, plugins: answer.plugins, recognized: true })
-    return answer
-  }, [pluginOp])
 
   const setBaseUrl = useCallback(async (next: string) => {
     try {
@@ -331,10 +382,10 @@ export function useDock(call: DockCall): DockStore {
     containersError,
     versions,
     versionsError,
-    plugins,
-    pluginsError,
     settings,
     settingsError,
+    template,
+    templateError,
     serviceUp,
     bound: status?.dshdockContainer === true,
     tasks,
@@ -348,7 +399,9 @@ export function useDock(call: DockCall): DockStore {
     refreshContainers,
     refreshVersions,
     refreshSettings,
-    refreshPlugins,
+    refreshTemplate,
+    captureTemplate,
+    clearTemplate,
     createContainer,
     startContainer,
     stopContainer,
@@ -359,9 +412,6 @@ export function useDock(call: DockCall): DockStore {
     installVersion,
     deleteVersion,
     saveSettings,
-    installPlugin,
-    uninstallPlugin,
-    setPluginEnabled,
     setBaseUrl,
     taskFor,
     pending,
@@ -377,10 +427,10 @@ export interface DockStore {
   readonly containersError: OpError | undefined
   readonly versions: VersionCatalog | undefined
   readonly versionsError: OpError | undefined
-  readonly plugins: PluginList | undefined
-  readonly pluginsError: OpError | undefined
   readonly settings: DockSettings | undefined
   readonly settingsError: OpError | undefined
+  readonly template: ProfileTemplate | undefined
+  readonly templateError: OpError | undefined
   readonly serviceUp: boolean
   readonly bound: boolean
   readonly tasks: readonly DockTask[]
@@ -392,7 +442,9 @@ export interface DockStore {
   refreshContainers: () => Promise<void>
   refreshVersions: (refreshCatalog?: boolean) => Promise<void>
   refreshSettings: () => Promise<void>
-  refreshPlugins: () => Promise<void>
+  refreshTemplate: () => Promise<void>
+  captureTemplate: (containerId: string) => Promise<boolean>
+  clearTemplate: () => Promise<boolean>
   createContainer: (input: { name: string; version: string; profile: string }) => Promise<void>
   startContainer: (id: string, force?: boolean) => Promise<void>
   stopContainer: (id: string, force?: boolean) => Promise<void>
@@ -403,9 +455,6 @@ export interface DockStore {
   installVersion: (tag: string) => Promise<void>
   deleteVersion: (tag: string) => Promise<void>
   saveSettings: (next: DockSettings) => Promise<boolean>
-  installPlugin: (spec: string) => Promise<PluginOpAnswer>
-  uninstallPlugin: (name: string) => Promise<PluginOpAnswer>
-  setPluginEnabled: (name: string, enabled: boolean) => Promise<PluginOpAnswer>
   setBaseUrl: (next: string) => Promise<boolean>
   taskFor: (kind: string, refId: string) => DockTask | undefined
   pending: (kind: string, refId: string) => boolean
