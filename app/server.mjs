@@ -72,6 +72,8 @@ function initPaths(root) {
 
 const HARNESS_REPO = 'https://github.com/deepseek-ai/deepseek-harness'
 const HARNESS_API = 'https://api.github.com/repos/deepseek-ai/deepseek-harness/tags?per_page=100'
+const HARNESS_RELEASES_API = 'https://api.github.com/repos/deepseek-ai/deepseek-harness/releases?per_page=100'
+const HARNESS_RELEASES_ATOM = `${HARNESS_REPO}/releases.atom`
 const PORT = Number(process.env.DSHWEB_PORT || 7940)
 
 const START_TIMEOUT_MS = 120_000   // 就绪探测上限(原 dshboxd 60s 不够)
@@ -258,11 +260,7 @@ async function fetchCatalogFromGithub() {
 }
 
 async function fetchCatalogViaApi() {
-  const proxy = readSettings().proxy?.trim()
-  const args = ['-sS', '--max-time', '30', '-H', 'User-Agent: dsh-web']
-  if (proxy) args.push('-x', proxy)
-  args.push(HARNESS_API)
-  const { stdout } = await execFileAsync('curl', args, { timeout: 40_000 })
+  const stdout = await curlText(HARNESS_API)
   let parsed
   try {
     parsed = JSON.parse(stdout)
@@ -271,6 +269,144 @@ async function fetchCatalogViaApi() {
   }
   if (!Array.isArray(parsed)) throw parsed?.message ? String(parsed.message) : '返回异常'
   return parsed.map((entry) => ({ name: entry.name, sha: entry.commit?.sha ?? null }))
+}
+
+// 带代理的文本抓取(curl);GitHub API 与 releases.atom 共用。
+async function curlText(url, { location = false, timeoutMs = 40_000 } = {}) {
+  const proxy = readSettings().proxy?.trim()
+  const args = ['-sS', '--max-time', '30', '-H', 'User-Agent: dsh-web']
+  if (location) args.push('-L')
+  if (proxy) args.push('-x', proxy)
+  args.push(url)
+  const { stdout } = await execFileAsync('curl', args, { timeout: timeoutMs })
+  return stdout
+}
+
+// ── 版本更新说明(Release notes)────────────────────────────────────────────
+// 刷新目录时一并抓取并写入本地缓存,WebUI 直接展示,无需再点外链。
+// 双通道:GitHub API(/releases,带正文但受匿名限流)→ releases.atom(无限流,
+// 正文为 HTML,需去标签)。两级都失败则沿用缓存里的旧说明。
+
+const NOTES_BODY_LIMIT = 4000 // 单条说明入库上限,防单个 release 正文过大
+
+async function fetchReleaseNotes() {
+  const errors = []
+  try {
+    return await fetchReleaseNotesViaApi()
+  } catch (error) {
+    errors.push(`GitHub API: ${error}`)
+  }
+  try {
+    return await fetchReleaseNotesViaAtom()
+  } catch (error) {
+    errors.push(`Atom 源: ${error}`)
+  }
+  throw errors.join('; ')
+}
+
+async function fetchReleaseNotesViaApi() {
+  const stdout = await curlText(HARNESS_RELEASES_API)
+  let parsed
+  try {
+    parsed = JSON.parse(stdout)
+  } catch {
+    throw '响应不是 JSON'
+  }
+  if (!Array.isArray(parsed)) throw parsed?.message ? String(parsed.message) : '返回异常'
+  const notes = {}
+  for (const release of parsed) {
+    const tag = release?.tag_name
+    if (typeof tag !== 'string' || tag.length === 0) continue
+    const body = typeof release.body === 'string' ? release.body.trim() : ''
+    if (body.length === 0) continue
+    const cleaned = cleanReleaseBody(body)
+    if (cleaned.length === 0) continue
+    notes[tag] = { body: clampText(cleaned, NOTES_BODY_LIMIT), publishedAt: release.published_at ?? null }
+  }
+  if (Object.keys(notes).length === 0) throw '未解析到任何 release 说明'
+  return notes
+}
+
+async function fetchReleaseNotesViaAtom() {
+  const xml = await curlText(HARNESS_RELEASES_ATOM, { location: true })
+  const notes = {}
+  for (const match of xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)) {
+    const block = match[1]
+    const href = block.match(/<link[^>]*href="([^"]+)"/)?.[1] ?? ''
+    const tag = href.split('/releases/tag/')[1]
+    if (tag === undefined || tag.length === 0) continue
+    const body = stripMarkup(block.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] ?? '')
+    if (body.length === 0) continue
+    notes[decodeURIComponent(tag)] = {
+      body: clampText(body, NOTES_BODY_LIMIT),
+      publishedAt: block.match(/<updated>([^<]+)<\/updated>/)?.[1] ?? null,
+    }
+  }
+  if (Object.keys(notes).length === 0) throw '未解析到任何 release 说明'
+  return notes
+}
+
+/** HTML 实体解码(仅 Atom 正文用到;未知/越界实体丢弃)。 */
+function decodeEntities(text) {
+  const codePoint = (value, radix) => {
+    const parsed = Number.parseInt(value, radix)
+    return Number.isFinite(parsed) && parsed >= 0 && parsed <= 0x10ffff ? String.fromCodePoint(parsed) : ''
+  }
+  return text
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => codePoint(hex, 16))
+    .replace(/&#(\d+);/g, (_, dec) => codePoint(dec, 10))
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+}
+
+/** Atom 正文是 HTML:保段落/列表换行,去标签与实体,压掉多余空行。 */
+function stripMarkup(html) {
+  return decodeEntities(html)
+    .replace(/<li[^>]*>/gi, '· ')
+    .replace(/<\/(p|div|li|h[1-6]|tr|ul|ol)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** GitHub API 的 release 正文是 Markdown(还夹带原始 HTML):压成可读纯文本。 */
+function cleanReleaseBody(markdown) {
+  return stripMarkup(
+    markdown
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接/锚点 → 文字
+      .replace(/^[ \t]*([-*_])\1{2,}[ \t]*$/gm, '') // 分隔线
+      .replace(/^#{1,6}[ \t]*/gm, '')          // 标题标记
+      .replace(/\*\*([^*]+)\*\*/g, '$1')       // 粗体
+      .replace(/`([^`]*)`/g, '$1')             // 行内代码
+      .replace(/^[ \t]*[-*+][ \t]+/gm, '· '),  // 列表项([ \t] 而非 \s,避免吃掉换行)
+  )
+}
+
+function clampText(text, limit) {
+  return text.length > limit ? `${text.slice(0, limit)}…` : text
+}
+
+/** 把更新说明并进 tags(命中才加 notes 字段,失败时原样保留)。 */
+function mergeReleaseNotes(tags, notes) {
+  return tags.map((tag) => {
+    const note = notes?.[tag.name]
+    return note === undefined ? tag : { ...tag, notes: note }
+  })
+}
+
+/** 从缓存 tags 里回收已存的更新说明,供抓取失败时沿用。 */
+function notesFromTags(tags) {
+  const notes = {}
+  for (const tag of Array.isArray(tags) ? tags : []) {
+    if (tag?.name && tag?.notes) notes[tag.name] = tag.notes
+  }
+  return notes
 }
 
 async function fetchCatalogViaLsRemote() {
@@ -1016,8 +1152,13 @@ async function handleApi(request, response, url) {
     }
     try {
       const tags = await fetchCatalogFromGithub()
-      writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags })
-      return send(200, { fetchedAt: nowSeconds(), tags, installed, repo: HARNESS_REPO })
+      const notes = await fetchReleaseNotes().catch((error) => {
+        logDetail(`版本更新说明拉取失败(沿用缓存): ${error}`)
+        return notesFromTags(cache?.tags)
+      })
+      const merged = mergeReleaseNotes(tags, notes)
+      writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags: merged })
+      return send(200, { fetchedAt: nowSeconds(), tags: merged, installed, repo: HARNESS_REPO })
     } catch (error) {
       if (cache) return send(200, { fetchedAt: cache.fetchedAt, tags: cache.tags, installed, warning: `刷新失败,使用缓存: ${error}`, repo: HARNESS_REPO })
       return send(500, { error: `获取版本目录失败: ${error}` })
@@ -1456,9 +1597,16 @@ if (process.env.DSHDOCK_DEV === '1') {
 // 每次服务启动后台拉取一次版本目录(尽力而为:失败保留旧缓存,不阻塞启动)
 function refreshCatalogOnBoot() {
   fetchCatalogFromGithub()
-    .then((tags) => {
-      writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags })
-      log(`版本目录已自动刷新(${tags.length} 个 tag)`)
+    .then(async (tags) => {
+      const cache = readJson(CATALOG_PATH, null)
+      const notes = await fetchReleaseNotes().catch((error) => {
+        logDetail(`启动时版本更新说明拉取失败(沿用缓存): ${error}`)
+        return notesFromTags(cache?.tags)
+      })
+      const merged = mergeReleaseNotes(tags, notes)
+      writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags: merged })
+      const withNotes = merged.filter((tag) => tag.notes).length
+      log(`版本目录已自动刷新(${tags.length} 个 tag,更新说明 ${withNotes} 条)`)
     })
     .catch((error) => log(`启动时版本目录自动刷新失败,沿用缓存: ${error}`))
 }
