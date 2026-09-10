@@ -413,6 +413,9 @@ main.page-versions { max-width: none; container-type: inline-size; container-nam
 #version-list th:nth-child(1), #version-list td:nth-child(1) { width: 22%; }
 #version-list th:nth-child(2), #version-list td:nth-child(2) { width: 15%; }
 #version-list th:nth-child(4), #version-list td:nth-child(4) { width: 104px; white-space: nowrap; }
+/* 更新说明列右侧多留一段:详情按钮靠右时,与操作列按钮只隔 20px 会显拥挤;
+   只加大「更新说明 ↔ 操作」这一处间距,版本/状态/更新说明之间保持默认列距 */
+#version-list th:nth-child(3), #version-list td:nth-child(3) { padding-right: 30px; }
 /* 保险:按钮任何情况下都不得超过本列内容宽(border-box,故 max-width 已含内边距) */
 #version-list td:nth-child(4) button { max-width: 100%; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
@@ -1021,8 +1024,9 @@ function tidyNoteLine(line) {
     .trim()
 }
 /** 摘要截断:优先在最后一个分隔符处断开,避免把一个词/@菜单切成两半。
-    长度按列表里摘要列的一行宽度来定(900px 列表下约 33 个汉字),保证一行放得下、不出现省略号。 */
-function clampSummary(text, limit = 34) {
+    长度按列表里摘要列的一行宽度来定(900px 列表、更新说明列右侧留 30px 间距后约 397px ≈ 32 个汉字),
+    保证一行放得下、不出现省略号。 */
+function clampSummary(text, limit = 32) {
   if (text.length <= limit) return text
   const cut = text.slice(0, limit)
   const at = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(','), cut.lastIndexOf(' '))
@@ -1069,9 +1073,9 @@ function versionNotesCell(tag) {
   const stored = typeof notes.summary === 'string' ? notes.summary.trim() : ''
   const source = typeof notes.zh === 'string' && notes.zh.trim().length > 0 ? notes.zh : body
   const summary = stored.length > 0 ? stored : summarizeNotes(source)
-  // 第一行标签 + 详情,第二行摘要
+  // 第一行标签(全部展示,不折叠)+ 详情,第二行摘要
   return `<div class="ver-notes">`
-    + `<div class="ver-notes-tags">${typeChips(noteTypes(body), 2)}`
+    + `<div class="ver-notes-tags">${typeChips(noteTypes(body))}`
     + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
     + `<div class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</div></div>`
 }
