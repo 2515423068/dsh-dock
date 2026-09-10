@@ -388,16 +388,46 @@ tr:last-child td { border-bottom: none; }
 .card .url a:hover, .card .url a:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 .muted { color: var(--dsw-label-tertiary); font-size: 12.5px; line-height: 20px; }
-/* 外链(DSH GitHub 仓库)与版本更新说明:与卡片链接同语言 */
+/* 外链(DSH GitHub 仓库):与卡片链接同语言 */
 .ext-link { color: var(--dsw-link); font-size: 12.5px; line-height: 20px; font-weight: 500; text-decoration: none; white-space: nowrap; }
 .ext-link:hover, .ext-link:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
-/* 更新说明列:本地缓存正文,预览 3 行 + 行内展开全文(不外跳) */
-.notes-cell { max-width: 560px; min-width: 240px; }
-.notes-date { color: var(--dsw-label-tertiary); font-size: 12px; line-height: 18px; margin-bottom: 2px; }
-.notes-preview { color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 19px; white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.notes-more { margin-top: 4px; }
-.notes-more > summary { color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; }
-.notes-body { color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 19px; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow: auto; margin-top: 6px; padding: 8px 10px; background: var(--dsw-bg-layer-2); border: 0.5px solid var(--dsw-border-l4); border-radius: 10px; }
+
+/* ── 版本管理:左列表 + 右更新说明详情(主内容区右侧原本留白)── */
+main.page-versions { max-width: 1440px; }
+.versions-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 430px); gap: 18px; align-items: start; }
+.versions-layout .panel { margin-bottom: 0; }
+@media (max-width: 1180px) { .versions-layout { grid-template-columns: minmax(0, 1fr); } .notes-panel { position: static; } }
+/* 固定列宽,保证行高与列比例不随说明长短变化 */
+#version-list table { width: 100%; table-layout: fixed; }
+#version-list th:nth-child(1), #version-list td:nth-child(1) { width: 30%; }
+#version-list th:nth-child(2), #version-list td:nth-child(2) { width: 20%; }
+#version-list th:nth-child(4), #version-list td:nth-child(4) { width: 78px; }
+#version-list tbody tr.active { background: var(--dsw-interactive-hover); }
+#version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
+/* 更新说明在列表里只占一行:类型徽标 + 单行省略摘要 + 详情 */
+.ver-notes { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ver-notes-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
+.ver-notes.none .ver-notes-text { color: var(--dsw-label-tertiary); }
+.chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; }
+.chip.breaking { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
+.chip.feat { color: var(--dsw-state-success); background: var(--dsw-state-success-bg); }
+.chip.fix { color: var(--dsw-link); background: color-mix(in srgb, var(--dsw-link) 12%, transparent); }
+.chip.perf { color: var(--dsw-state-warn); background: var(--dsw-state-warn-bg); }
+.link-btn { flex: 0 0 auto; border: 0; background: none; padding: 0 2px; color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; font-family: inherit; }
+.link-btn:hover, .link-btn:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
+/* 右侧详情面板:吸顶,不随长列表滚走 */
+.notes-panel { position: sticky; top: 12px; }
+.notes-panel .np-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.notes-panel .np-title { font-size: 14px; font-weight: 500; line-height: 22px; }
+.notes-panel .np-close { margin-left: auto; }
+.notes-panel .np-body { max-height: calc(100vh - 320px); overflow: auto; margin-top: 10px; padding-right: 4px; }
+.notes-panel .notes-placeholder { color: var(--dsw-label-tertiary); font-size: 13px; line-height: 22px; padding: 22px 4px; }
+.notes-heading { color: var(--dsw-label-primary); font-size: 13px; font-weight: 500; line-height: 21px; margin: 12px 0 4px; }
+.notes-heading:first-child { margin-top: 2px; }
+.notes-item { position: relative; color: var(--dsw-label-secondary); font-size: 13px; line-height: 21px; padding-left: 14px; margin-bottom: 4px; word-break: break-word; }
+.notes-item::before { content: ''; position: absolute; left: 2px; top: 9px; width: 4px; height: 4px; border-radius: 50%; corner-shape: round; background: var(--dsw-label-tertiary); }
+.notes-para { color: var(--dsw-label-secondary); font-size: 13px; line-height: 21px; margin-bottom: 4px; word-break: break-word; }
+.notes-spacer { height: 6px; }
 .error-text { color: var(--dsw-state-error); font-size: 13px; line-height: 20px; margin-top: 8px; white-space: pre-wrap; }
 .empty { text-align: center; color: var(--dsw-label-tertiary); padding: 30px 0; font-size: 13.5px; line-height: 22px; }
 
@@ -933,6 +963,7 @@ document.querySelectorAll('#nav a').forEach((a) => {
 })
 async function renderCurrent() {
   await syncTasks() // 先取回服务端任务状态,再渲染当前页(待办④)
+  $('#main').classList.toggle('page-versions', currentPage === 'versions')
   if (currentPage === 'versions') renderVersions()
   else if (currentPage === 'containers') renderContainers()
   else if (currentPage === 'settings') renderSettings()
@@ -941,35 +972,141 @@ async function renderCurrent() {
 // ── 版本管理 ──
 // DSH 上游仓库(服务端目录接口同时回传 repo,此处为兜底常量)
 const DSH_REPO_FALLBACK = 'https://github.com/deepseek-ai/deepseek-harness'
-// 更新说明在刷新目录时由服务端抓取并写入本地缓存,这里直接展示正文(不再点外链)
-function versionNotesCell(note) {
-  const body = note && typeof note.body === 'string' ? note.body.trim() : ''
-  if (body.length === 0) return '<span class="muted">无更新说明</span>'
-  const previewLimit = 160
-  const preview = body.length > previewLimit ? `${body.slice(0, previewLimit)}…` : body
-  const date = note.publishedAt
-    ? `<div class="notes-date">${escapeHtml(String(note.publishedAt).slice(0, 10))} 发布</div>`
+
+// 更新说明:服务端刷新目录时抓正文存本地(零网络查看)。列表里只放一行
+// 启发式摘要 + 变更类型徽标,完整正文放右侧详情面板,点「详情」后渲染。
+const NOTE_TYPE_LABEL = { breaking: '破坏性', feat: '新增', fix: '修复', perf: '优化' }
+const NOTE_LANG_NAV = /^(中文\s*[|｜]\s*English|English\s*[|｜]\s*中文)$/
+const hasCjk = (text) => /[\u4e00-\u9fff]/.test(text)
+let versionCatalogTags = [] // 最近一次目录数据(详情面板按 tag 取正文,避免正文内联进每行)
+let selectedVersionTag = null
+
+/** 去掉 bullet 前缀、@作者提及(含逗号分隔的作者列表)与句末分隔符/标点,便于拼一行摘要。 */
+function tidyNoteLine(line) {
+  return line
+    .replace(/^·\s*/, '')
+    .replace(/@[A-Za-z0-9_-]+/g, '')
+    .replace(/[\s,，、;；|—–-]+$/, '')
+    .replace(/^[\s,，、;；|—–-]+/, '')
+    .replace(/[。.;；,、]\s*$/, '')
+    .trim()
+}
+/** 摘要截断:优先在最后一个分隔符处断开,避免把一个词/@菜单切成两半。 */
+function clampSummary(text, limit = 60) {
+  if (text.length <= limit) return text
+  const cut = text.slice(0, limit)
+  const at = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(','), cut.lastIndexOf(' '))
+  return `${at > 20 ? cut.slice(0, at) : cut}…`
+}
+/** 启发式一行摘要(确定性、零网络):优先中文 bullet,其次任意 bullet,最后退回首条实质文本。 */
+function summarizeNotes(body) {
+  const lines = String(body ?? '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim())
+    .filter((line) => line.length > 0 && !NOTE_LANG_NAV.test(line))
+  const bullets = lines.filter((line) => line.startsWith('·'))
+  const cjkBullets = bullets.filter(hasCjk)
+  const pool = (cjkBullets.length > 0 ? cjkBullets : bullets).map(tidyNoteLine).filter((line) => line.length > 0)
+  if (pool.length === 0) {
+    const fallback = lines.map(tidyNoteLine).find((line) => line.length > 4 && hasCjk(line)) ?? tidyNoteLine(lines[0] ?? '')
+    return clampSummary(fallback)
+  }
+  const summary = pool[1] !== undefined && pool[0].length < 22 ? `${pool[0]};${pool[1]}` : pool[0]
+  return clampSummary(summary)
+}
+/** 变更类型识别(按展示顺序;正文含对应关键词即命中)。 */
+function noteTypes(body) {
+  const text = String(body ?? '')
+  const types = []
+  if (/破坏性|不兼容|BREAKING/i.test(text)) types.push('breaking')
+  if (/新功能|新增|支持|Features?\b|Added\b|\bNew\b/i.test(text)) types.push('feat')
+  if (/修复|修正|Fixed?\b|Bug\s?fix/i.test(text)) types.push('fix')
+  if (/优化|提升|改进|性能|Improve|Perf|Refine|Polish/i.test(text)) types.push('perf')
+  return types
+}
+function typeChips(types) {
+  return types.map((type) => `<span class="chip ${type}">${NOTE_TYPE_LABEL[type]}</span>`).join('')
+}
+/** 列表单元格:类型徽标 + 单行省略摘要 + 详情按钮。 */
+function versionNotesCell(tag) {
+  const body = tag?.notes?.body
+  if (typeof body !== 'string' || body.trim().length === 0) {
+    return '<div class="ver-notes none"><span class="ver-notes-text">无更新说明</span></div>'
+  }
+  const summary = summarizeNotes(body)
+  return `<div class="ver-notes">${typeChips(noteTypes(body))}`
+    + `<span class="ver-notes-text" title="${escapeHtml(summary)}">${escapeHtml(summary)}</span>`
+    + `<button class="link-btn" onclick="showVersionNotes('${escapeHtml(tag.name)}')">详情</button></div>`
+}
+/** 完整正文排版:短行=小标题,· 开头=条目,其余=段落(连续空行只保留一个)。 */
+function renderNotesBody(body) {
+  const html = []
+  let lastSpacer = false
+  for (const raw of String(body ?? '').replace(/\r\n?/g, '\n').split('\n')) {
+    const line = raw.trim()
+    if (line.length === 0) {
+      if (!lastSpacer && html.length > 0) html.push('<div class="notes-spacer"></div>')
+      lastSpacer = true
+      continue
+    }
+    lastSpacer = false
+    if (NOTE_LANG_NAV.test(line)) continue
+    if (line.startsWith('·')) {
+      html.push(`<div class="notes-item">${escapeHtml(line.replace(/^·\s*/, ''))}</div>`)
+    } else if (line.length <= 20 && !/[。.!?？;；:：,、]$/.test(line)) {
+      html.push(`<div class="notes-heading">${escapeHtml(line)}</div>`)
+    } else {
+      html.push(`<div class="notes-para">${escapeHtml(line)}</div>`)
+    }
+  }
+  return html.join('')
+}
+function versionNotesPlaceholder() {
+  return '<p class="notes-placeholder">点击左侧「详情」查看该版本的完整更新说明。<br>说明由服务端在刷新目录时抓取并保存在本地。</p>'
+}
+/** 右侧详情面板:显示某版本的完整更新说明(不离开列表页)。 */
+function showVersionNotes(tagName) {
+  const head = $('#notes-panel-head')
+  const panel = $('#notes-panel-body')
+  if (head === null || panel === null) return
+  selectedVersionTag = tagName
+  document.querySelectorAll('#version-list tr[data-tag]').forEach((row) => {
+    row.classList.toggle('active', row.dataset.tag === tagName)
+  })
+  const tag = versionCatalogTags.find((entry) => entry?.name === tagName)
+  const body = tag?.notes?.body
+  if (typeof body !== 'string' || body.trim().length === 0) {
+    head.innerHTML = `<span class="np-title">${escapeHtml(tagName)}</span>`
+    panel.innerHTML = '<p class="notes-placeholder">该版本未提供更新说明(远端没有对应 Release 正文)。</p>'
+    return
+  }
+  const date = tag.notes.publishedAt
+    ? `<span class="muted">${escapeHtml(String(tag.notes.publishedAt).slice(0, 10))} 发布</span>`
     : ''
-  const more = body.length > preview.length
-    ? `<details class="notes-more"><summary>展开全部</summary><div class="notes-body">${escapeHtml(body)}</div></details>`
-    : ''
-  return `${date}<div class="notes-preview">${escapeHtml(preview)}</div>${more}`
+  head.innerHTML = `<span class="np-title">${escapeHtml(tagName)}</span>${typeChips(noteTypes(body))}${date}`
+  panel.innerHTML = renderNotesBody(body)
 }
 async function renderVersions(refresh = false) {
   const main = $('#main')
-  main.innerHTML = '<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div><div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>'
+  main.innerHTML = `<h1>版本管理</h1><div class="subtitle">deepseek-harness 的可用版本;安装后即可用于创建容器</div>
+    <div class="versions-layout">
+      <div class="panel"><div id="version-list"><div class="empty">加载中...</div></div></div>
+      <div class="panel notes-panel">
+        <div class="np-head" id="notes-panel-head"><span class="np-title">更新说明</span></div>
+        <div id="notes-panel-body">${versionNotesPlaceholder()}</div>
+      </div>
+    </div>`
   try {
     const data = await api('/api/versions/catalog' + (refresh ? '?refresh=1' : ''))
     const repo = data.repo || DSH_REPO_FALLBACK
+    versionCatalogTags = Array.isArray(data.tags) ? data.tags : []
     const installedSet = new Set(data.installed)
-    const rows = data.tags.map((tag) => {
+    const rows = versionCatalogTags.map((tag) => {
       const installed = installedSet.has(tag.name)
       const task = activeTasks[`vi:${tag.name}`]
       const progress = task ? `<div class="muted">${escapeHtml((task.lines ?? []).slice(-1)[0] ?? '')}</div>` : ''
-      return `<tr>
+      return `<tr data-tag="${escapeHtml(tag.name)}">
         <td><b>${escapeHtml(tag.name)}</b></td>
         <td>${installed ? '<span class="badge running">已安装</span>' : '<span class="badge stopped">未安装</span>'}${progress}</td>
-        <td class="notes-cell">${versionNotesCell(tag.notes)}</td>
+        <td>${versionNotesCell(tag)}</td>
         <td style="text-align:right">
           ${installed
             ? `<button class="danger" onclick="removeVersion('${tag.name}')">删除</button>`
@@ -977,9 +1114,9 @@ async function renderVersions(refresh = false) {
         </td>
       </tr>`
     })
-    const extraInstalled = data.installed.filter((v) => !data.tags.some((t) => t.name === v))
-      .map((v) => `<tr><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td class="notes-cell"><span class="muted">不在远端目录中(可能已删除)</span></td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
-    const withNotes = data.tags.filter((tag) => tag.notes?.body).length
+    const extraInstalled = data.installed.filter((v) => !versionCatalogTags.some((t) => t.name === v))
+      .map((v) => `<tr data-tag="${escapeHtml(v)}"><td><b>${escapeHtml(v)}</b></td><td><span class="badge running">已安装</span></td><td><div class="ver-notes none"><span class="ver-notes-text">不在远端目录中(可能已删除)</span></div></td><td style="text-align:right"><button class="danger" onclick="removeVersion('${v}')">删除</button></td></tr>`)
+    const withNotes = versionCatalogTags.filter((tag) => tag.notes?.body).length
     $('#version-list').innerHTML = `
       <div class="row" style="margin-bottom:10px">
         <button class="primary" onclick="refreshCatalog()">刷新目录</button>
@@ -988,7 +1125,11 @@ async function renderVersions(refresh = false) {
       </div>
       <table><thead><tr><th>版本</th><th>状态</th><th>更新说明</th><th style="text-align:right">操作</th></tr></thead>
       <tbody>${rows.join('')}${extraInstalled.join('')}</tbody></table>
-      ${data.tags.length === 0 && data.installed.length === 0 ? '<div class="empty">目录为空,点击「刷新目录」从 GitHub 拉取</div>' : ''}`
+      ${versionCatalogTags.length === 0 && data.installed.length === 0 ? '<div class="empty">目录为空,点击「刷新目录」从 GitHub 拉取</div>' : ''}`
+    // 刷新/任务事件会整页重渲染,保留用户已选中的详情
+    if (selectedVersionTag !== null && versionCatalogTags.some((tag) => tag.name === selectedVersionTag)) {
+      showVersionNotes(selectedVersionTag)
+    }
   } catch (error) {
     $('#version-list').innerHTML = `<div class="error-text">${escapeHtml(error)}<br><br><button onclick="refreshCatalog()">重试</button></div>`
   }

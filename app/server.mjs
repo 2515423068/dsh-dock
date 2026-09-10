@@ -379,6 +379,7 @@ function stripMarkup(html) {
 function cleanReleaseBody(markdown) {
   return stripMarkup(
     markdown
+      .replace(/\r\n?/g, '\n')                 // GitHub 正文是 CRLF
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接/锚点 → 文字
       .replace(/^[ \t]*([-*_])\1{2,}[ \t]*$/gm, '') // 分隔线
       .replace(/^#{1,6}[ \t]*/gm, '')          // 标题标记
