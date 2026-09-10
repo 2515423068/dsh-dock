@@ -393,26 +393,29 @@ tr:last-child td { border-bottom: none; }
 .ext-link:hover, .ext-link:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
 
 /* ── 版本管理:左列表 + 右更新说明详情(主内容区右侧原本留白)── */
-/* 版本页不设 max-width:让右详情一直填到视口右侧 */
-main.page-versions { max-width: none; }
-/* 左列表固定宽度(--ver-list-w),右详情 flex:1 吃掉全部剩余空白 */
-.versions-layout { --ver-list-w: 820px; display: flex; align-items: flex-start; gap: 18px; }
-.versions-layout .versions-list { flex: 0 1 var(--ver-list-w); min-width: 480px; }
+/* 版本页不设 max-width:让右详情一直填到视口右侧。
+   右栏必须 flex-basis:0(用 auto 会按正文内容宽度索要空间,把固定宽的列表压缩)。
+   折叠/堆叠判断用容器查询按 main 实际宽度,而不是视口宽度 —— 侧栏拖宽后视口不变但可用宽度变小。 */
+main.page-versions { max-width: none; container-type: inline-size; container-name: versions; }
+.versions-layout { --ver-list-w: 760px; display: flex; align-items: flex-start; gap: 18px; }
+.versions-layout .versions-list { flex: 0 0 var(--ver-list-w); min-width: 0; }
 .versions-layout .panel { margin-bottom: 0; }
-@media (max-width: 1120px) {
+/* 可用宽度容不下「列表 + 详情最小 300px」时改为上下堆叠 */
+@container versions (max-width: 1099px) {
   .versions-layout { flex-direction: column; }
-  .versions-layout .versions-list { flex: 0 0 auto; width: 100%; min-width: 0; }
-  .notes-panel { position: static; width: 100%; max-width: none; }
+  .versions-layout .versions-list { flex: 0 0 auto; width: 100%; }
+  .versions-layout .notes-panel { position: static; flex: 0 0 auto; width: 100%; }
 }
-/* 固定列宽,保证行高与列比例不随说明长短变化 */
+/* 固定列宽,保证行高与列比例不随说明长短变化;
+   操作列留足「安装中…」按钮 + td 左右各 10px 内边距,否则按钮会向左溢出压住更新说明 */
 #version-list table { width: 100%; table-layout: fixed; }
-#version-list th:nth-child(1), #version-list td:nth-child(1) { width: 24%; }
-#version-list th:nth-child(2), #version-list td:nth-child(2) { width: 16%; }
-#version-list th:nth-child(4), #version-list td:nth-child(4) { width: 78px; }
+#version-list th:nth-child(1), #version-list td:nth-child(1) { width: 22%; }
+#version-list th:nth-child(2), #version-list td:nth-child(2) { width: 15%; }
+#version-list th:nth-child(4), #version-list td:nth-child(4) { width: 104px; white-space: nowrap; text-align: right; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
 #version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
-/* 更新说明在列表里只占一行:类型徽标 + 单行省略摘要 + 详情 */
-.ver-notes { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* 更新说明在列表里只占一行:类型徽标 + 单行省略摘要 + 详情;整格裁切,绝不外溢到操作列 */
+.ver-notes { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 .ver-notes-text { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
 .ver-notes.none .ver-notes-text { color: var(--dsw-label-tertiary); }
 .chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
@@ -422,8 +425,8 @@ main.page-versions { max-width: none; }
 .chip.perf { color: var(--dsw-state-warn); background: var(--dsw-state-warn-bg); }
 .link-btn { flex: 0 0 auto; border: 0; background: none; padding: 0 2px; color: var(--dsw-link); font-size: 12.5px; line-height: 20px; cursor: pointer; font-family: inherit; }
 .link-btn:hover, .link-btn:focus-visible { text-decoration: underline dotted; text-underline-offset: 3px; }
-/* 右侧详情面板:吃掉列表以外的全部宽度,吸顶不随长列表滚走 */
-.notes-panel { position: sticky; top: 12px; flex: 1 1 auto; min-width: 320px; }
+/* 右侧详情面板:吃掉列表以外的全部宽度,吸顶不随长列表滚走(flex-basis:0 才不会抢列表空间) */
+.notes-panel { position: sticky; top: 12px; flex: 1 1 0; min-width: 300px; }
 .notes-panel .np-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .notes-panel .np-title { font-size: 14px; font-weight: 500; line-height: 22px; }
 .notes-panel .np-lang { display: inline-flex; gap: 2px; margin-left: auto; }
