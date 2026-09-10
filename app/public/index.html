@@ -420,10 +420,9 @@ main.page-versions { max-width: none; container-type: inline-size; container-nam
 #version-list td:nth-child(4) button { max-width: 100%; }
 #version-list tbody tr.active { background: var(--dsw-interactive-hover); }
 #version-list tbody tr.active td:first-child { box-shadow: inset 2px 0 0 var(--dsw-primary-fill); }
-/* 更新说明在列表里占两行:第一行类型徽标(+详情按钮),第二行单行省略摘要;整格裁切不外溢 */
+/* 更新说明在列表里占两行:第一行类型标签 + 详情按钮,第二行单行省略摘要;整格裁切不外溢 */
 .ver-notes { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
-.ver-notes-tags { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.ver-notes-tags .link-btn { margin-left: auto; }
+.ver-notes-tags { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 .ver-notes-text { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-secondary); font-size: 12.5px; line-height: 20px; }
 .ver-notes.none .ver-notes-text { color: var(--dsw-label-tertiary); }
 .chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 10px; corner-shape: round; font-size: 11.5px; line-height: 16px; white-space: nowrap; flex: 0 0 auto; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
@@ -1023,16 +1022,8 @@ function tidyNoteLine(line) {
     .replace(/[。.;；,、]\s*$/, '')
     .trim()
 }
-/** 摘要截断:优先在最后一个分隔符处断开,避免把一个词/@菜单切成两半。
-    长度按列表里摘要列的一行宽度来定(900px 列表、更新说明列右侧留 30px 间距后约 397px ≈ 32 个汉字),
-    保证一行放得下、不出现省略号。 */
-function clampSummary(text, limit = 32) {
-  if (text.length <= limit) return text
-  const cut = text.slice(0, limit)
-  const at = Math.max(cut.lastIndexOf(';'), cut.lastIndexOf('；'), cut.lastIndexOf('，'), cut.lastIndexOf(','), cut.lastIndexOf(' '))
-  return `${at > 20 ? cut.slice(0, at) : cut}…`
-}
-/** 启发式一行摘要(确定性、零网络):优先中文 bullet,其次任意 bullet,最后退回首条实质文本。 */
+/** 启发式一行摘要(确定性、零网络):优先中文 bullet,其次任意 bullet,最后退回首条实质文本。
+    不做字数截断——列表里靠 CSS text-overflow 在真正的行尾出省略号,避免"没填满就省略"。 */
 function summarizeNotes(body) {
   const lines = String(body ?? '').replace(/\r\n?/g, '\n').split('\n').map((line) => line.trim())
     .filter((line) => line.length > 0 && !NOTE_LANG_NAV.test(line))
@@ -1040,11 +1031,9 @@ function summarizeNotes(body) {
   const cjkBullets = bullets.filter(hasCjk)
   const pool = (cjkBullets.length > 0 ? cjkBullets : bullets).map(tidyNoteLine).filter((line) => line.length > 0)
   if (pool.length === 0) {
-    const fallback = lines.map(tidyNoteLine).find((line) => line.length > 4 && hasCjk(line)) ?? tidyNoteLine(lines[0] ?? '')
-    return clampSummary(fallback)
+    return lines.map(tidyNoteLine).find((line) => line.length > 4 && hasCjk(line)) ?? tidyNoteLine(lines[0] ?? '')
   }
-  const summary = pool[1] !== undefined && pool[0].length < 22 ? `${pool[0]};${pool[1]}` : pool[0]
-  return clampSummary(summary)
+  return pool[1] !== undefined && pool[0].length < 22 ? `${pool[0]};${pool[1]}` : pool[0]
 }
 /** 变更类型识别(按展示顺序;正文含对应关键词即命中)。 */
 function noteTypes(body) {
