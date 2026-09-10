@@ -990,7 +990,6 @@ async function renderContainers() {
       <div class="row">
         <input id="c-name" placeholder="容器名称(字母数字-_)" style="width:220px">
         <select id="c-version" style="width:180px"><option value="">加载中...</option></select>
-        <select id="c-profile" style="width:130px"><option value="web">web</option><option value="headless">headless</option></select>
         <button class="primary" onclick="createContainer()">创建</button>
         <span class="muted">首次创建某版本需构建一次(约 1 分钟),之后同版本容器约 10 秒;进度见底部终端</span>
       </div>
@@ -1005,7 +1004,11 @@ async function renderContainers() {
   if (catalog.installed.length === 0) {
     select.innerHTML = '<option value="">无已安装版本,请先到版本管理安装</option>'
   } else {
-    select.innerHTML = catalog.installed.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')
+    // 默认选中上次创建用的版本,否则最新版本(版本名自然降序,首个为最新)
+    const versions = [...catalog.installed].sort(versionDesc)
+    const last = localStorage.getItem('dshdock-last-version')
+    const def = versions.includes(last) ? last : versions[0]
+    select.innerHTML = versions.map((v) => `<option value="${escapeHtml(v)}" ${v === def ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')
   }
 
   const listHtml = containers.map((c) => {
@@ -1046,15 +1049,27 @@ async function renderContainers() {
 async function createContainer() {
   const name = $('#c-name').value.trim()
   const version = $('#c-version').value
-  const profile = $('#c-profile').value
   if (!name) return toast('请输入容器名称', true)
   if (!version) return toast('没有可用的已安装版本', true)
   try {
-    await api('/api/containers', { method: 'POST', body: { name, version, profile } })
+    await api('/api/containers', { method: 'POST', body: { name, version, profile: 'web' } })
+    localStorage.setItem('dshdock-last-version', version)
     $('#c-name').value = ''
     toast(`容器 ${name} 创建中`)
     setTimeout(renderContainers, 300)
   } catch (error) { toast(`创建失败: ${error}`, true) }
+}
+// 版本名自然降序比较(数字段按数值比;前缀相同时短者视为更新,如 0.1.5 > 0.1.5-rc.1)
+function versionDesc(a, b) {
+  const ta = String(a).split(/(\d+)/), tb = String(b).split(/(\d+)/)
+  for (let i = 0; i < Math.max(ta.length, tb.length); i++) {
+    const x = ta[i], y = tb[i]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    const d = /^\d+$/.test(x) && /^\d+$/.test(y) ? Number(x) - Number(y) : x.localeCompare(y)
+    if (d) return -d
+  }
+  return 0
 }
 async function startContainer(id) {
   try {

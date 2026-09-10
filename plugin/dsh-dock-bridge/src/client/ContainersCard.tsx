@@ -25,6 +25,9 @@ type ConfirmAction =
   | { readonly kind: 'update'; readonly row: ContainerRow; readonly version: string }
   | { readonly kind: 'port'; readonly row: ContainerRow; readonly port: number }
 
+/** localStorage key for the last version used in a create (shared with the DSH Dock web UI). */
+const LAST_VERSION_KEY = 'dshdock-last-version'
+
 /** Newest running (else failed) task across a row's kinds. */
 function rowTask(store: DockStore, row: ContainerRow): DockTask | undefined {
   const candidates = [
@@ -56,6 +59,7 @@ export function ContainersCard({ t, store }: {
   const submitCreate = async (input: { name: string; version: string; profile: string }): Promise<void> => {
     try {
       await store.createContainer(input)
+      localStorage.setItem(LAST_VERSION_KEY, input.version)
       setCreating(false)
     } catch {
       // The op error note renders the failure; the form stays open to fix.
@@ -340,7 +344,7 @@ export function ContainersCard({ t, store }: {
   )
 }
 
-/** New-container inline form: name, version select (fed by the versions card), profile select. */
+/** New-container inline form: name + version select (fed by the versions card). Profile is fixed to web. */
 function CreateForm({ t, versions, busy, onSubmit, onCancel }: {
   t: DockT
   versions: readonly string[]
@@ -349,8 +353,11 @@ function CreateForm({ t, versions, busy, onSubmit, onCancel }: {
   onCancel: () => void
 }) {
   const [name, setName] = useState('')
-  const [version, setVersion] = useState('')
-  const [profile, setProfile] = useState('web')
+  // Default to the last created-with version, else the newest (catalog order, newest first).
+  const [version, setVersion] = useState(() => {
+    const last = localStorage.getItem(LAST_VERSION_KEY)
+    return last !== null && versions.includes(last) ? last : versions[0] ?? ''
+  })
   const valid = name.trim().length > 0 && version.length > 0
   return (
     <div className={css.inlineForm}>
@@ -360,14 +367,10 @@ function CreateForm({ t, versions, busy, onSubmit, onCancel }: {
           <option value="">{t('containers.versionLabel')}</option>
           {versions.map(tag => <option key={tag} value={tag}>{tag}</option>)}
         </select>
-        <select className={css.narrow} value={profile} onChange={event => { setProfile(event.target.value) }}>
-          <option value="web">web</option>
-          <option value="headless">headless</option>
-        </select>
       </div>
       <div className={css.inlineFormActions}>
         <Button size="sm" variant="outline" aria-label={t('cancel')} onClick={onCancel}>×</Button>
-        <Button size="sm" variant="primary" disabled={!valid || busy} onClick={() => { onSubmit({ name: name.trim(), version, profile }) }}>
+        <Button size="sm" variant="primary" disabled={!valid || busy} onClick={() => { onSubmit({ name: name.trim(), version, profile: 'web' }) }}>
           {busy ? t('containers.creating') : t('containers.create')}
         </Button>
       </div>

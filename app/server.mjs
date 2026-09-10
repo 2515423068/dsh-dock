@@ -1453,11 +1453,22 @@ if (process.env.DSHDOCK_DEV === '1') {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
 }
 
+// 每次服务启动后台拉取一次版本目录(尽力而为:失败保留旧缓存,不阻塞启动)
+function refreshCatalogOnBoot() {
+  fetchCatalogFromGithub()
+    .then((tags) => {
+      writeJson(CATALOG_PATH, { fetchedAt: nowSeconds(), tags })
+      log(`版本目录已自动刷新(${tags.length} 个 tag)`)
+    })
+    .catch((error) => log(`启动时版本目录自动刷新失败,沿用缓存: ${error}`))
+}
+
 server.listen(PORT, '127.0.0.1', () => {
   const resolved = resolveDataRoot()
   if (resolved.root) {
     initPaths(resolved.root)
     reconcileRunningHosts()
+    refreshCatalogOnBoot()
     fs.writeFileSync(PID_FILE, String(process.pid))
     if (DATA_ROOT === path.join(os.homedir(), 'DSHBox')) {
       log('⚠️ DATA_ROOT 指向已废弃的 ~/DSHBox — 检查 DSHBOX_DATA_ROOT 环境变量或源码位置!')

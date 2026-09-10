@@ -454,66 +454,66 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"rowHead": "yFwJXq_rowHead",
-			"cardHead": "yFwJXq_cardHead",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"row": "yFwJXq_row",
-			"card": "yFwJXq_card",
-			"cardTitle": "yFwJXq_cardTitle",
-			"rowUrl": "yFwJXq_rowUrl",
-			"logPath": "yFwJXq_logPath",
-			"dot": "yFwJXq_dot",
-			"taskFailed": "yFwJXq_taskFailed",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"section": "yFwJXq_section",
-			"taskLine": "yFwJXq_taskLine",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"rows": "yFwJXq_rows",
-			"tabs": "yFwJXq_tabs",
-			"rowTitle": "yFwJXq_rowTitle",
-			"cardBody": "yFwJXq_cardBody",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"formLabel": "yFwJXq_formLabel",
-			"inlineForm": "yFwJXq_inlineForm",
-			"guideTitle": "yFwJXq_guideTitle",
-			"errorNote": "yFwJXq_errorNote",
-			"formRow": "yFwJXq_formRow",
-			"verSelect": "yFwJXq_verSelect",
-			"taskHead": "yFwJXq_taskHead",
 			"statusLabel": "yFwJXq_statusLabel",
-			"intro": "yFwJXq_intro",
-			"guide": "yFwJXq_guide",
-			"tab": "yFwJXq_tab",
-			"chipRow": "yFwJXq_chipRow",
-			"footerNote": "yFwJXq_footerNote",
-			"cellRight": "yFwJXq_cellRight",
-			"grow": "yFwJXq_grow",
-			"narrow": "yFwJXq_narrow",
+			"formLabel": "yFwJXq_formLabel",
+			"saveRow": "yFwJXq_saveRow",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"logPath": "yFwJXq_logPath",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
 			"hintIcon": "yFwJXq_hintIcon",
-			"table": "yFwJXq_table",
-			"formGrid": "yFwJXq_formGrid",
-			"guideBody": "yFwJXq_guideBody",
+			"rowLine": "yFwJXq_rowLine",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"rowActions": "yFwJXq_rowActions",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"rowUrl": "yFwJXq_rowUrl",
+			"errorNote": "yFwJXq_errorNote",
+			"cardActions": "yFwJXq_cardActions",
+			"grow": "yFwJXq_grow",
+			"inlineForm": "yFwJXq_inlineForm",
+			"footerNote": "yFwJXq_footerNote",
+			"empty": "yFwJXq_empty",
+			"rangeInput": "yFwJXq_rangeInput",
+			"errorLine": "yFwJXq_errorLine",
 			"title": "yFwJXq_title",
 			"outputTail": "yFwJXq_outputTail",
-			"rowLine": "yFwJXq_rowLine",
-			"labelCol": "yFwJXq_labelCol",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"saveRow": "yFwJXq_saveRow",
-			"cardActions": "yFwJXq_cardActions",
+			"table": "yFwJXq_table",
+			"rows": "yFwJXq_rows",
+			"formGrid": "yFwJXq_formGrid",
+			"guideTitle": "yFwJXq_guideTitle",
+			"card": "yFwJXq_card",
+			"tabs": "yFwJXq_tabs",
+			"cardBody": "yFwJXq_cardBody",
 			"mutedCell": "yFwJXq_mutedCell",
+			"cardHead": "yFwJXq_cardHead",
+			"section": "yFwJXq_section",
+			"rowTitle": "yFwJXq_rowTitle",
+			"taskFailed": "yFwJXq_taskFailed",
+			"intro": "yFwJXq_intro",
+			"narrow": "yFwJXq_narrow",
+			"verSelect": "yFwJXq_verSelect",
+			"taskLine": "yFwJXq_taskLine",
+			"formRow": "yFwJXq_formRow",
+			"row": "yFwJXq_row",
 			"selfBadge": "yFwJXq_selfBadge",
-			"errorLine": "yFwJXq_errorLine",
-			"subTitle": "yFwJXq_subTitle",
-			"rowActions": "yFwJXq_rowActions",
-			"tabPanel": "yFwJXq_tabPanel",
-			"empty": "yFwJXq_empty",
-			"spin": "yFwJXq_spin",
+			"guideBody": "yFwJXq_guideBody",
+			"tab": "yFwJXq_tab",
+			"dot": "yFwJXq_dot",
+			"cellRight": "yFwJXq_cellRight",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"taskHead": "yFwJXq_taskHead",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"chipRow": "yFwJXq_chipRow",
+			"guide": "yFwJXq_guide",
+			"cardTitle": "yFwJXq_cardTitle",
 			"link": "yFwJXq_link",
-			"rangeInput": "yFwJXq_rangeInput",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"spin": "yFwJXq_spin",
+			"labelCol": "yFwJXq_labelCol",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"rowHead": "yFwJXq_rowHead",
+			"tabPanel": "yFwJXq_tabPanel",
 			"taskInline": "yFwJXq_taskInline",
+			"subTitle": "yFwJXq_subTitle",
 			"rowMeta": "yFwJXq_rowMeta"
 		};
 		//#endregion
@@ -653,6 +653,8 @@ window.__ModuleLoader__.load({
 		* confirmations (delete always, and the self-container strong path for
 		* stop/update/delete with an acknowledge step).
 		*/
+		/** localStorage key for the last version used in a create (shared with the DSH Dock web UI). */
+		const LAST_VERSION_KEY = "dshdock-last-version";
 		/** Newest running (else failed) task across a row's kinds. */
 		function rowTask(store, row) {
 			const candidates = [
@@ -684,6 +686,7 @@ window.__ModuleLoader__.load({
 			const submitCreate = async (input) => {
 				try {
 					await store.createContainer(input);
+					localStorage.setItem(LAST_VERSION_KEY, input.version);
 					setCreating(false);
 				} catch {}
 			};
@@ -1038,54 +1041,39 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		/** New-container inline form: name, version select (fed by the versions card), profile select. */
+		/** New-container inline form: name + version select (fed by the versions card). Profile is fixed to web. */
 		function CreateForm({ t, versions, busy, onSubmit, onCancel }) {
 			const [name, setName] = (0, react.useState)("");
-			const [version, setVersion] = (0, react.useState)("");
-			const [profile, setProfile] = (0, react.useState)("web");
+			const [version, setVersion] = (0, react.useState)(() => {
+				const last = localStorage.getItem(LAST_VERSION_KEY);
+				return last !== null && versions.includes(last) ? last : versions[0] ?? "";
+			});
 			const valid = name.trim().length > 0 && version.length > 0;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 				className: DockSection_module_css_default.inlineForm,
 				children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.inlineFormRow,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: name,
-							placeholder: t("containers.namePlaceholder"),
-							onChange: (event) => {
-								setName(event.target.value);
-							}
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							className: DockSection_module_css_default.narrow,
-							value: version,
-							onChange: (event) => {
-								setVersion(event.target.value);
-							},
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "",
-								children: t("containers.versionLabel")
-							}), versions.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: tag,
-								children: tag
-							}, tag))]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							className: DockSection_module_css_default.narrow,
-							value: profile,
-							onChange: (event) => {
-								setProfile(event.target.value);
-							},
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "web",
-								children: "web"
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "headless",
-								children: "headless"
-							})]
-						})
-					]
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+						className: DockSection_module_css_default.grow,
+						value: name,
+						placeholder: t("containers.namePlaceholder"),
+						onChange: (event) => {
+							setName(event.target.value);
+						}
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+						className: DockSection_module_css_default.narrow,
+						value: version,
+						onChange: (event) => {
+							setVersion(event.target.value);
+						},
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "",
+							children: t("containers.versionLabel")
+						}), versions.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: tag,
+							children: tag
+						}, tag))]
+					})]
 				}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.inlineFormActions,
 					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1102,7 +1090,7 @@ window.__ModuleLoader__.load({
 							onSubmit({
 								name: name.trim(),
 								version,
-								profile
+								profile: "web"
 							});
 						},
 						children: busy ? t("containers.creating") : t("containers.create")
@@ -1848,7 +1836,6 @@ window.__ModuleLoader__.load({
 			"containers.selfAcknowledge": "我了解后果,继续(force)",
 			"containers.confirm": "确认",
 			"containers.versionLabel": "版本",
-			"containers.profileLabel": "profile",
 			"containers.namePlaceholder": "容器名(字母/数字/-/_)",
 			"containers.create": "创建",
 			"containers.creating": "创建中…",
@@ -1962,7 +1949,6 @@ window.__ModuleLoader__.load({
 			"containers.selfAcknowledge": "I understand the consequence; continue (force)",
 			"containers.confirm": "Confirm",
 			"containers.versionLabel": "Version",
-			"containers.profileLabel": "Profile",
 			"containers.namePlaceholder": "Container name (letters/digits/-/_)",
 			"containers.create": "Create",
 			"containers.creating": "Creating…",
