@@ -69,7 +69,7 @@ function draftOf(entry: ModelConfigEntry, defaultUid: string): Draft {
 }
 
 const BLANK: Draft = {
-  uid: 'new', id: '', name: '', baseURL: '', api: '', apiKey: '', apiKeySet: false,
+  uid: '', id: '', name: '', baseURL: '', api: '', apiKey: '', apiKeySet: false,
   apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: false,
 }
 
@@ -90,7 +90,7 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
   // 详情区永远有内容:选中项被删、表为空、首次加载都自动落到 ★ / 第一个 / 新建草稿
   useEffect(() => {
     if (view === undefined) return
-    if (draft !== undefined && (draft.uid === 'new' || view.models.some(entry => entry.uid === draft.uid))) return
+    if (draft !== undefined && (draft.uid === '' || view.models.some(entry => entry.uid === draft.uid))) return
     if (view.models.length === 0) { setDraft({ ...BLANK, api: view.protocols[0] ?? '' }); return }
     const first = view.models.find(entry => entry.uid === view.defaultUid) ?? view.models[0]
     setDraft(draftOf(first, view.defaultUid))
@@ -126,7 +126,11 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     if (ctx !== undefined) model.contextWindow = ctx
     if (max !== undefined) model.maxTokens = max
     setFailure(undefined)
-    const saved = await store.saveModel(draft.uid, model, draft.apiKey)
+    // 不靠模式:与列表比对决定更新哪一行,匹配不上才新建
+    const exact = view.models.find(entry => entry.id === draft.id.trim() && (entry.api ?? '') === draft.api && (entry.baseURL ?? '') === draft.baseURL.trim())
+    const selected = view.models.find(entry => entry.uid === draft.uid)
+    const target = exact ?? (selected !== undefined && (selected.api ?? '') === draft.api && (selected.baseURL ?? '') === draft.baseURL.trim() ? selected : undefined)
+    const saved = await store.saveModel(target === undefined ? 'new' : target.uid, model, draft.apiKey)
     if (!saved) { setFailure(t('error.operationFailed')); return }
     setNote(t('settings.modelSaved', { model: draft.id.trim() }))
     setDraft(undefined)
@@ -226,6 +230,7 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   </button>
                   <b>{entry.id}</b>
                   <span className={css.ddMeta}>{entry.providerLabel ?? ''}</span>
+                  <span className={css.ddMeta}>{entry.baseURL ?? ''}</span>
                   <span className={css.grow} />
                   <button
                     type="button"
@@ -286,12 +291,12 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
               </div>
               <div className={css.rowLine}>
                 <span className={css.mutedCell}>
-                  {draft.uid === 'new'
+                  {draft.uid === ''
                     ? ''
                     : draft.uid === view.defaultUid ? t('settings.modelDefaultCurrent') : t('settings.modelDefaultHint')}
                 </span>
                 <span className={css.grow} />
-                <Button size="sm" variant="outline" disabled={busy || draft.uid === 'new'} onClick={() => { void removeUid(draft.uid, draft.id) }}>
+                <Button size="sm" variant="outline" disabled={busy || draft.uid === ''} onClick={() => { void removeUid(draft.uid, draft.id) }}>
                   {t('settings.modelDelete')}
                 </Button>
                 <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>

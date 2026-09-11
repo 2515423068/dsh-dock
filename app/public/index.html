@@ -691,7 +691,7 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .dd-trigger { display: flex; align-items: center; gap: 10px; min-width: 420px; max-width: 100%; height: 32px; padding: 0 10px; border: 0.5px solid var(--dsw-border-l4); border-radius: 8px; background: var(--dsw-bg-module, transparent); color: var(--dsw-label-primary); font-size: 13px; cursor: pointer; }
 .dd-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
 .dd-caret { flex: 0 0 auto; color: var(--dsw-label-tertiary); }
-.dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: max-content; min-width: 100%; max-width: min(860px, 92vw); max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
+.dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: min(860px, 92vw); min-width: 100%; max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
 .dd-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 20px; cursor: pointer; }
 .dd-new { color: var(--dsw-link); border-top: 0.5px solid var(--dsw-border-l2); margin-top: 4px; }
 .dd-tag { flex: 0 0 auto; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 18px; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
@@ -1564,14 +1564,14 @@ function draftFrom(row) {
 }
 function blankDraft() {
   return {
-    uid: 'new', mode: 'new', id: '', name: '', api: modelViewCache.protocols[0] ?? '', baseURL: '', apiKey: '',
+    uid: '', mode: 'new', id: '', name: '', api: modelViewCache.protocols[0] ?? '', baseURL: '', apiKey: '',
     apiKeySet: false, apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: modelViewCache.models.length === 0,
   }
 }
 /** 详情区永远有内容:选中项被删/表空时自动落到 ★ / 第一个 / 新建草稿。 */
 function ensureModelSelection() {
   const models = modelViewCache.models
-  if (modelDetail !== null && (modelDetail.uid === 'new' || models.some((m) => m.uid === modelDetail.uid))) return
+  if (modelDetail !== null && (modelDetail.uid === '' || models.some((m) => m.uid === modelDetail.uid))) return
   if (models.length === 0) { modelDetail = blankDraft(); return }
   modelDetail = draftFrom(models.find((m) => m.uid === modelViewCache.defaultUid) ?? models[0])
 }
@@ -1662,7 +1662,7 @@ function renderModelPanel() {
   const current = modelDetail
   label.textContent = current === null
     ? '选择模型…'
-    : (current.uid === 'new'
+    : (current.uid === ''
         ? '（新模型，未保存）'
         : `${current.uid === modelViewCache.defaultUid ? '★ ' : ''}${current.id}${current.label ? ` · ${current.label}` : ''}`)
   const panel = $('#model-dd-panel')
@@ -1675,12 +1675,14 @@ function renderModelPanel() {
           <b>${escapeHtml(m.id)}</b>
           <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
           <span class="muted">${escapeHtml(m.baseURL || '目录默认端点')}</span>
+          <span style="flex:1"></span>
           <button type="button" class="dd-x" title="删除这个模型" onclick="deleteModelRow('${m.uid}', event)">✕</button>
         </div>`).join('') + (modelViewCache.passthrough ?? []).map((p) => `<div class="dd-item">
           <span class="dd-tag">目录</span>
           <b>${escapeHtml(p.route)}</b>
           <span class="muted">${escapeHtml(p.displayName ?? '')}</span>
           <span class="muted">模型由 DSH 目录提供</span>
+          <span style="flex:1"></span>
           <button type="button" class="dd-x" title="移除这个目录提供方" onclick="deletePassthrough('${escapeHtml(p.route)}', event)">✕</button>
         </div>`).join('') + '<div class="dd-item dd-new" onclick="newModel()"><span class="dd-tag">新建</span><b>＋ 新建模型</b></div>'
   }
@@ -1712,13 +1714,34 @@ function renderModelDetail() {
     <div class="field"><label>上下文窗口</label><input id="m-ctx" placeholder="256K" style="max-width:120px" value="${escapeHtml(d.ctx)}">
       <label style="width:auto;margin-left:8px">最大输出</label><input id="m-max" placeholder="32K" style="max-width:120px" value="${escapeHtml(d.max)}"></div>
     <div class="row" style="margin-top:8px">
-      <span class="muted">${d.uid === 'new' ? '' : (d.uid === modelViewCache.defaultUid ? '★ 当前默认模型' : '用下拉里每项最前方的 ☆ 设为默认')}</span>
+      <span class="muted">${savePreview(d)}</span>
       <span id="m-err" style="color:var(--dsw-state-error);font-size:12.5px"></span>
       <span style="flex:1"></span>
-      <button class="danger" ${d.uid === 'new' ? 'disabled' : ''} onclick="deleteSelectedModel()">删除</button>
+      <button class="danger" ${d.uid === '' ? 'disabled' : ''} onclick="deleteSelectedModel()">删除</button>
       <button class="primary" onclick="saveModel()">${actionLabel}</button>
     </div>
   </div>`
+}
+/**
+ * 保存目标判定(不靠模式,靠与列表比对):
+ *  ① 表单与某行 (模型 ID + 协议 + 端点) 完全一致 → 更新那一行;
+ *  ② 否则若当前选中行的 协议+端点 与表单一致 → 视为改了这一行(ID/显示名等)→ 更新它;
+ *  ③ 都不匹配 → 新建。
+ */
+function resolveSaveTarget(d) {
+  const exact = modelViewCache.models.find((m) => m.id === d.id && (m.api ?? '') === d.api && (m.baseURL ?? '') === d.baseURL)
+  if (exact !== undefined) return { uid: exact.uid, action: 'update' }
+  const selected = modelViewCache.models.find((m) => m.uid === d.uid)
+  if (selected !== undefined && (selected.api ?? '') === d.api && (selected.baseURL ?? '') === d.baseURL) {
+    return { uid: selected.uid, action: 'update' }
+  }
+  return { uid: '', action: 'create' }
+}
+/** 详情里的一行提示:这次保存会新建还是更新哪一行(冲突一眼可见)。 */
+function savePreview(d) {
+  if (d.id === '') return ''
+  const target = resolveSaveTarget({ ...d, uid: modelDetail?.uid ?? '' })
+  return target.action === 'create' ? '将新建一行模型' : `将更新:${modelViewCache.models.find((m) => m.uid === target.uid)?.id ?? ''}`
 }
 function readModelDetail() {
   return {
@@ -1727,6 +1750,7 @@ function readModelDetail() {
     api: $('#m-api').value,
     baseURL: $('#m-base').value.trim(),
     apiKeyEnv: modelDetail?.apiKeyEnv ?? '',
+    uid: modelDetail?.uid ?? '',
     apiKey: $('#m-key').value,
     label: $('#m-label').value.trim(),
     contextWindow: parseCap($('#m-ctx').value),
@@ -1745,8 +1769,9 @@ async function saveModel() {
     if (d.contextWindow !== undefined) body.model.contextWindow = d.contextWindow
     if (d.maxTokens !== undefined) body.model.maxTokens = d.maxTokens
     if (d.apiKey !== '') body.apiKey = d.apiKey
-    await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'PUT', body })
-    toast(`已保存 ${d.id}`)
+    const target = resolveSaveTarget(d)
+    await api(`/api/model-configs/models/${target.uid === '' ? 'new' : encodeURIComponent(target.uid)}`, { method: 'PUT', body })
+    toast(target.action === 'create' ? `已新建 ${d.id}` : `已更新 ${d.id}`)
     modelViewCache = await api('/api/model-configs')
     modelDetail = null
     ensureModelSelection()

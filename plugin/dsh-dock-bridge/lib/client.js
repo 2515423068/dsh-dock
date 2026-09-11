@@ -516,95 +516,95 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"ddMeta": "yFwJXq_ddMeta",
-			"checkLine": "yFwJXq_checkLine",
-			"ddStar": "yFwJXq_ddStar",
-			"errorNote": "yFwJXq_errorNote",
-			"rows": "yFwJXq_rows",
-			"errorLine": "yFwJXq_errorLine",
-			"modelList": "yFwJXq_modelList",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"rowMeta": "yFwJXq_rowMeta",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"inlineForm": "yFwJXq_inlineForm",
-			"subTitle": "yFwJXq_subTitle",
-			"taskHead": "yFwJXq_taskHead",
-			"rowTitle": "yFwJXq_rowTitle",
-			"cellAction": "yFwJXq_cellAction",
 			"title": "yFwJXq_title",
-			"footerNote": "yFwJXq_footerNote",
-			"dotOk": "yFwJXq_dotOk",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"ddItem": "yFwJXq_ddItem",
-			"guideBody": "yFwJXq_guideBody",
-			"rangeInput": "yFwJXq_rangeInput",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"tab": "yFwJXq_tab",
-			"mutedCell": "yFwJXq_mutedCell",
-			"saveRow": "yFwJXq_saveRow",
-			"modelRow": "yFwJXq_modelRow",
-			"taskFailed": "yFwJXq_taskFailed",
-			"dotMiss": "yFwJXq_dotMiss",
-			"cardTitle": "yFwJXq_cardTitle",
-			"logPath": "yFwJXq_logPath",
-			"ddCaret": "yFwJXq_ddCaret",
-			"selfBadge": "yFwJXq_selfBadge",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"cardBody": "yFwJXq_cardBody",
-			"card": "yFwJXq_card",
-			"rowUrl": "yFwJXq_rowUrl",
-			"ddPanel": "yFwJXq_ddPanel",
-			"formGrid": "yFwJXq_formGrid",
-			"guideTitle": "yFwJXq_guideTitle",
-			"ddLabel": "yFwJXq_ddLabel",
-			"dot": "yFwJXq_dot",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"modelField": "yFwJXq_modelField",
-			"capInput": "yFwJXq_capInput",
 			"providerRow": "yFwJXq_providerRow",
-			"grow": "yFwJXq_grow",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"ddTag": "yFwJXq_ddTag",
-			"section": "yFwJXq_section",
-			"tabs": "yFwJXq_tabs",
+			"rangeInput": "yFwJXq_rangeInput",
+			"rowHead": "yFwJXq_rowHead",
+			"selfBadge": "yFwJXq_selfBadge",
+			"formGrid": "yFwJXq_formGrid",
 			"tabPanel": "yFwJXq_tabPanel",
-			"row": "yFwJXq_row",
-			"modelWarn": "yFwJXq_modelWarn",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"verSelect": "yFwJXq_verSelect",
-			"guide": "yFwJXq_guide",
-			"taskInline": "yFwJXq_taskInline",
+			"dd": "yFwJXq_dd",
+			"mutedCell": "yFwJXq_mutedCell",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"rowMeta": "yFwJXq_rowMeta",
 			"intro": "yFwJXq_intro",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"formLabel": "yFwJXq_formLabel",
-			"hintIcon": "yFwJXq_hintIcon",
-			"modelItem": "yFwJXq_modelItem",
-			"link": "yFwJXq_link",
+			"guideBody": "yFwJXq_guideBody",
+			"rowUrl": "yFwJXq_rowUrl",
+			"subTitle": "yFwJXq_subTitle",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
 			"rowActions": "yFwJXq_rowActions",
-			"formRow": "yFwJXq_formRow",
-			"rowLine": "yFwJXq_rowLine",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"ddX": "yFwJXq_ddX",
-			"empty": "yFwJXq_empty",
+			"errorNote": "yFwJXq_errorNote",
+			"spin": "yFwJXq_spin",
+			"ddItem": "yFwJXq_ddItem",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"detailFrame": "yFwJXq_detailFrame",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"row": "yFwJXq_row",
+			"dotMiss": "yFwJXq_dotMiss",
+			"chipRow": "yFwJXq_chipRow",
+			"grow": "yFwJXq_grow",
+			"capInput": "yFwJXq_capInput",
 			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"table": "yFwJXq_table",
+			"ddTag": "yFwJXq_ddTag",
+			"modelList": "yFwJXq_modelList",
+			"guideTitle": "yFwJXq_guideTitle",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"cardHead": "yFwJXq_cardHead",
+			"link": "yFwJXq_link",
+			"footerNote": "yFwJXq_footerNote",
+			"cardBody": "yFwJXq_cardBody",
+			"rowTitle": "yFwJXq_rowTitle",
+			"providerName": "yFwJXq_providerName",
+			"empty": "yFwJXq_empty",
+			"section": "yFwJXq_section",
 			"cardActions": "yFwJXq_cardActions",
+			"guide": "yFwJXq_guide",
+			"verSelect": "yFwJXq_verSelect",
+			"cellAction": "yFwJXq_cellAction",
+			"taskFailed": "yFwJXq_taskFailed",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"ddLabel": "yFwJXq_ddLabel",
+			"errorLine": "yFwJXq_errorLine",
+			"modelField": "yFwJXq_modelField",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"tab": "yFwJXq_tab",
+			"tabs": "yFwJXq_tabs",
+			"hintIcon": "yFwJXq_hintIcon",
+			"narrow": "yFwJXq_narrow",
+			"taskHead": "yFwJXq_taskHead",
+			"taskInline": "yFwJXq_taskInline",
+			"rows": "yFwJXq_rows",
+			"modelRow": "yFwJXq_modelRow",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"ddCaret": "yFwJXq_ddCaret",
+			"logPath": "yFwJXq_logPath",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"card": "yFwJXq_card",
+			"providerActions": "yFwJXq_providerActions",
+			"ddX": "yFwJXq_ddX",
+			"cardTitle": "yFwJXq_cardTitle",
+			"rowLine": "yFwJXq_rowLine",
+			"ddMeta": "yFwJXq_ddMeta",
+			"inlineForm": "yFwJXq_inlineForm",
+			"saveRow": "yFwJXq_saveRow",
+			"checkLine": "yFwJXq_checkLine",
+			"formRow": "yFwJXq_formRow",
+			"table": "yFwJXq_table",
 			"outputTail": "yFwJXq_outputTail",
 			"labelCol": "yFwJXq_labelCol",
-			"chipRow": "yFwJXq_chipRow",
-			"statusLabel": "yFwJXq_statusLabel",
-			"rowHead": "yFwJXq_rowHead",
-			"spin": "yFwJXq_spin",
-			"cardHead": "yFwJXq_cardHead",
+			"ddStar": "yFwJXq_ddStar",
+			"modelWarn": "yFwJXq_modelWarn",
+			"ddPanel": "yFwJXq_ddPanel",
+			"dotOk": "yFwJXq_dotOk",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"dot": "yFwJXq_dot",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"formLabel": "yFwJXq_formLabel",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
 			"taskLine": "yFwJXq_taskLine",
-			"providerName": "yFwJXq_providerName",
-			"providerActions": "yFwJXq_providerActions",
-			"detailFrame": "yFwJXq_detailFrame",
-			"narrow": "yFwJXq_narrow",
-			"dd": "yFwJXq_dd",
-			"ddItemMuted": "yFwJXq_ddItemMuted"
+			"statusLabel": "yFwJXq_statusLabel",
+			"modelItem": "yFwJXq_modelItem"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1233,7 +1233,7 @@ window.__ModuleLoader__.load({
 			};
 		}
 		const BLANK = {
-			uid: "new",
+			uid: "",
 			id: "",
 			name: "",
 			baseURL: "",
@@ -1260,7 +1260,7 @@ window.__ModuleLoader__.load({
 			}, [source, store.containers]);
 			(0, react.useEffect)(() => {
 				if (view === void 0) return;
-				if (draft !== void 0 && (draft.uid === "new" || view.models.some((entry) => entry.uid === draft.uid))) return;
+				if (draft !== void 0 && (draft.uid === "" || view.models.some((entry) => entry.uid === draft.uid))) return;
 				if (view.models.length === 0) {
 					setDraft({
 						...BLANK,
@@ -1310,7 +1310,10 @@ window.__ModuleLoader__.load({
 				if (ctx !== void 0) model.contextWindow = ctx;
 				if (max !== void 0) model.maxTokens = max;
 				setFailure(void 0);
-				if (!await store.saveModel(draft.uid, model, draft.apiKey)) {
+				const exact = view.models.find((entry) => entry.id === draft.id.trim() && (entry.api ?? "") === draft.api && (entry.baseURL ?? "") === draft.baseURL.trim());
+				const selected = view.models.find((entry) => entry.uid === draft.uid);
+				const target = exact ?? (selected !== void 0 && (selected.api ?? "") === draft.api && (selected.baseURL ?? "") === draft.baseURL.trim() ? selected : void 0);
+				if (!await store.saveModel(target === void 0 ? "new" : target.uid, model, draft.apiKey)) {
 					setFailure(t("error.operationFailed"));
 					return;
 				}
@@ -1476,6 +1479,10 @@ window.__ModuleLoader__.load({
 											className: DockSection_module_css_default.ddMeta,
 											children: entry.providerLabel ?? ""
 										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.ddMeta,
+											children: entry.baseURL ?? ""
+										}),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 											type: "button",
@@ -1615,13 +1622,13 @@ window.__ModuleLoader__.load({
 							children: [
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 									className: DockSection_module_css_default.mutedCell,
-									children: draft.uid === "new" ? "" : draft.uid === view.defaultUid ? t("settings.modelDefaultCurrent") : t("settings.modelDefaultHint")
+									children: draft.uid === "" ? "" : draft.uid === view.defaultUid ? t("settings.modelDefaultCurrent") : t("settings.modelDefaultHint")
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
 									variant: "outline",
-									disabled: busy || draft.uid === "new",
+									disabled: busy || draft.uid === "",
 									onClick: () => {
 										removeUid(draft.uid, draft.id);
 									},
