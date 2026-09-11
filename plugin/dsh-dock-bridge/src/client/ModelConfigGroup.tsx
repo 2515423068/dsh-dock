@@ -126,11 +126,9 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     if (ctx !== undefined) model.contextWindow = ctx
     if (max !== undefined) model.maxTokens = max
     setFailure(undefined)
-    // 不靠模式:与列表比对决定更新哪一行,匹配不上才新建
+    // 只按 (模型 ID, 协议, 端点) 三元组比对:命中=旧数据→更新,未命中=新数据→新建
     const exact = view.models.find(entry => entry.id === draft.id.trim() && (entry.api ?? '') === draft.api && (entry.baseURL ?? '') === draft.baseURL.trim())
-    const selected = view.models.find(entry => entry.uid === draft.uid)
-    const target = exact ?? (selected !== undefined && (selected.api ?? '') === draft.api && (selected.baseURL ?? '') === draft.baseURL.trim() ? selected : undefined)
-    const saved = await store.saveModel(target === undefined ? 'new' : target.uid, model, draft.apiKey)
+    const saved = await store.saveModel(exact === undefined ? 'new' : exact.uid, model, draft.apiKey)
     if (!saved) { setFailure(t('error.operationFailed')); return }
     setNote(t('settings.modelSaved', { model: draft.id.trim() }))
     setDraft(undefined)
@@ -207,13 +205,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   </button>
                 </div>
               ))}
-              <div
-                className={css.ddItem}
-                onClick={() => { setFailure(undefined); setOpen(false); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
-              >
-                <span className={css.ddTag}>{t('settings.modelNewTag')}</span>
-                <b>＋ {t('settings.modelNew')}</b>
-              </div>
               {view.models.map(entry => (
                 <div
                   key={entry.uid}
