@@ -434,14 +434,6 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshModelConfig
 			]);
-			/** Ask the provider which models it serves; failure comes back as a message string. */
-			const fetchProviderModels = (0, react.useCallback)(async (input) => {
-				try {
-					return (await rest("POST", "/api/model-configs/fetch-models", input, "获取模型列表失败")).models ?? [];
-				} catch (error) {
-					return error instanceof Error ? error.message : String(error);
-				}
-			}, [rest]);
 			const setBaseUrl = (0, react.useCallback)(async (next) => {
 				try {
 					await mutate("baseUrl", () => callRef.current("dock.baseUrl", { baseUrl: next }));
@@ -482,7 +474,6 @@ window.__ModuleLoader__.load({
 				deleteModel,
 				setDefaultModel,
 				importModelConfig,
-				fetchProviderModels,
 				createContainer,
 				startContainer,
 				stopContainer,
@@ -501,7 +492,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_modelStar{width:12px;color:var(--dsw-alias-state-warn);flex:none}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -511,76 +502,82 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"narrow": "yFwJXq_narrow",
-			"modelRow": "yFwJXq_modelRow",
-			"dotMiss": "yFwJXq_dotMiss",
-			"dotOk": "yFwJXq_dotOk",
-			"checkLine": "yFwJXq_checkLine",
-			"statusLabel": "yFwJXq_statusLabel",
-			"rowMeta": "yFwJXq_rowMeta",
-			"card": "yFwJXq_card",
-			"guide": "yFwJXq_guide",
-			"errorLine": "yFwJXq_errorLine",
-			"dot": "yFwJXq_dot",
-			"inlineForm": "yFwJXq_inlineForm",
-			"grow": "yFwJXq_grow",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"spin": "yFwJXq_spin",
-			"providerName": "yFwJXq_providerName",
-			"tabs": "yFwJXq_tabs",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"providerActions": "yFwJXq_providerActions",
-			"table": "yFwJXq_table",
+			"saveRow": "yFwJXq_saveRow",
 			"rowTitle": "yFwJXq_rowTitle",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"taskHead": "yFwJXq_taskHead",
-			"cardBody": "yFwJXq_cardBody",
-			"rowActions": "yFwJXq_rowActions",
+			"guide": "yFwJXq_guide",
+			"guideTitle": "yFwJXq_guideTitle",
+			"subTitle": "yFwJXq_subTitle",
+			"narrow": "yFwJXq_narrow",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
 			"capInput": "yFwJXq_capInput",
+			"tabPanel": "yFwJXq_tabPanel",
+			"guideBody": "yFwJXq_guideBody",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"formGrid": "yFwJXq_formGrid",
+			"statusLabel": "yFwJXq_statusLabel",
+			"rangeInput": "yFwJXq_rangeInput",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"selfBadge": "yFwJXq_selfBadge",
+			"modelItem": "yFwJXq_modelItem",
+			"dotOk": "yFwJXq_dotOk",
+			"rowMeta": "yFwJXq_rowMeta",
+			"mutedCell": "yFwJXq_mutedCell",
+			"cardActions": "yFwJXq_cardActions",
+			"rows": "yFwJXq_rows",
+			"dot": "yFwJXq_dot",
+			"link": "yFwJXq_link",
+			"errorNote": "yFwJXq_errorNote",
+			"hintIcon": "yFwJXq_hintIcon",
+			"cardHead": "yFwJXq_cardHead",
+			"rowActions": "yFwJXq_rowActions",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"errorLine": "yFwJXq_errorLine",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"providerRow": "yFwJXq_providerRow",
+			"dotMiss": "yFwJXq_dotMiss",
 			"modelField": "yFwJXq_modelField",
+			"modelStar": "yFwJXq_modelStar",
+			"rowHead": "yFwJXq_rowHead",
+			"taskFailed": "yFwJXq_taskFailed",
+			"modelRow": "yFwJXq_modelRow",
+			"empty": "yFwJXq_empty",
+			"inlineForm": "yFwJXq_inlineForm",
+			"taskLine": "yFwJXq_taskLine",
+			"row": "yFwJXq_row",
+			"taskInline": "yFwJXq_taskInline",
+			"rowUrl": "yFwJXq_rowUrl",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"intro": "yFwJXq_intro",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"chipRow": "yFwJXq_chipRow",
+			"footerNote": "yFwJXq_footerNote",
+			"providerName": "yFwJXq_providerName",
+			"checkLine": "yFwJXq_checkLine",
+			"formRow": "yFwJXq_formRow",
+			"spin": "yFwJXq_spin",
+			"taskHead": "yFwJXq_taskHead",
+			"modelWarn": "yFwJXq_modelWarn",
+			"modelList": "yFwJXq_modelList",
+			"section": "yFwJXq_section",
+			"providerActions": "yFwJXq_providerActions",
+			"card": "yFwJXq_card",
+			"tabs": "yFwJXq_tabs",
+			"cardBody": "yFwJXq_cardBody",
+			"table": "yFwJXq_table",
+			"logPath": "yFwJXq_logPath",
+			"rowLine": "yFwJXq_rowLine",
 			"cardTitle": "yFwJXq_cardTitle",
 			"verSelect": "yFwJXq_verSelect",
-			"taskInline": "yFwJXq_taskInline",
-			"subTitle": "yFwJXq_subTitle",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"intro": "yFwJXq_intro",
-			"row": "yFwJXq_row",
-			"rows": "yFwJXq_rows",
-			"saveRow": "yFwJXq_saveRow",
-			"tabPanel": "yFwJXq_tabPanel",
-			"cardActions": "yFwJXq_cardActions",
-			"rowHead": "yFwJXq_rowHead",
-			"empty": "yFwJXq_empty",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"taskFailed": "yFwJXq_taskFailed",
-			"logPath": "yFwJXq_logPath",
-			"rowUrl": "yFwJXq_rowUrl",
-			"mutedCell": "yFwJXq_mutedCell",
-			"taskLine": "yFwJXq_taskLine",
-			"link": "yFwJXq_link",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"errorNote": "yFwJXq_errorNote",
-			"formGrid": "yFwJXq_formGrid",
-			"outputTail": "yFwJXq_outputTail",
-			"section": "yFwJXq_section",
-			"tab": "yFwJXq_tab",
-			"footerNote": "yFwJXq_footerNote",
-			"formRow": "yFwJXq_formRow",
-			"guideBody": "yFwJXq_guideBody",
-			"labelCol": "yFwJXq_labelCol",
-			"rangeInput": "yFwJXq_rangeInput",
-			"hintIcon": "yFwJXq_hintIcon",
-			"rowLine": "yFwJXq_rowLine",
-			"chipRow": "yFwJXq_chipRow",
-			"selfBadge": "yFwJXq_selfBadge",
+			"grow": "yFwJXq_grow",
 			"title": "yFwJXq_title",
-			"formLabel": "yFwJXq_formLabel",
-			"cellAction": "yFwJXq_cellAction",
+			"labelCol": "yFwJXq_labelCol",
 			"builtinBadge": "yFwJXq_builtinBadge",
-			"guideTitle": "yFwJXq_guideTitle",
-			"providerRow": "yFwJXq_providerRow",
-			"cardHead": "yFwJXq_cardHead"
+			"formLabel": "yFwJXq_formLabel",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"outputTail": "yFwJXq_outputTail",
+			"cellAction": "yFwJXq_cellAction",
+			"tab": "yFwJXq_tab"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1169,10 +1166,10 @@ window.__ModuleLoader__.load({
 		/**
 		* Model-config group of the settings card: the new-container initial config as a
 		* flat list of MODELS. One row = one model plus its provider connection facts
-		* (base URL / protocol / API key / provider label); container creation groups rows
+		* (base URL / protocol / API key / provider name); container creation groups rows
 		* that share a connection into one `llm-pi-ai.providers` entry automatically.
-		* Mirrors the DSH Dock WebUI panel. API keys are write-only: the server reports
-		* whether one is stored, never the value.
+		* Clicking a row selects it and refreshes the detail form below. API keys are
+		* write-only: the server reports whether one is stored, never the value.
 		*/
 		/** Whole K/M only, so the text round-trips. */
 		function capText(n) {
@@ -1232,10 +1229,10 @@ window.__ModuleLoader__.load({
 				if (source === "" && store.containers.length > 0) setSource(store.containers[0].id);
 			}, [source, store.containers]);
 			(0, react.useEffect)(() => {
-				if (view !== void 0 && draft === void 0 && view.models.length > 0) {
-					const first = view.models.find((entry) => entry.uid === view.defaultUid) ?? view.models[0];
-					setDraft(draftOf(first, view.defaultUid));
-				}
+				if (view === void 0 || view.models.length === 0) return;
+				if (draft !== void 0 && view.models.some((entry) => entry.uid === draft.uid)) return;
+				const first = view.models.find((entry) => entry.uid === view.defaultUid) ?? view.models[0];
+				setDraft(draftOf(first, view.defaultUid));
 			}, [view, draft]);
 			if (view === void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
 				className: DockSection_module_css_default.subTitle,
@@ -1306,32 +1303,6 @@ window.__ModuleLoader__.load({
 				setNote(t("settings.modelImported"));
 				setDraft(void 0);
 			};
-			const fetchModels = async () => {
-				if (draft === void 0) return;
-				const answer = await store.fetchProviderModels({
-					baseURL: draft.baseURL.trim(),
-					api: draft.api,
-					apiKey: draft.apiKey,
-					uid: draft.uid
-				});
-				if (typeof answer === "string") {
-					setFailure(answer);
-					return;
-				}
-				if (answer.length === 0) {
-					setFailure(t("settings.modelFetchedNone"));
-					return;
-				}
-				const first = answer[0];
-				setFailure(void 0);
-				patch({
-					id: first.id,
-					name: first.name ?? "",
-					ctx: capText(first.contextWindow),
-					max: capText(first.maxTokens)
-				});
-				setNote(t("settings.modelFetched", { count: String(answer.length) }));
-			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
 					className: DockSection_module_css_default.subTitle,
@@ -1352,30 +1323,6 @@ window.__ModuleLoader__.load({
 				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.rowLine,
 					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelPick")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							className: DockSection_module_css_default.verSelect,
-							value: draft?.uid ?? "",
-							onChange: (event) => {
-								const found = view.models.find((entry) => entry.uid === event.target.value);
-								setFailure(void 0);
-								setDraft(found === void 0 ? void 0 : draftOf(found, view.defaultUid));
-							},
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "",
-								children: t("settings.modelPickNone")
-							}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("option", {
-								value: entry.uid,
-								children: [
-									entry.id,
-									entry.providerLabel !== void 0 && entry.providerLabel !== "" ? ` · ${entry.providerLabel}` : "",
-									entry.uid === view.defaultUid ? " ★" : ""
-								]
-							}, entry.uid))]
-						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
 							variant: "primary",
@@ -1390,15 +1337,64 @@ window.__ModuleLoader__.load({
 							},
 							children: t("settings.modelNew")
 						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							className: DockSection_module_css_default.verSelect,
+							value: source,
+							onChange: (event) => {
+								setSource(event.target.value);
+							},
+							children: [store.containers.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t("settings.templateNoContainer")
+							}), store.containers.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: entry.id,
+								children: entry.name
+							}, entry.id))]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
-							disabled: busy || draft === void 0 || draft.uid === "new",
+							disabled: busy || source === "",
 							onClick: () => {
-								remove();
+								importFrom();
 							},
-							children: t("settings.modelDelete")
+							children: t("settings.modelImport")
 						})
 					]
+				}),
+				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
+					className: DockSection_module_css_default.modelList,
+					children: [view.models.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+						className: DockSection_module_css_default.modelItemMuted,
+						children: t("settings.modelEmpty")
+					}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+						type: "button",
+						className: draft?.uid === entry.uid ? DockSection_module_css_default.modelItemActive : DockSection_module_css_default.modelItem,
+						onClick: () => {
+							setFailure(void 0);
+							setDraft(draftOf(entry, view.defaultUid));
+						},
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.modelStar,
+								children: entry.uid === view.defaultUid ? "★" : ""
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: entry.id }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.mutedCell,
+								children: entry.providerLabel ?? ""
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+							entry.apiKeySet === false && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.modelWarn,
+								children: t("settings.modelKeyMissing")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.mutedCell,
+								children: entry.baseURL !== void 0 && entry.baseURL !== "" ? entry.baseURL : t("settings.modelCatalogEndpoint")
+							})
+						]
+					}) }, entry.uid))]
 				}),
 				draft === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.mutedCell,
@@ -1528,13 +1524,14 @@ window.__ModuleLoader__.load({
 									}
 								}), t("settings.modelDefault")]
 							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								size: "sm",
-								disabled: busy || draft.baseURL.trim() === "",
+								disabled: busy || draft.uid === "new",
 								onClick: () => {
-									fetchModels();
+									remove();
 								},
-								children: t("settings.modelFetch")
+								children: t("settings.modelDelete")
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								size: "sm",
@@ -1552,37 +1549,6 @@ window.__ModuleLoader__.load({
 						children: failure
 					})
 				] }),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: DockSection_module_css_default.rowLine,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelImportLabel")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							className: DockSection_module_css_default.verSelect,
-							value: source,
-							onChange: (event) => {
-								setSource(event.target.value);
-							},
-							children: [store.containers.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "",
-								children: t("settings.templateNoContainer")
-							}), store.containers.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: entry.id,
-								children: entry.name
-							}, entry.id))]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							disabled: busy || source === "",
-							onClick: () => {
-								importFrom();
-							},
-							children: t("settings.modelImport")
-						})
-					]
-				}),
 				view.providers.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.footerNote,
 					children: t("settings.modelProvidersNote", {

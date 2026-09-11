@@ -603,3 +603,57 @@
   font-size: 12.5px;
   color: var(--dsw-alias-label-tertiary);
 }
+
+.modelList {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+  max-height: 260px;
+  overflow: auto;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 12px;
+}
+
+.modelItem,
+.modelItemActive {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.modelItem:hover {
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.modelItemActive {
+  background: var(--dsw-alias-bg-module-platform);
+  box-shadow: inset 2px 0 0 var(--dsw-alias-brand-primary);
+}
+
+.modelItemMuted {
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.modelStar {
+  width: 12px;
+  flex: 0 0 auto;
+  color: var(--dsw-alias-state-warn);
+}
+
+.modelWarn {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  color: var(--dsw-alias-state-error);
+}

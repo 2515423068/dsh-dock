@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigEntry, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -398,24 +398,6 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshModelConfig])
 
-  /** Ask the provider which models it serves; failure comes back as a message string. */
-  const fetchProviderModels = useCallback(async (input: {
-    baseURL: string
-    api: string
-    apiKey: string
-    uid: string
-  }): Promise<readonly ModelConfigEntry[] | string> => {
-    try {
-      const answer = await rest<{ models?: readonly ModelConfigEntry[] }>(
-        'POST', '/api/model-configs/fetch-models', input, '获取模型列表失败',
-      )
-      return answer.models ?? []
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error)
-    }
-  }, [rest])
-
-
   const setBaseUrl = useCallback(async (next: string) => {
     try {
       await mutate('baseUrl', () => callRef.current('dock.baseUrl', { baseUrl: next }))
@@ -458,7 +440,6 @@ export function useDock(call: DockCall): DockStore {
     deleteModel,
     setDefaultModel,
     importModelConfig,
-    fetchProviderModels,
     createContainer,
     startContainer,
     stopContainer,
@@ -507,12 +488,6 @@ export interface DockStore {
   deleteModel: (uid: string) => Promise<boolean>
   setDefaultModel: (uid: string) => Promise<boolean>
   importModelConfig: (containerId: string) => Promise<boolean>
-  fetchProviderModels: (input: {
-    baseURL: string
-    api: string
-    apiKey: string
-    uid: string
-  }) => Promise<readonly ModelConfigEntry[] | string>
   createContainer: (input: { name: string; version: string; profile: string }) => Promise<void>
   startContainer: (id: string, force?: boolean) => Promise<void>
   stopContainer: (id: string, force?: boolean) => Promise<void>

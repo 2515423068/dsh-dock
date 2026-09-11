@@ -1,10 +1,10 @@
 /**
  * Model-config group of the settings card: the new-container initial config as a
  * flat list of MODELS. One row = one model plus its provider connection facts
- * (base URL / protocol / API key / provider label); container creation groups rows
+ * (base URL / protocol / API key / provider name); container creation groups rows
  * that share a connection into one `llm-pi-ai.providers` entry automatically.
- * Mirrors the DSH Dock WebUI panel. API keys are write-only: the server reports
- * whether one is stored, never the value.
+ * Clicking a row selects it and refreshes the detail form below. API keys are
+ * write-only: the server reports whether one is stored, never the value.
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -84,11 +84,12 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     if (source === '' && store.containers.length > 0) setSource(store.containers[0].id)
   }, [source, store.containers])
 
+  // 首次拿到配置表(或删除后重拉)时,自动选中 ★ 模型 / 第一个,详情立即有内容
   useEffect(() => {
-    if (view !== undefined && draft === undefined && view.models.length > 0) {
-      const first = view.models.find(entry => entry.uid === view.defaultUid) ?? view.models[0]
-      setDraft(draftOf(first, view.defaultUid))
-    }
+    if (view === undefined || view.models.length === 0) return
+    if (draft !== undefined && view.models.some(entry => entry.uid === draft.uid)) return
+    const first = view.models.find(entry => entry.uid === view.defaultUid) ?? view.models[0]
+    setDraft(draftOf(first, view.defaultUid))
   }, [view, draft])
 
   if (view === undefined) {
@@ -148,28 +149,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     setDraft(undefined)
   }
 
-  const fetchModels = async (): Promise<void> => {
-    if (draft === undefined) return
-    const answer = await store.fetchProviderModels({
-      baseURL: draft.baseURL.trim(),
-      api: draft.api,
-      apiKey: draft.apiKey,
-      uid: draft.uid,
-    })
-    if (typeof answer === 'string') { setFailure(answer); return }
-    if (answer.length === 0) { setFailure(t('settings.modelFetchedNone')); return }
-    // 表单位置只有一个模型:取第一个候选填进 ID/容量,其余模型提示用 Dock WebUI 批量导入
-    const first = answer[0]
-    setFailure(undefined)
-    patch({
-      id: first.id,
-      name: first.name ?? '',
-      ctx: capText(first.contextWindow),
-      max: capText(first.maxTokens),
-    })
-    setNote(t('settings.modelFetched', { count: String(answer.length) }))
-  }
-
   return (
     <>
       <h4 className={css.subTitle}>{t('settings.modelTitle')}</h4>
@@ -184,30 +163,43 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
       )}
 
       <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('settings.modelPick')}</span>
-        <select
-          className={css.verSelect}
-          value={draft?.uid ?? ''}
-          onChange={event => {
-            const found = view.models.find(entry => entry.uid === event.target.value)
-            setFailure(undefined)
-            setDraft(found === undefined ? undefined : draftOf(found, view.defaultUid))
-          }}
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={busy}
+          onClick={() => { setFailure(undefined); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
         >
-          <option value="">{t('settings.modelPickNone')}</option>
-          {view.models.map(entry => (
-            <option key={entry.uid} value={entry.uid}>
-              {entry.id}{entry.providerLabel !== undefined && entry.providerLabel !== '' ? ` · ${entry.providerLabel}` : ''}{entry.uid === view.defaultUid ? ' ★' : ''}
-            </option>
-          ))}
-        </select>
-        <Button size="sm" variant="primary" disabled={busy} onClick={() => { setFailure(undefined); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}>
           {t('settings.modelNew')}
         </Button>
-        <Button size="sm" disabled={busy || draft === undefined || draft.uid === 'new'} onClick={() => { void remove() }}>
-          {t('settings.modelDelete')}
+        <span className={css.grow} />
+        <select className={css.verSelect} value={source} onChange={event => { setSource(event.target.value) }}>
+          {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
+          {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+        </select>
+        <Button size="sm" disabled={busy || source === ''} onClick={() => { void importFrom() }}>
+          {t('settings.modelImport')}
         </Button>
       </div>
+
+      <ul className={css.modelList}>
+        {view.models.length === 0 && <li className={css.modelItemMuted}>{t('settings.modelEmpty')}</li>}
+        {view.models.map(entry => (
+          <li key={entry.uid}>
+            <button
+              type="button"
+              className={draft?.uid === entry.uid ? css.modelItemActive : css.modelItem}
+              onClick={() => { setFailure(undefined); setDraft(draftOf(entry, view.defaultUid)) }}
+            >
+              <span className={css.modelStar}>{entry.uid === view.defaultUid ? '★' : ''}</span>
+              <b>{entry.id}</b>
+              <span className={css.mutedCell}>{entry.providerLabel ?? ''}</span>
+              <span className={css.grow} />
+              {entry.apiKeySet === false && <span className={css.modelWarn}>{t('settings.modelKeyMissing')}</span>}
+              <span className={css.mutedCell}>{entry.baseURL !== undefined && entry.baseURL !== '' ? entry.baseURL : t('settings.modelCatalogEndpoint')}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
 
       {draft === undefined
         ? <p className={css.mutedCell}>{t('settings.modelDetailHint')}</p>
@@ -255,8 +247,9 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                 <input type="checkbox" checked={draft.isDefault} onChange={event => { patch({ isDefault: event.target.checked }) }} />
                 {t('settings.modelDefault')}
               </label>
-              <Button size="sm" disabled={busy || draft.baseURL.trim() === ''} onClick={() => { void fetchModels() }}>
-                {t('settings.modelFetch')}
+              <span className={css.grow} />
+              <Button size="sm" disabled={busy || draft.uid === 'new'} onClick={() => { void remove() }}>
+                {t('settings.modelDelete')}
               </Button>
               <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>
                 {busy ? t('settings.modelSaving') : t('settings.modelSave')}
@@ -266,16 +259,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
           </>
         )}
 
-      <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('settings.modelImportLabel')}</span>
-        <select className={css.verSelect} value={source} onChange={event => { setSource(event.target.value) }}>
-          {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
-          {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-        </select>
-        <Button size="sm" disabled={busy || source === ''} onClick={() => { void importFrom() }}>
-          {t('settings.modelImport')}
-        </Button>
-      </div>
       {view.providers.length > 0 && (
         <p className={css.footerNote}>
           {t('settings.modelProvidersNote', { count: String(view.providers.length), routes: view.providers.map(entry => `${entry.route}(${entry.modelCount})`).join('、') })}

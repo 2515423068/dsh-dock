@@ -2007,17 +2007,6 @@ async function handleApi(request, response, url) {
     log(`模型配置表:默认模型 → ${defaultModelEntry(cfg)?.id ?? ''}`)
     return send(200, modelConfigView())
   }
-  if (route === 'POST /api/model-configs/fetch-models') {
-    const { baseURL, api, apiKey, uid } = await readJsonBody(request)
-    let key = typeof apiKey === 'string' ? apiKey : ''
-    if (key === '' && typeof uid === 'string' && uid !== '') {
-      const row = loadModelConfig().models.find((entry) => entry.uid === uid)
-      if (row !== undefined && row.apiKeyEnv !== '') key = loadModelKeys()[row.apiKeyEnv] ?? ''
-    }
-    const result = await discoverProviderModels({ baseURL, api, apiKey: key })
-    if (result.error) return send(400, { error: result.error })
-    return send(200, result)
-  }
   const modelRowMatch = url.pathname.match(/^\/api\/model-configs\/models\/([^/]+)$/)
   if (modelRowMatch && request.method === 'PUT') {
     const targetUid = decodeURIComponent(modelRowMatch[1])
