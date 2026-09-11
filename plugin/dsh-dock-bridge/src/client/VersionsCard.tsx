@@ -1,6 +1,6 @@
 /**
  * Versions card: the catalog as a WebUI-shaped table (version / status /
- * activity / actions), install with inline progress, delete with
+ * actions), install with inline progress under the status label, delete with
  * confirmation, and catalog refresh. Feeds the containers card's version
  * selects through the store.
  */
@@ -54,7 +54,6 @@ export function VersionsCard({ t, store }: {
             <tr>
               <th>{t('versions.version')}</th>
               <th>{t('versions.state')}</th>
-              <th>{t('versions.dynamic')}</th>
               <th className={css.cellRight}>{t('versions.action')}</th>
             </tr>
           </thead>
@@ -72,8 +71,11 @@ export function VersionsCard({ t, store }: {
                     <span className={css.statusLabel} data-status={row.installed ? 'running' : 'stopped'}>
                       {row.installed ? t('versions.installed') : t('versions.remote')}
                     </span>
+                    {/* 安装动态并入状态列(原「动态」列已删除) */}
+                    {row.remote
+                      ? (lastLine !== undefined && <div className={css.mutedCell}>{lastLine}</div>)
+                      : <div className={css.mutedCell}>{t('versions.remoteExtra')}</div>}
                   </td>
-                  <td className={css.mutedCell}>{row.remote ? (lastLine ?? '') : t('versions.remoteExtra')}</td>
                   <td className={css.cellRight}>
                     {!row.installed && (
                       <Button

@@ -454,67 +454,67 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"statusLabel": "yFwJXq_statusLabel",
-			"formLabel": "yFwJXq_formLabel",
-			"saveRow": "yFwJXq_saveRow",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"logPath": "yFwJXq_logPath",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"hintIcon": "yFwJXq_hintIcon",
-			"rowLine": "yFwJXq_rowLine",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"rowActions": "yFwJXq_rowActions",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"rowUrl": "yFwJXq_rowUrl",
-			"errorNote": "yFwJXq_errorNote",
-			"cardActions": "yFwJXq_cardActions",
-			"grow": "yFwJXq_grow",
-			"inlineForm": "yFwJXq_inlineForm",
-			"footerNote": "yFwJXq_footerNote",
-			"empty": "yFwJXq_empty",
-			"rangeInput": "yFwJXq_rangeInput",
-			"errorLine": "yFwJXq_errorLine",
-			"title": "yFwJXq_title",
-			"outputTail": "yFwJXq_outputTail",
-			"table": "yFwJXq_table",
-			"rows": "yFwJXq_rows",
-			"formGrid": "yFwJXq_formGrid",
-			"guideTitle": "yFwJXq_guideTitle",
-			"card": "yFwJXq_card",
-			"tabs": "yFwJXq_tabs",
-			"cardBody": "yFwJXq_cardBody",
-			"mutedCell": "yFwJXq_mutedCell",
-			"cardHead": "yFwJXq_cardHead",
-			"section": "yFwJXq_section",
 			"rowTitle": "yFwJXq_rowTitle",
-			"taskFailed": "yFwJXq_taskFailed",
-			"intro": "yFwJXq_intro",
-			"narrow": "yFwJXq_narrow",
-			"verSelect": "yFwJXq_verSelect",
-			"taskLine": "yFwJXq_taskLine",
-			"formRow": "yFwJXq_formRow",
-			"row": "yFwJXq_row",
-			"selfBadge": "yFwJXq_selfBadge",
-			"guideBody": "yFwJXq_guideBody",
-			"tab": "yFwJXq_tab",
-			"dot": "yFwJXq_dot",
-			"cellRight": "yFwJXq_cellRight",
-			"builtinBadge": "yFwJXq_builtinBadge",
 			"taskHead": "yFwJXq_taskHead",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"chipRow": "yFwJXq_chipRow",
-			"guide": "yFwJXq_guide",
-			"cardTitle": "yFwJXq_cardTitle",
-			"link": "yFwJXq_link",
-			"spin": "yFwJXq_spin",
-			"labelCol": "yFwJXq_labelCol",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"rowHead": "yFwJXq_rowHead",
+			"rowLine": "yFwJXq_rowLine",
+			"narrow": "yFwJXq_narrow",
+			"rows": "yFwJXq_rows",
+			"rangeInput": "yFwJXq_rangeInput",
+			"inlineForm": "yFwJXq_inlineForm",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"taskLine": "yFwJXq_taskLine",
+			"formLabel": "yFwJXq_formLabel",
+			"taskFailed": "yFwJXq_taskFailed",
+			"grow": "yFwJXq_grow",
 			"tabPanel": "yFwJXq_tabPanel",
+			"guideTitle": "yFwJXq_guideTitle",
 			"taskInline": "yFwJXq_taskInline",
+			"dot": "yFwJXq_dot",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"rowActions": "yFwJXq_rowActions",
+			"outputTail": "yFwJXq_outputTail",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"guideBody": "yFwJXq_guideBody",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"verSelect": "yFwJXq_verSelect",
+			"spin": "yFwJXq_spin",
+			"card": "yFwJXq_card",
+			"row": "yFwJXq_row",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
 			"subTitle": "yFwJXq_subTitle",
-			"rowMeta": "yFwJXq_rowMeta"
+			"errorLine": "yFwJXq_errorLine",
+			"cardBody": "yFwJXq_cardBody",
+			"labelCol": "yFwJXq_labelCol",
+			"guide": "yFwJXq_guide",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"link": "yFwJXq_link",
+			"cardHead": "yFwJXq_cardHead",
+			"rowMeta": "yFwJXq_rowMeta",
+			"table": "yFwJXq_table",
+			"section": "yFwJXq_section",
+			"empty": "yFwJXq_empty",
+			"mutedCell": "yFwJXq_mutedCell",
+			"logPath": "yFwJXq_logPath",
+			"rowHead": "yFwJXq_rowHead",
+			"tab": "yFwJXq_tab",
+			"statusLabel": "yFwJXq_statusLabel",
+			"rowUrl": "yFwJXq_rowUrl",
+			"cardTitle": "yFwJXq_cardTitle",
+			"cellRight": "yFwJXq_cellRight",
+			"formRow": "yFwJXq_formRow",
+			"footerNote": "yFwJXq_footerNote",
+			"title": "yFwJXq_title",
+			"cardActions": "yFwJXq_cardActions",
+			"tabs": "yFwJXq_tabs",
+			"chipRow": "yFwJXq_chipRow",
+			"intro": "yFwJXq_intro",
+			"selfBadge": "yFwJXq_selfBadge",
+			"errorNote": "yFwJXq_errorNote",
+			"formGrid": "yFwJXq_formGrid",
+			"saveRow": "yFwJXq_saveRow",
+			"hintIcon": "yFwJXq_hintIcon",
+			"baseUrlNote": "yFwJXq_baseUrlNote"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1529,7 +1529,7 @@ window.__ModuleLoader__.load({
 		//#region src/client/VersionsCard.tsx
 		/**
 		* Versions card: the catalog as a WebUI-shaped table (version / status /
-		* activity / actions), install with inline progress, delete with
+		* actions), install with inline progress under the status label, delete with
 		* confirmation, and catalog refresh. Feeds the containers card's version
 		* selects through the store.
 		*/
@@ -1577,7 +1577,6 @@ window.__ModuleLoader__.load({
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("versions.version") }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("versions.state") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("versions.dynamic") }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", {
 								className: DockSection_module_css_default.cellRight,
 								children: t("versions.action")
@@ -1588,15 +1587,17 @@ window.__ModuleLoader__.load({
 							const lastLine = task?.lines !== void 0 && task.lines.length > 0 ? task.lines[task.lines.length - 1] : void 0;
 							return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: row.tag }) }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 									className: DockSection_module_css_default.statusLabel,
 									"data-status": row.installed ? "running" : "stopped",
 									children: row.installed ? t("versions.installed") : t("versions.remote")
-								}) }),
-								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", {
+								}), row.remote ? lastLine !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 									className: DockSection_module_css_default.mutedCell,
-									children: row.remote ? lastLine ?? "" : t("versions.remoteExtra")
-								}),
+									children: lastLine
+								}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.mutedCell,
+									children: t("versions.remoteExtra")
+								})] }),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", {
 									className: DockSection_module_css_default.cellRight,
 									children: [!row.installed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1862,7 +1863,6 @@ window.__ModuleLoader__.load({
 			"versions.refreshing": "刷新中…",
 			"versions.version": "版本",
 			"versions.state": "状态",
-			"versions.dynamic": "动态",
 			"versions.action": "操作",
 			"versions.installed": "已安装",
 			"versions.remote": "未安装",
@@ -1975,7 +1975,6 @@ window.__ModuleLoader__.load({
 			"versions.refreshing": "Refreshing…",
 			"versions.version": "Version",
 			"versions.state": "Status",
-			"versions.dynamic": "Activity",
 			"versions.action": "Actions",
 			"versions.installed": "Installed",
 			"versions.remote": "Not installed",
