@@ -1212,7 +1212,9 @@ async function renderVersions(refresh = false) {
       showVersionNotes(selectedVersionTag)
     }
   } catch (error) {
-    $('#version-list').innerHTML = `<div class="error-text">${escapeHtml(error)}<br><br><button onclick="refreshCatalog()">重试</button></div>`
+    // 目录刷新失败时用户可能已经切到别的页面:没有版本列表节点就别写(否则在错误路径里再抛一次)
+    const listBox = $('#version-list')
+    if (listBox !== null) listBox.innerHTML = `<div class="error-text">${escapeHtml(error)}<br><br><button onclick="refreshCatalog()">重试</button></div>`
   }
 }
 
@@ -1631,7 +1633,6 @@ async function deleteModelRow(uid, event) {
   if (event) event.stopPropagation()
   const row = modelViewCache.models.find((m) => m.uid === uid)
   if (row === undefined) return
-  if (!confirm(`删除模型 ${row.id}?`)) return
   try {
     await api(`/api/model-configs/models/${encodeURIComponent(uid)}`, { method: 'DELETE' })
     toast(`已删除 ${row.id}`)
@@ -1735,7 +1736,6 @@ async function saveModel() {
 async function deleteSelectedModel() {
   if (modelDetail === null || modelDetail.uid === 'new') return
   const uid = modelDetail.uid
-  if (!confirm(`删除模型 ${modelDetail.id}?`)) return
   try {
     await api(`/api/model-configs/models/${encodeURIComponent(uid)}`, { method: 'DELETE' })
     toast(`已删除 ${modelDetail.id}`)
