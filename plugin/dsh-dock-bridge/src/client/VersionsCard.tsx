@@ -54,7 +54,7 @@ export function VersionsCard({ t, store }: {
             <tr>
               <th>{t('versions.version')}</th>
               <th>{t('versions.state')}</th>
-              <th className={css.cellRight}>{t('versions.action')}</th>
+              <th className={css.cellAction}>{t('versions.action')}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,7 +76,7 @@ export function VersionsCard({ t, store }: {
                       ? (lastLine !== undefined && <div className={css.mutedCell}>{lastLine}</div>)
                       : <div className={css.mutedCell}>{t('versions.remoteExtra')}</div>}
                   </td>
-                  <td className={css.cellRight}>
+                  <td className={css.cellAction}>
                     {!row.installed && (
                       <Button
                         size="sm"

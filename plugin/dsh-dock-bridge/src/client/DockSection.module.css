@@ -211,8 +211,9 @@
   border-bottom: none;
 }
 
-.cellRight {
-  text-align: right;
+/* 操作列:与其它列一样左对齐(右对齐时不同宽度的按钮左边缘不一致,宽的会外凸),
+   仅锁不换行;表头与按钮共用左基线 */
+.cellAction {
   white-space: nowrap;
 }
 
