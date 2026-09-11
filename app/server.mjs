@@ -862,9 +862,14 @@ function dshHostEnv(profileHome) {
   return env
 }
 
+// ★ sinceBytes 是字节偏移(来自 statSync().size):必须先用 Buffer 按字节切片
+// 再解码。若写成 readFileSync(path,'utf8').slice(sinceBytes),就是拿字节偏移当
+// 字符下标——日志一旦含非 ASCII(→ ← µ 或中文),字符数 < 字节数,切片起点会
+// 向后多吃若干字符,恰好切掉新公告行的 "dsh web: " 前缀 → 匹配失败,启动探测
+// 退化成 15s「等公告行」超时(2026-09-11 实测:DshPlugin_Dev 启动 4s → 20s)
 function announceFromLog(logPath, sinceBytes) {
   try {
-    const text = fs.readFileSync(logPath, 'utf8').slice(sinceBytes)
+    const text = fs.readFileSync(logPath).subarray(sinceBytes).toString('utf8')
     const match = text.match(/dsh web: (http:\/\/\S+)/)
     return match ? match[1] : null
   } catch {
@@ -971,7 +976,8 @@ async function startContainer(id) {
     await sleep(PROBE_INTERVAL_MS)
     if (!alive(child.pid)) {
       // host 提前退出:读取日志尾部作为错误上下文
-      const tail = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8').slice(offset).trim().split('\n').slice(-8).join('\n') : ''
+      // 同样按字节切片:B 偏移当字符下标会因非 ASCII 日志错位
+      const tail = fs.existsSync(logPath) ? fs.readFileSync(logPath).subarray(offset).toString('utf8').trim().split('\n').slice(-8).join('\n') : ''
       runningHosts.delete(id)
       record.state = 'failed'
       record.exitStatus = 'early-exit'
