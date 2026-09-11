@@ -1,43 +1,37 @@
 /**
- * Model-config group of the settings card: the new-container initial config as an
- * editable provider table. Mirrors the DSH Dock WebUI panel (and, in field choice,
- * the harness's own Models settings section): provider rows with credential state,
- * a catalog quick-add, a custom-provider editor with base URL / protocol / models,
- * one-click import from a container, and the default-model picker. API keys are
- * write-only: the server echoes whether one is stored, never the value.
+ * Model-config group of the settings card: the new-container initial config as a
+ * flat list of MODELS. One row = one model plus its provider connection facts
+ * (base URL / protocol / API key / provider label); container creation groups rows
+ * that share a connection into one `llm-pi-ai.providers` entry automatically.
+ * Mirrors the DSH Dock WebUI panel. API keys are write-only: the server reports
+ * whether one is stored, never the value.
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ModelConfigModel, ModelConfigProvider } from './api.ts'
+import type { ModelConfigEntry } from './api.ts'
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
 import { ErrorNote } from './parts.tsx'
 
-/** One editable model row (capacities stay text until save). */
-interface ModelDraft {
+/** The editable detail row (`uid === 'new'` creates, otherwise it replaces). */
+interface Draft {
+  uid: string
   id: string
   name: string
-  ctx: string
-  max: string
-}
-
-/** The editor draft: `targetId === 'new'` creates a row, otherwise it replaces one. */
-interface Draft {
-  targetId: string
-  mode: 'catalog' | 'custom' | 'edit'
-  id: string
-  displayName: string
-  api: string
   baseURL: string
-  apiKeyEnv: string
-  models: ModelDraft[]
+  api: string
   apiKey: string
   apiKeySet: boolean
+  apiKeyEnv: string
+  label: string
+  ctx: string
+  max: string
+  isDefault: boolean
 }
 
-/** Format a capacity the way the editor accepts it back (whole K/M only). */
+/** Whole K/M only, so the text round-trips. */
 function capText(n: number | undefined): string {
   if (typeof n !== 'number') return ''
   if (n >= 1000000 && n % 1000000 === 0) return `${n / 1000000}M`
@@ -45,289 +39,142 @@ function capText(n: number | undefined): string {
   return String(n)
 }
 
-/** Parse a capacity; `''` means inherit, `null` means invalid. */
+/** `''` inherits, a number is the value, `null` is invalid. */
 function parseCap(text: string): number | undefined | null {
   const trimmed = text.replace(/\s+/g, '')
   if (trimmed === '') return undefined
   const match = trimmed.match(/^(\d+(?:\.\d+)?)([km])?$/i)
   if (match === null) return null
-  const value = Number(match[1]) * (match[2]?.toLowerCase() === 'k' ? 1000 : match[2] !== undefined ? 1000000 : 1)
+  const value = Number(match[1]) * (match[2] === undefined ? 1 : match[2].toLowerCase() === 'k' ? 1000 : 1000000)
   return Number.isInteger(value) && value > 0 ? value : null
 }
 
-function modelDrafts(provider: ModelConfigProvider): ModelDraft[] {
-  return provider.models.map(model => ({
-    id: model.id,
-    name: model.name ?? '',
-    ctx: capText(model.contextWindow),
-    max: capText(model.maxTokens),
-  }))
+function draftOf(entry: ModelConfigEntry, defaultUid: string): Draft {
+  return {
+    uid: entry.uid,
+    id: entry.id,
+    name: entry.name ?? '',
+    baseURL: entry.baseURL ?? '',
+    api: entry.api ?? '',
+    apiKey: '',
+    apiKeySet: entry.apiKeySet === true,
+    apiKeyEnv: entry.apiKeyEnv ?? '',
+    label: entry.label ?? '',
+    ctx: capText(entry.contextWindow),
+    max: capText(entry.maxTokens),
+    isDefault: entry.uid === defaultUid,
+  }
 }
 
-/** Build the row we send to `PUT /api/model-configs/providers/:id`. */
-function toProvider(draft: Draft): ModelConfigProvider | string {
-  const models: ModelConfigModel[] = []
-  const seen = new Set<string>()
-  for (const [index, row] of draft.models.entries()) {
-    if (row.id.trim() === '') return `第 ${index + 1} 个模型缺少模型 ID`
-    if (seen.has(row.id.trim())) return `模型 ID 重复:${row.id.trim()}`
-    seen.add(row.id.trim())
-    const model: { id: string; name?: string; contextWindow?: number; maxTokens?: number } = { id: row.id.trim() }
-    if (row.name.trim() !== '') model.name = row.name.trim()
-    const ctx = parseCap(row.ctx)
-    if (ctx === null) return `${row.id.trim()} 的上下文窗口无法识别(可写 131072 / 256K / 1M)`
-    if (ctx !== undefined) model.contextWindow = ctx
-    const max = parseCap(row.max)
-    if (max === null) return `${row.id.trim()} 的最大输出无法识别(可写 8192 / 32K)`
-    if (max !== undefined) model.maxTokens = max
-    models.push(model)
-  }
-  const provider: { id: string; displayName: string; api: string; baseURL: string; apiKeyEnv?: string; models: ModelConfigModel[] } = {
-    id: draft.id.trim(),
-    displayName: draft.displayName.trim(),
-    api: draft.api,
-    baseURL: draft.baseURL.trim(),
-    models,
-  }
-  if (draft.apiKeyEnv !== '') provider.apiKeyEnv = draft.apiKeyEnv
-  return provider
+const BLANK: Draft = {
+  uid: 'new', id: '', name: '', baseURL: '', api: '', apiKey: '', apiKeySet: false,
+  apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: false,
 }
 
 /** The model-config group body. */
 export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): ReactNode {
   const view = store.modelConfig
   const [draft, setDraft] = useState<Draft>()
-  const [source, setSource] = useState('')
-  const [note, setNote] = useState<string>()
   const [failure, setFailure] = useState<string>()
-  const error = store.modelConfigError
+  const [note, setNote] = useState<string>()
+  const [source, setSource] = useState('')
   const busy = store.isBusy('modelConfig')
 
   useEffect(() => {
-    if (view !== undefined && source === '' && store.containers.length > 0) setSource(store.containers[0].id)
-  }, [view, source, store.containers])
+    if (source === '' && store.containers.length > 0) setSource(store.containers[0].id)
+  }, [source, store.containers])
 
-  const openNew = (mode: 'catalog' | 'custom'): void => {
-    setFailure(undefined)
-    setNote(undefined)
-    const preset = mode === 'catalog'
-      ? view?.presets.find(entry => entry.kind === 'catalog')
-      : view?.presets.find(entry => entry.kind === 'custom')
-    const provider = preset?.provider ?? { id: '', displayName: '', api: view?.protocols[0] ?? '', baseURL: '', models: [] }
-    setDraft({
-      targetId: 'new',
-      mode,
-      id: provider.id,
-      displayName: provider.displayName ?? '',
-      api: provider.api ?? '',
-      baseURL: provider.baseURL ?? '',
-      apiKeyEnv: provider.apiKeyEnv ?? '',
-      models: modelDrafts(provider),
-      apiKey: preset?.apiKey ?? '',
-      apiKeySet: false,
-    })
+  useEffect(() => {
+    if (view !== undefined && draft === undefined && view.models.length > 0) {
+      const first = view.models.find(entry => entry.uid === view.defaultUid) ?? view.models[0]
+      setDraft(draftOf(first, view.defaultUid))
+    }
+  }, [view, draft])
+
+  if (view === undefined) {
+    return (
+      <>
+        <h4 className={css.subTitle}>{t('settings.modelTitle')}</h4>
+        {store.modelConfigError !== undefined
+          ? <ErrorNote title={store.modelConfigError.title} detail={store.modelConfigError.detail} />
+          : <span className={css.mutedCell}>{t('settings.modelLoading')}</span>}
+      </>
+    )
   }
 
-  const openEdit = (provider: ModelConfigProvider): void => {
-    setFailure(undefined)
-    setNote(undefined)
-    setDraft({
-      targetId: provider.id,
-      mode: 'edit',
-      id: provider.id,
-      displayName: provider.displayName ?? '',
-      api: provider.api ?? '',
-      baseURL: provider.baseURL ?? '',
-      apiKeyEnv: provider.apiKeyEnv ?? '',
-      models: modelDrafts(provider),
-      apiKey: '',
-      apiKeySet: provider.apiKeySet === true,
-    })
-  }
-
-  const applyPreset = (presetId: string): void => {
-    const preset = view?.presets.find(entry => entry.id === presetId)
-    if (preset === undefined || draft === undefined) return
-    setDraft({
-      ...draft,
-      id: preset.provider.id,
-      displayName: preset.provider.displayName ?? '',
-      api: preset.provider.api ?? '',
-      baseURL: preset.provider.baseURL ?? '',
-      apiKeyEnv: preset.provider.apiKeyEnv ?? '',
-      models: modelDrafts(preset.provider),
-      apiKey: preset.apiKey ?? '',
-    })
-  }
+  const patch = (next: Partial<Draft>): void => { if (draft !== undefined) setDraft({ ...draft, ...next }) }
 
   const save = async (): Promise<void> => {
     if (draft === undefined) return
-    const provider = toProvider(draft)
-    if (typeof provider === 'string') {
-      setFailure(provider)
-      return
+    const ctx = parseCap(draft.ctx)
+    const max = parseCap(draft.max)
+    if (draft.id.trim() === '') { setFailure(t('settings.modelIdRequired')); return }
+    if (ctx === null || max === null) { setFailure(t('settings.modelCapacityInvalid')); return }
+    const model: Record<string, unknown> = {
+      id: draft.id.trim(),
+      name: draft.name.trim(),
+      api: draft.api,
+      baseURL: draft.baseURL.trim(),
+      label: draft.label.trim(),
     }
+    if (draft.apiKeyEnv !== '') model.apiKeyEnv = draft.apiKeyEnv
+    if (ctx !== undefined) model.contextWindow = ctx
+    if (max !== undefined) model.maxTokens = max
     setFailure(undefined)
-    const saved = await store.saveProvider(draft.targetId, provider, draft.apiKey)
-    if (saved) {
-      setDraft(undefined)
-      setNote(t('settings.modelSaved', { provider: provider.displayName !== '' ? provider.displayName : provider.id }))
-    } else {
-      setFailure(t('error.operationFailed'))
+    const saved = await store.saveModel(draft.uid, model, draft.apiKey)
+    if (!saved) { setFailure(t('error.operationFailed')); return }
+    setNote(t('settings.modelSaved', { model: draft.id.trim() }))
+    if (draft.isDefault && view.defaultUid !== draft.uid) {
+      const refreshed = store.modelConfig?.models.find(entry => entry.id === draft.id.trim() && entry.baseURL === draft.baseURL.trim())
+      if (refreshed !== undefined) await store.setDefaultModel(refreshed.uid)
     }
+    setDraft(undefined)
+  }
+
+  const remove = async (): Promise<void> => {
+    if (draft === undefined || draft.uid === 'new') return
+    const ok = await store.deleteModel(draft.uid)
+    if (!ok) { setFailure(t('error.operationFailed')); return }
+    setNote(t('settings.modelDeleted', { model: draft.id }))
+    setDraft(undefined)
   }
 
   const importFrom = async (): Promise<void> => {
     if (source === '') return
     setFailure(undefined)
     const ok = await store.importModelConfig(source)
-    setNote(ok ? t('settings.modelImported') : undefined)
-    if (!ok) setFailure(t('error.operationFailed'))
+    if (!ok) { setFailure(t('error.operationFailed')); return }
+    setNote(t('settings.modelImported'))
+    setDraft(undefined)
   }
 
-  if (view === undefined) {
-    return (
-      <>
-        <h4 className={css.subTitle}>{t('settings.modelTitle')}</h4>
-        {error !== undefined
-          ? <ErrorNote title={error.title} detail={error.detail} />
-          : <span className={css.mutedCell}>{t('settings.modelLoading')}</span>}
-      </>
-    )
-  }
-
-  const setDefault = async (value: string): Promise<void> => {
-    const [provider, model] = value.split('|')
-    if (provider === undefined || model === undefined) return
-    const ok = await store.setDefaultModel(provider, model)
-    if (!ok) setFailure(t('error.operationFailed'))
-  }
-
-  if (draft !== undefined) {
-    const catalogPresets = view.presets.filter(entry => entry.kind === 'catalog')
-    const customPresets = view.presets.filter(entry => entry.kind === 'custom')
-    return (
-      <>
-        <h4 className={css.subTitle}>{t('settings.modelTitle')}</h4>
-        {error !== undefined && <ErrorNote title={error.title} detail={error.detail} />}
-        {draft.mode === 'catalog' && (
-          <div className={css.rowLine}>
-            <span className={css.labelCol}>{t('settings.modelProvider')}</span>
-            <select className={css.verSelect} value={draft.id} onChange={event => { applyPreset(event.target.value) }}>
-              {catalogPresets.map(entry => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
-            </select>
-          </div>
-        )}
-        {draft.mode === 'custom' && (
-          <div className={css.rowLine}>
-            <span className={css.labelCol}>{t('settings.modelTemplates')}</span>
-            <div className={css.chipRow}>
-              {customPresets.map(entry => (
-                <Button key={entry.id} size="sm" onClick={() => { applyPreset(entry.id) }}>{entry.label}</Button>
-              ))}
-            </div>
-          </div>
-        )}
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelId')}</span>
-          {draft.mode === 'edit'
-            ? <span className={css.mutedCell}>{draft.id}</span>
-            : (
-              <Input
-                className={css.grow}
-                value={draft.id}
-                placeholder="acme-gateway"
-                onChange={event => { setDraft({ ...draft, id: event.target.value }) }}
-              />
-              )}
-        </div>
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelKey')}</span>
-          <Input
-            className={css.grow}
-            type="password"
-            value={draft.apiKey}
-            placeholder={draft.apiKeySet ? t('settings.modelKeyStored') : t('settings.modelKeyPlaceholder')}
-            onChange={event => { setDraft({ ...draft, apiKey: event.target.value }) }}
-          />
-        </div>
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelDisplayName')}</span>
-          <Input
-            className={css.grow}
-            value={draft.displayName}
-            onChange={event => { setDraft({ ...draft, displayName: event.target.value }) }}
-          />
-        </div>
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelApi')}</span>
-          <select className={css.verSelect} value={draft.api} onChange={event => { setDraft({ ...draft, api: event.target.value }) }}>
-            <option value="">{t('settings.modelApiUnset')}</option>
-            {view.protocols.map(protocol => <option key={protocol} value={protocol}>{protocol}</option>)}
-          </select>
-        </div>
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelBaseUrl')}</span>
-          <Input
-            className={css.grow}
-            value={draft.baseURL}
-            placeholder="https://gateway.example/v1"
-            onChange={event => { setDraft({ ...draft, baseURL: event.target.value }) }}
-          />
-        </div>
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelCatalog')}</span>
-          <span className={css.mutedCell}>{t('settings.modelCatalogHint')}</span>
-          <Button size="sm" disabled={busy || draft.baseURL.trim() === ''} onClick={() => { void fetchModels() }}>
-            {t('settings.modelFetch')}
-          </Button>
-        </div>
-        {draft.models.map((row, index) => (
-          <div className={css.modelRow} key={`${index}-${row.id}`}>
-            <Input
-              value={row.id}
-              placeholder={t('settings.modelIdField')}
-              onChange={event => { patchModel(index, { id: event.target.value }) }}
-            />
-            <Input
-              value={row.name}
-              placeholder={t('settings.modelNameField')}
-              onChange={event => { patchModel(index, { name: event.target.value }) }}
-            />
-            <Input
-              value={row.ctx}
-              placeholder="256K"
-              onChange={event => { patchModel(index, { ctx: event.target.value }) }}
-            />
-            <Input
-              value={row.max}
-              placeholder="32K"
-              onChange={event => { patchModel(index, { max: event.target.value }) }}
-            />
-            <Button size="sm" onClick={() => { setDraft({ ...draft, models: draft.models.filter((_, at) => at !== index) }) }}>✕</Button>
-          </div>
-        ))}
-        <div className={css.rowLine}>
-          <Button size="sm" onClick={() => { setDraft({ ...draft, models: [...draft.models, { id: '', name: '', ctx: '', max: '' }] }) }}>
-            {t('settings.modelAddRow')}
-          </Button>
-        </div>
-        {failure !== undefined && <p className={css.errorNote}>{failure}</p>}
-        <div className={css.saveRow}>
-          <Button size="sm" onClick={() => { setDraft(undefined); setFailure(undefined) }}>{t('cancel')}</Button>
-          <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>
-            {busy ? t('settings.modelSaving') : t('settings.modelSave')}
-          </Button>
-        </div>
-      </>
-    )
+  const fetchModels = async (): Promise<void> => {
+    if (draft === undefined) return
+    const answer = await store.fetchProviderModels({
+      baseURL: draft.baseURL.trim(),
+      api: draft.api,
+      apiKey: draft.apiKey,
+      uid: draft.uid,
+    })
+    if (typeof answer === 'string') { setFailure(answer); return }
+    if (answer.length === 0) { setFailure(t('settings.modelFetchedNone')); return }
+    // 表单位置只有一个模型:取第一个候选填进 ID/容量,其余模型提示用 Dock WebUI 批量导入
+    const first = answer[0]
+    setFailure(undefined)
+    patch({
+      id: first.id,
+      name: first.name ?? '',
+      ctx: capText(first.contextWindow),
+      max: capText(first.maxTokens),
+    })
+    setNote(t('settings.modelFetched', { count: String(answer.length) }))
   }
 
   return (
     <>
       <h4 className={css.subTitle}>{t('settings.modelTitle')}</h4>
       <p className={css.intro}>{t('settings.modelIntro')}</p>
-      {error !== undefined && <ErrorNote title={error.title} detail={error.detail} />}
+      {store.modelConfigError !== undefined && <ErrorNote title={store.modelConfigError.title} detail={store.modelConfigError.detail} />}
       {view.importedFrom != null && (
         <p className={css.footerNote}>
           {view.importedFrom.migratedFromLegacy === true
@@ -335,27 +182,90 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
             : t('settings.modelImportedFrom', { source: view.importedFrom.containerName ?? '?' })}
         </p>
       )}
-      {view.providers.length === 0 && <p className={css.mutedCell}>{t('settings.modelEmpty')}</p>}
-      {view.providers.map(provider => (
-        <div className={css.providerRow} key={provider.id}>
-          <span className={css.providerName}>{provider.displayName !== undefined && provider.displayName !== '' ? provider.displayName : provider.id}</span>
-          <span
-            className={provider.apiKeySet === true ? css.dotOk : css.dotMiss}
-            title={provider.apiKeySet === true ? t('settings.modelKeyOk') : t('settings.modelKeyMissing')}
-          />
-          <span className={css.mutedCell}>
-            {provider.id} · {t('settings.modelCount', { count: String(provider.models.length) })} · {provider.baseURL !== undefined && provider.baseURL !== '' ? provider.baseURL : t('settings.modelCatalogEndpoint')}
-          </span>
-          <span className={css.providerActions}>
-            <Button size="sm" onClick={() => { openEdit(provider) }}>{t('settings.modelEdit')}</Button>
-            <Button size="sm" disabled={busy} onClick={() => { void remove(provider.id) }}>{t('settings.modelDelete')}</Button>
-          </span>
-        </div>
-      ))}
+
       <div className={css.rowLine}>
-        <Button size="sm" variant="primary" disabled={busy} onClick={() => { openNew('catalog') }}>{t('settings.modelAdd')}</Button>
-        <Button size="sm" disabled={busy} onClick={() => { openNew('custom') }}>{t('settings.modelAddCustom')}</Button>
+        <span className={css.labelCol}>{t('settings.modelPick')}</span>
+        <select
+          className={css.verSelect}
+          value={draft?.uid ?? ''}
+          onChange={event => {
+            const found = view.models.find(entry => entry.uid === event.target.value)
+            setFailure(undefined)
+            setDraft(found === undefined ? undefined : draftOf(found, view.defaultUid))
+          }}
+        >
+          <option value="">{t('settings.modelPickNone')}</option>
+          {view.models.map(entry => (
+            <option key={entry.uid} value={entry.uid}>
+              {entry.id}{entry.providerLabel !== undefined && entry.providerLabel !== '' ? ` · ${entry.providerLabel}` : ''}{entry.uid === view.defaultUid ? ' ★' : ''}
+            </option>
+          ))}
+        </select>
+        <Button size="sm" variant="primary" disabled={busy} onClick={() => { setFailure(undefined); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}>
+          {t('settings.modelNew')}
+        </Button>
+        <Button size="sm" disabled={busy || draft === undefined || draft.uid === 'new'} onClick={() => { void remove() }}>
+          {t('settings.modelDelete')}
+        </Button>
       </div>
+
+      {draft === undefined
+        ? <p className={css.mutedCell}>{t('settings.modelDetailHint')}</p>
+        : (
+          <>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelIdField')}</span>
+              <Input className={css.grow} value={draft.id} onChange={event => { patch({ id: event.target.value }) }} />
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelNameField')}</span>
+              <Input className={css.grow} value={draft.name} onChange={event => { patch({ name: event.target.value }) }} />
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelBaseUrl')}</span>
+              <Input className={css.grow} value={draft.baseURL} placeholder="https://gateway.example/v1" onChange={event => { patch({ baseURL: event.target.value }) }} />
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelApi')}</span>
+              <select className={css.verSelect} value={draft.api} onChange={event => { patch({ api: event.target.value }) }}>
+                {view.protocols.map(protocol => <option key={protocol} value={protocol}>{protocol}</option>)}
+              </select>
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelKey')}</span>
+              <Input
+                className={css.grow}
+                type="password"
+                value={draft.apiKey}
+                placeholder={draft.apiKeySet ? t('settings.modelKeyStored') : t('settings.modelKeyPlaceholder')}
+                onChange={event => { patch({ apiKey: event.target.value }) }}
+              />
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelProviderLabel')}</span>
+              <Input className={css.grow} value={draft.label} placeholder={t('settings.modelProviderLabelHint')} onChange={event => { patch({ label: event.target.value }) }} />
+            </div>
+            <div className={css.modelField}>
+              <span className={css.labelCol}>{t('settings.modelCapacity')}</span>
+              <Input className={css.capInput} value={draft.ctx} placeholder="256K" onChange={event => { patch({ ctx: event.target.value }) }} />
+              <Input className={css.capInput} value={draft.max} placeholder="32K" onChange={event => { patch({ max: event.target.value }) }} />
+            </div>
+            <div className={css.rowLine}>
+              <label className={css.checkLine}>
+                <input type="checkbox" checked={draft.isDefault} onChange={event => { patch({ isDefault: event.target.checked }) }} />
+                {t('settings.modelDefault')}
+              </label>
+              <Button size="sm" disabled={busy || draft.baseURL.trim() === ''} onClick={() => { void fetchModels() }}>
+                {t('settings.modelFetch')}
+              </Button>
+              <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>
+                {busy ? t('settings.modelSaving') : t('settings.modelSave')}
+              </Button>
+            </div>
+            {failure !== undefined && <p className={css.errorNote}>{failure}</p>}
+          </>
+        )}
+
       <div className={css.rowLine}>
         <span className={css.labelCol}>{t('settings.modelImportLabel')}</span>
         <select className={css.verSelect} value={source} onChange={event => { setSource(event.target.value) }}>
@@ -366,58 +276,13 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
           {t('settings.modelImport')}
         </Button>
       </div>
-      {view.defaultCandidates.length > 0 && (
-        <div className={css.rowLine}>
-          <span className={css.labelCol}>{t('settings.modelDefault')}</span>
-          <select
-            className={css.verSelect}
-            value={`${view.default.provider}|${view.default.model}`}
-            onChange={event => { void setDefault(event.target.value) }}
-          >
-            {view.defaultCandidates.map(candidate => (
-              <option key={`${candidate.provider}|${candidate.model}`} value={`${candidate.provider}|${candidate.model}`}>
-                {candidate.provider} / {candidate.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {view.providers.length > 0 && (
+        <p className={css.footerNote}>
+          {t('settings.modelProvidersNote', { count: String(view.providers.length), routes: view.providers.map(entry => `${entry.route}(${entry.modelCount})`).join('、') })}
+        </p>
       )}
       {note !== undefined && <p className={css.footerNote}>{note}</p>}
-      {failure !== undefined && <p className={css.errorNote}>{failure}</p>}
+      {draft === undefined && failure !== undefined && <p className={css.errorNote}>{failure}</p>}
     </>
   )
-
-  function patchModel(index: number, patch: Partial<ModelDraft>): void {
-    if (draft === undefined) return
-    setDraft({ ...draft, models: draft.models.map((row, at) => (at === index ? { ...row, ...patch } : row)) })
-  }
-
-  async function remove(id: string): Promise<void> {
-    const ok = await store.deleteProvider(id)
-    if (!ok) setFailure(t('error.operationFailed'))
-  }
-
-  async function fetchModels(): Promise<void> {
-    if (draft === undefined) return
-    const answer = await store.fetchProviderModels({
-      baseURL: draft.baseURL.trim(),
-      api: draft.api,
-      apiKey: draft.apiKey,
-      providerId: draft.targetId === 'new' ? draft.id : draft.targetId,
-    })
-    if (typeof answer === 'string') {
-      setFailure(answer)
-      return
-    }
-    const known = new Set(draft.models.map(row => row.id))
-    const added = answer.filter(model => !known.has(model.id)).map(model => ({
-      id: model.id,
-      name: model.name ?? '',
-      ctx: capText(model.contextWindow),
-      max: capText(model.maxTokens),
-    }))
-    setFailure(undefined)
-    setDraft({ ...draft, models: [...draft.models, ...added] })
-    setNote(t('settings.modelFetched', { count: String(added.length) }))
-  }
 }

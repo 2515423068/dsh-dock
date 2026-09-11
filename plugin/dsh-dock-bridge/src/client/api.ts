@@ -89,46 +89,43 @@ export interface ProfileTemplate {
   readonly refKeys?: readonly string[]
 }
 
-/** One model entry inside a provider row (`llm-pi-ai.providers.<route>.models[]`). */
-export interface ModelConfigModel {
+/** One model row of the model-config table: the model plus its provider connection facts. */
+export interface ModelConfigEntry {
+  readonly uid: string
   readonly id: string
   readonly name?: string
-  readonly contextWindow?: number
-  readonly maxTokens?: number
-  readonly input?: readonly string[]
-}
-
-/** One provider row of the model-config table (`llm-pi-ai.providers.<route>`). */
-export interface ModelConfigProvider {
-  readonly id: string
-  readonly displayName?: string
   readonly api?: string
   readonly baseURL?: string
   readonly apiKeyEnv?: string
-  readonly headers?: Readonly<Record<string, string>>
-  readonly compat?: Readonly<Record<string, string | boolean>>
-  readonly models: readonly ModelConfigModel[]
+  /** Free-form provider name; rows sharing a connection collapse into one provider. */
+  readonly label?: string
+  readonly contextWindow?: number
+  readonly maxTokens?: number
+  readonly input?: readonly string[]
   /** `GET` answers only: whether a key is stored (values never leave the server). */
   readonly apiKeySet?: boolean
+  /** `GET` answers only: the auto-grouped provider route this row will land in. */
+  readonly route?: string
+  readonly providerLabel?: string
 }
 
-/** One built-in provider preset (catalog route or custom template). */
-export interface ModelConfigPreset {
-  readonly id: string
-  readonly label: string
-  readonly hint?: string
-  readonly kind: 'catalog' | 'custom'
-  readonly provider: ModelConfigProvider
-  /** Prefilled key for templates that need a placeholder (e.g. local llama.cpp). */
-  readonly apiKey?: string
+/** One provider group the table collapses into at container creation. */
+export interface ModelConfigProviderGroup {
+  readonly route: string
+  readonly displayName: string
+  readonly api: string
+  readonly baseURL: string
+  readonly apiKeyEnv: string
+  readonly modelCount: number
+  readonly apiKeySet: boolean
 }
 
 /** `GET /api/model-configs` projection. */
 export interface ModelConfigView {
-  readonly providers: readonly ModelConfigProvider[]
-  readonly default: { readonly provider: string; readonly model: string }
-  readonly defaultCandidates: readonly { readonly provider: string; readonly model: string; readonly name: string }[]
-  readonly presets: readonly ModelConfigPreset[]
+  readonly models: readonly ModelConfigEntry[]
+  readonly defaultUid: string
+  readonly defaultModel: { readonly provider: string; readonly model: string; readonly uid: string } | null
+  readonly providers: readonly ModelConfigProviderGroup[]
   readonly protocols: readonly string[]
   readonly rawSectionKeys?: readonly string[]
   readonly importedFrom?: {
@@ -142,6 +139,7 @@ export interface ModelConfigView {
 export interface ModelConfigImport {
   readonly added: readonly string[]
   readonly updated: readonly string[]
+  readonly skipped: readonly string[]
   readonly refKeys: readonly string[]
   readonly source?: string
   readonly defaultSet?: boolean

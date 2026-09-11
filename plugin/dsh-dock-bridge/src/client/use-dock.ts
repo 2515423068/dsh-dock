@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigModel, ModelConfigProvider, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigEntry, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -357,10 +357,10 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshSettings])
 
-  const saveProvider = useCallback(async (targetId: string, provider: ModelConfigProvider, apiKey: string) => {
+  const saveModel = useCallback(async (targetUid: string, model: Readonly<Record<string, unknown>>, apiKey: string) => {
     try {
-      const body = apiKey === '' ? { provider } : { provider, apiKey }
-      await mutate('modelConfig', () => rest('PUT', `/api/model-configs/providers/${encodeURIComponent(targetId)}`, body, '提供方保存失败'))
+      const body = apiKey === '' ? { model } : { model, apiKey }
+      await mutate('modelConfig', () => rest('PUT', `/api/model-configs/models/${encodeURIComponent(targetUid)}`, body, '模型保存失败'))
       void refreshModelConfig()
       return true
     } catch {
@@ -368,9 +368,9 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshModelConfig])
 
-  const deleteProvider = useCallback(async (id: string) => {
+  const deleteModel = useCallback(async (uid: string) => {
     try {
-      await mutate('modelConfig', () => rest('DELETE', `/api/model-configs/providers/${encodeURIComponent(id)}`, undefined, '提供方删除失败'))
+      await mutate('modelConfig', () => rest('DELETE', `/api/model-configs/models/${encodeURIComponent(uid)}`, undefined, '模型删除失败'))
       void refreshModelConfig()
       return true
     } catch {
@@ -378,9 +378,9 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshModelConfig])
 
-  const setDefaultModel = useCallback(async (provider: string, model: string) => {
+  const setDefaultModel = useCallback(async (uid: string) => {
     try {
-      await mutate('modelConfig', () => rest('POST', '/api/model-configs/default', { provider, model }, '默认模型保存失败'))
+      await mutate('modelConfig', () => rest('POST', '/api/model-configs/default', { uid }, '默认模型保存失败'))
       void refreshModelConfig()
       return true
     } catch {
@@ -403,10 +403,10 @@ export function useDock(call: DockCall): DockStore {
     baseURL: string
     api: string
     apiKey: string
-    providerId: string
-  }): Promise<readonly ModelConfigModel[] | string> => {
+    uid: string
+  }): Promise<readonly ModelConfigEntry[] | string> => {
     try {
-      const answer = await rest<{ models?: readonly ModelConfigModel[] }>(
+      const answer = await rest<{ models?: readonly ModelConfigEntry[] }>(
         'POST', '/api/model-configs/fetch-models', input, '获取模型列表失败',
       )
       return answer.models ?? []
@@ -454,8 +454,8 @@ export function useDock(call: DockCall): DockStore {
     refreshSettings,
     refreshTemplate,
     refreshModelConfig,
-    saveProvider,
-    deleteProvider,
+    saveModel,
+    deleteModel,
     setDefaultModel,
     importModelConfig,
     fetchProviderModels,
@@ -503,16 +503,16 @@ export interface DockStore {
   refreshSettings: () => Promise<void>
   refreshTemplate: () => Promise<void>
   refreshModelConfig: () => Promise<void>
-  saveProvider: (targetId: string, provider: ModelConfigProvider, apiKey: string) => Promise<boolean>
-  deleteProvider: (id: string) => Promise<boolean>
-  setDefaultModel: (provider: string, model: string) => Promise<boolean>
+  saveModel: (targetUid: string, model: Readonly<Record<string, unknown>>, apiKey: string) => Promise<boolean>
+  deleteModel: (uid: string) => Promise<boolean>
+  setDefaultModel: (uid: string) => Promise<boolean>
   importModelConfig: (containerId: string) => Promise<boolean>
   fetchProviderModels: (input: {
     baseURL: string
     api: string
     apiKey: string
-    providerId: string
-  }) => Promise<readonly ModelConfigModel[] | string>
+    uid: string
+  }) => Promise<readonly ModelConfigEntry[] | string>
   createContainer: (input: { name: string; version: string; profile: string }) => Promise<void>
   startContainer: (id: string, force?: boolean) => Promise<void>
   stopContainer: (id: string, force?: boolean) => Promise<void>

@@ -1466,27 +1466,32 @@ async function renderSettings() {
       </div>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
     </div>
-    <div class="panel"><h2>模型配置 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">表里每行 = DSH settings.yaml 里 llm-pi-ai.providers 的一个 route(协议 / 端点 / API 密钥 / 模型清单)。新建容器时把整张表写进它的 settings.yaml,并把默认模型写进 agent-default-model —— 首次打开即可直接选模型,不再弹「API Key 录入」。API 密钥只存本机 state/model-keys.json(0600),接口只回显「已配置/缺失」,不回显值。其余 settings.yaml 字段(请求头 / compat / 模态等)可在容器里改,导入时原样保留。</span></span></h2>
-      <p class="muted" style="margin-bottom:10px">填入各提供方的 API 密钥即可使用其模型;可以手工添加,也可以从已配置好的容器一键导入。</p>
+    <div class="panel"><h2>模型配置 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">表里每行是一个「模型」,连它所属提供方的连接信息(API 地址 / 协议 / 密钥 / 提供方名称)一起存。新建容器时,连接信息相同的模型会自动归纳成一个 llm-pi-ai.providers 条目,标注为默认的那个写进 agent-default-model —— 首次打开即可直接选模型。API 密钥只存本机 state/model-keys.json(0600),接口只回显「已配置/缺失」。</span></span></h2>
+      <p class="muted" style="margin-bottom:10px">一行一个模型;同提供方的多个模型只填一次连接信息(或一键导入),建容器时自动归纳。</p>
       ${modelConfigImportedChip(modelView)}
-      ${modelConfigRowsHtml(modelView)}
-      <div class="row" style="margin-top:10px">
-        <button class="primary" onclick="openProviderEditor('catalog')">添加提供方</button>
-        <button onclick="openProviderEditor('custom')">添加自定义提供方</button>
+      <div class="row" style="margin-bottom:12px">
+        <select id="s-model" style="min-width:300px" onchange="selectModel(this.value)">
+          <option value="">(未选择模型)</option>
+          ${modelView.models.map((m) => `<option value="${m.uid}" ${m.uid === modelView.defaultUid ? 'selected' : ''}>${escapeHtml(m.id)}${m.providerLabel ? ` · ${escapeHtml(m.providerLabel)}` : ''}${m.uid === modelView.defaultUid ? ' ★默认' : ''}</option>`).join('')}
+        </select>
+        <button class="primary" onclick="newModel()">新增</button>
+        <button onclick="deleteModel()">删除</button>
         <span style="flex:1"></span>
         <select id="s-impsrc" class="ver-select">${(containers ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">(无容器)</option>'}</select>
         <button onclick="importModelConfig()">从容器导入</button>
       </div>
-      ${modelView.defaultCandidates.length > 0 ? `<div class="row" style="margin-top:12px">
-        <span style="width:120px" class="muted">默认模型</span>
-        <select id="s-defaultmodel" class="ver-select" style="max-width:340px" onchange="setDefaultModel()">${modelView.defaultCandidates.map((c) => `<option value="${escapeHtml(c.provider)}|${escapeHtml(c.model)}" ${modelView.default.provider === c.provider && modelView.default.model === c.model ? 'selected' : ''}>${escapeHtml(c.provider)} / ${escapeHtml(c.name)}</option>`).join('')}</select>
-      </div>` : ''}
+      <div id="model-detail"></div>
+      ${modelView.providers.length > 0 ? `<p class="muted" style="margin-top:10px">将写入 ${modelView.providers.length} 个提供方:${modelView.providers.map((p) => `${escapeHtml(p.route)}(${p.modelCount} 个模型)${p.uid === undefined && p.apiKeySet ? '' : ''}`).join('、')}</p>` : '<p class="muted" style="margin-top:10px">表里还没有模型。</p>'}
     </div>`
   // 外观 cube:渲染后绑定点击并同步选中态
   document.querySelectorAll('#main .theme-cube').forEach((b) => {
     b.onclick = () => setTheme(b.dataset.theme)
   })
   applyTheme(themePref())
+  // 默认选中默认模型(或第一个),让详情表单一开始就有内容
+  if (modelDetail === null && modelViewCache.models.length > 0) {
+    selectModel(modelViewCache.defaultUid || modelViewCache.models[0].uid)
+  }
 }
 async function saveSettings() {
   try {
@@ -1503,18 +1508,18 @@ async function saveSettings() {
     toast('已保存')
   } catch (error) { toast(`保存失败: ${error}`, true) }
 }
-// ── 模型配置表:provider 行 / 编辑器 / 模型目录 / 从容器导入 ──
-let modelViewCache = { providers: [], presets: [], protocols: [], defaultCandidates: [] }
-let providerEditorState = null
+// ── 模型配置表:一行一个模型,下拉选择 + 详情编辑 + 从容器导入 ──
+let modelViewCache = { models: [], providers: [], presets: [], protocols: [], defaultUid: '' }
+let modelDetail = null   // { uid, mode:'new'|'edit', id, name, api, baseURL, apiKey, apiKeySet, label, ctx, max, isDefault, apiKeyEnv }
 
-/** 容量显示:整 K/M 才缩写,避免失真。 */
+/** 容量显示:整 K/M 才缩写。 */
 function capText(n) {
   if (typeof n !== 'number') return ''
   if (n >= 1000000 && n % 1000000 === 0) return `${n / 1000000}M`
   if (n >= 1000 && n % 1000 === 0) return `${n / 1000}K`
   return String(n)
 }
-/** 容量解析:131072 / 256K / 1M;空 = 继承(undefined),非法 = NaN。 */
+/** 容量解析:131072 / 256K / 1M;空 = 不写该字段(undefined),非法 = NaN。 */
 function parseCap(text) {
   const t = String(text ?? '').replace(/\s+/g, '')
   if (t === '') return undefined
@@ -1530,197 +1535,114 @@ function modelConfigImportedChip(view) {
   const label = from.migratedFromLegacy ? '已由旧版模板迁移' : `导入自 ${escapeHtml(from.containerName ?? '?')}`
   return `<div class="row" style="margin-bottom:8px"><span class="chip" title="${escapeHtml(when)}">${label}</span></div>`
 }
-function modelConfigRowsHtml(view) {
-  if (view.providers.length === 0) {
-    return '<div class="muted" style="margin-bottom:8px">还没有配置任何提供方;点下面的按钮手工添加,或从已配置好的容器一键导入。</div>'
+
+function selectModel(uid) {
+  const row = modelViewCache.models.find((m) => m.uid === uid)
+  if (row === undefined) { modelDetail = null; renderModelDetail(); return }
+  modelDetail = {
+    uid: row.uid, mode: 'edit', id: row.id, name: row.name ?? '', api: row.api ?? '', baseURL: row.baseURL ?? '',
+    apiKey: '', apiKeySet: row.apiKeySet === true, apiKeyEnv: row.apiKeyEnv ?? '', label: row.label ?? '',
+    ctx: capText(row.contextWindow), max: capText(row.maxTokens), isDefault: row.uid === modelViewCache.defaultUid,
   }
-  return view.providers.map((p) => {
-    const isCatalog = view.presets.some((preset) => preset.kind === 'catalog' && preset.id === p.id)
-    const meta = [p.id, `${p.models.length} 个模型`, p.baseURL || '目录默认端点'].join(' · ')
-    return `<div class="prov-row">
-      <div class="prov-main">
-        <span class="prov-name">${escapeHtml(p.displayName || p.id)}</span>
-        ${isCatalog ? '' : '<span class="chip">自定义</span>'}
-        <span class="dot ${p.apiKeySet ? 'ok' : 'miss'}" title="${p.apiKeySet ? 'API 密钥已配置' : 'API 密钥缺失'}"></span>
-        <span class="muted">${escapeHtml(meta)}</span>
-      </div>
-      <div class="prov-actions">
-        <button onclick="openProviderEditor('edit','${p.id}')">编辑</button>
-        <button class="danger" onclick="deleteProvider('${p.id}')">删除</button>
-      </div>
-    </div>`
-  }).join('')
+  renderModelDetail()
 }
-function modelRowHtml(raw) {
-  const m = { id: '', name: '', ctx: '', max: '', ...(raw ?? {}) }
-  return `<div class="model-row">
-    <input class="mr-id" placeholder="模型 ID" value="${escapeHtml(m.id)}">
-    <input class="mr-name" placeholder="显示名称(留空用模型 ID)" value="${escapeHtml(m.name)}">
-    <button class="tiny" type="button" onclick="toggleModelCaps(this)" title="容量">容量</button>
-    <button class="tiny" type="button" onclick="removeModelRow(this)" title="删除模型">✕</button>
-    <div class="model-caps" ${m.ctx || m.max ? '' : 'hidden'}>
-      <label>上下文窗口 <input class="mr-ctx" placeholder="256K" value="${escapeHtml(m.ctx)}"></label>
-      <label>最大输出 <input class="mr-max" placeholder="32K" value="${escapeHtml(m.max)}"></label>
+function newModel() {
+  const preset = modelViewCache.presets.find((p) => p.id === 'custom') ?? { api: modelViewCache.protocols[0] ?? '', baseURL: '', providerLabel: '', apiKeyEnv: '' }
+  modelDetail = {
+    uid: 'new', mode: 'new', id: '', name: '', api: preset.api ?? '', baseURL: preset.baseURL ?? '', apiKey: preset.apiKey ?? '',
+    apiKeySet: false, apiKeyEnv: preset.apiKeyEnv ?? '', label: preset.providerLabel ?? '', ctx: '', max: '', isDefault: modelViewCache.models.length === 0,
+  }
+  renderModelDetail()
+  $('#m-id')?.focus()
+}
+function applyModelTemplate(presetId) {
+  const preset = modelViewCache.presets.find((p) => p.id === presetId)
+  if (preset === undefined || modelDetail === null) return
+  const sample = (preset.models ?? [])[0] ?? {}
+  modelDetail = {
+    ...modelDetail,
+    api: preset.api ?? modelDetail.api,
+    baseURL: preset.baseURL ?? '',
+    apiKeyEnv: preset.apiKeyEnv ?? '',
+    apiKey: preset.apiKey ?? '',
+    label: preset.providerLabel ?? '',
+    id: sample.id ?? modelDetail.id,
+    name: sample.name ?? '',
+    ctx: capText(sample.contextWindow),
+    max: capText(sample.maxTokens),
+  }
+  renderModelDetail()
+}
+function renderModelDetail() {
+  const box = $('#model-detail')
+  if (box === null) return
+  if (modelDetail === null) { box.innerHTML = '<p class="muted">从上面的下拉列表选一个模型来查看/修改,或点「新增」。</p>'; return }
+  const d = modelDetail
+  const templates = modelViewCache.presets.map((p) => `<span class="chip" onclick="applyModelTemplate('${p.id}')">${escapeHtml(p.label)}</span>`).join('')
+  box.innerHTML = `<div class="prov-row" style="display:block">
+    <div class="row" style="margin-bottom:8px"><span class="muted">快速填充</span>${templates}</div>
+    <div class="field"><label>模型 ID</label><input id="m-id" placeholder="提供方暴露的模型名" value="${escapeHtml(d.id)}"></div>
+    <div class="field"><label>显示名</label><input id="m-name" placeholder="留空用模型 ID" value="${escapeHtml(d.name)}"></div>
+    <div class="field"><label>API 地址</label><input id="m-base" placeholder="https://gateway.example/v1" value="${escapeHtml(d.baseURL)}"></div>
+    <div class="field"><label>API 协议</label><select id="m-api">${modelViewCache.protocols.map((x) => `<option value="${x}" ${d.api === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label>API 密钥</label><input type="password" id="m-key" autocomplete="off" placeholder="${d.apiKeySet ? '已配置——输入新值可替换,留空保持不变' : '输入 API 密钥(本地服务可填任意占位,如 local)'}" value="${escapeHtml(d.apiKey)}"></div>
+    <div class="field"><label>提供方名称</label><input id="m-label" placeholder="同名的模型会归到同一个提供方(留空则按地址主机名)" value="${escapeHtml(d.label)}"></div>
+    <div class="field"><label>上下文窗口</label><input id="m-ctx" placeholder="256K" style="max-width:120px" value="${escapeHtml(d.ctx)}">
+      <label style="width:auto;margin-left:8px">最大输出</label><input id="m-max" placeholder="32K" style="max-width:120px" value="${escapeHtml(d.max)}"></div>
+    <div class="row" style="margin-top:8px">
+      <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="m-default" ${d.isDefault ? 'checked' : ''}> 设为默认模型</label>
+      <span style="flex:1"></span>
+      <span id="m-err" style="color:var(--dsw-state-error);font-size:12.5px"></span>
+      <button class="link-btn" onclick="fetchModelsForDetail()">获取可用模型</button>
+      <button class="primary" onclick="saveModel()">保存</button>
     </div>
   </div>`
 }
-function modelRowsFromProvider(provider) {
-  return (provider.models ?? []).map((m) => ({ id: m.id, name: m.name ?? '', ctx: capText(m.contextWindow), max: capText(m.maxTokens) }))
-}
-function addModelRow() {
-  const box = $('#pe-models')
-  if (box) box.insertAdjacentHTML('beforeend', modelRowHtml({ id: '' }))
-}
-function removeModelRow(btn) {
-  btn.closest('.model-row')?.remove()
-}
-function toggleModelCaps(btn) {
-  const caps = btn.closest('.model-row')?.querySelector('.model-caps')
-  if (caps) caps.hidden = !caps.hidden
-}
-function collectModelRows() {
-  return [...document.querySelectorAll('#pe-models .model-row')].map((row) => ({
-    id: row.querySelector('.mr-id').value.trim(),
-    name: row.querySelector('.mr-name').value.trim(),
-    ctx: row.querySelector('.mr-ctx').value.trim(),
-    max: row.querySelector('.mr-max').value.trim(),
-  }))
-}
-async function openProviderEditor(mode, id) {
-  modelViewCache = await api('/api/model-configs').catch(() => modelViewCache)
-  const view = modelViewCache
-  if (mode === 'edit') {
-    const row = view.providers.find((p) => p.id === id)
-    if (!row) return toast('提供方不存在', true)
-    providerEditorState = {
-      mode, targetId: id, apiKeySet: row.apiKeySet, apiKeyPrefill: '',
-      provider: { id: row.id, displayName: row.displayName ?? '', api: row.api ?? '', baseURL: row.baseURL ?? '', apiKeyEnv: row.apiKeyEnv ?? '', models: modelRowsFromProvider(row) },
-    }
-  } else {
-    const presetId = mode === 'catalog' ? (view.presets.find((p) => p.kind === 'catalog') ?? {}).id : 'custom'
-    const preset = view.presets.find((p) => p.id === presetId) ?? { provider: { id: '', displayName: '', api: '', baseURL: '', apiKeyEnv: '', models: [] } }
-    providerEditorState = {
-      mode, targetId: 'new', apiKeySet: false, apiKeyPrefill: preset.apiKey ?? '',
-      provider: { ...preset.provider, models: modelRowsFromProvider(preset.provider) },
-    }
-  }
-  renderProviderEditor()
-}
-function applyProviderTemplate(id) {
-  const preset = modelViewCache.presets.find((p) => p.id === id)
-  if (!preset || !providerEditorState) return
-  providerEditorState.provider = { ...preset.provider, models: modelRowsFromProvider(preset.provider) }
-  providerEditorState.apiKeyPrefill = preset.apiKey ?? ''
-  renderProviderEditor()
-}
-function renderProviderEditor() {
-  const st = providerEditorState
-  if (!st) return
-  const p = st.provider
-  const view = modelViewCache
-  const catalogPresets = view.presets.filter((x) => x.kind === 'catalog')
-  const customPresets = view.presets.filter((x) => x.kind === 'custom')
-  const title = st.mode === 'edit' ? `编辑提供方 ${p.displayName || p.id}` : (st.mode === 'catalog' ? '添加提供方' : '添加自定义提供方')
-  const catalogPicker = st.mode === 'catalog'
-    ? `<div class="field"><label>提供方</label><select id="pe-preset" onchange="applyProviderTemplate(this.value)">${catalogPresets.map((x) => `<option value="${x.id}" ${x.provider.id === p.id ? 'selected' : ''}>${escapeHtml(x.label)}</option>`).join('')}</select></div>`
-    : ''
-  const customChips = st.mode === 'custom'
-    ? `<div class="row" style="margin-bottom:10px"><span class="muted">快速填充</span>${customPresets.map((x) => `<span class="chip" onclick="applyProviderTemplate('${x.id}')">${escapeHtml(x.label)}</span>`).join('')}</div>`
-    : ''
-  const idField = st.mode === 'custom'
-    ? `<div class="field"><label>Provider ID</label><input id="pe-id" placeholder="acme-gateway" value="${escapeHtml(p.id)}"></div>`
-    : (st.mode === 'edit' ? `<div class="field"><label>Provider ID</label><span class="muted">${escapeHtml(p.id)}(路由 ID 不可改)</span></div>` : '')
-  const keyPlaceholder = st.apiKeySet
-    ? '已配置——输入新值可替换,留空保持不变'
-    : (st.mode === 'catalog' ? '输入 API 密钥' : '输入 API 密钥,或留空走提供方原生鉴权')
-  openModal(title, `${customChips}${catalogPicker}${idField}
-    <div class="field"><label>API 密钥</label><input type="password" id="pe-key" autocomplete="off" placeholder="${escapeHtml(keyPlaceholder)}" value="${escapeHtml(st.apiKeyPrefill ?? '')}"></div>
-    <details class="adv" ${p.baseURL || p.displayName || p.api ? 'open' : ''}><summary>自定义设置</summary>
-      <div class="field"><label>显示名称</label><input id="pe-name" placeholder="${escapeHtml(p.id || '显示名')}" value="${escapeHtml(p.displayName ?? '')}"></div>
-      <div class="field"><label>API 协议</label><select id="pe-api"><option value="" ${p.api ? '' : 'selected'}>未选择(用目录默认)</option>${view.protocols.map((x) => `<option value="${x}" ${p.api === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
-      <div class="field"><label>API 地址</label><input id="pe-base" placeholder="提供方默认 / https://gateway.example/v1" value="${escapeHtml(p.baseURL ?? '')}"></div>
-    </details>
-    <div class="model-head"><b style="font-size:13.5px">模型目录</b><span class="muted">留空 = 使用目录内置模型</span><span style="flex:1"></span><button class="link-btn" type="button" onclick="fetchProviderModels()">获取可用模型</button></div>
-    <div id="pe-models">${p.models.map(modelRowHtml).join('')}</div>
-    <button class="dashed" type="button" onclick="addModelRow()">添加模型</button>
-    <div id="pe-error" style="color:var(--dsw-state-error);font-size:12.5px;line-height:18px;margin-top:8px"></div>
-    <div class="row" style="margin-top:14px"><button type="button" onclick="closeModal()">取消</button><span style="flex:1"></span><button class="primary" type="button" onclick="saveProviderEditor()">${st.mode === 'edit' ? '保存' : '创建提供方'}</button></div>`)
-}
-function syncEditorFromDom() {
-  if (!providerEditorState || !$('#pe-models')) return
-  const st = providerEditorState
-  const idInput = $('#pe-id')
-  st.provider = {
-    ...st.provider,
-    id: idInput ? idInput.value.trim() : st.provider.id,
-    displayName: $('#pe-name').value.trim(),
-    api: $('#pe-api').value,
-    baseURL: $('#pe-base').value.trim(),
-    models: collectModelRows(),
+function readModelDetail() {
+  return {
+    id: $('#m-id').value.trim(),
+    name: $('#m-name').value.trim(),
+    api: $('#m-api').value,
+    baseURL: $('#m-base').value.trim(),
+    apiKeyEnv: modelDetail.apiKeyEnv ?? '',
+    apiKey: $('#m-key').value,
+    label: $('#m-label').value.trim(),
+    contextWindow: parseCap($('#m-ctx').value),
+    maxTokens: parseCap($('#m-max').value),
+    isDefault: $('#m-default').checked,
   }
 }
-function providerPayloadFromDraft() {
-  const p = providerEditorState.provider
-  const models = []
-  const seen = new Set()
-  p.models.forEach((row, index) => {
-    if (row.id === '') throw `第 ${index + 1} 个模型缺少模型 ID`
-    if (seen.has(row.id)) throw `模型 ID 重复:${row.id}`
-    seen.add(row.id)
-    const model = { id: row.id }
-    if (row.name) model.name = row.name
-    for (const [key, text] of [['contextWindow', row.ctx], ['maxTokens', row.max]]) {
-      const value = parseCap(text)
-      if (Number.isNaN(value)) throw `${row.id} 的容量「${text}」无法识别(可写 131072 / 256K / 1M)`
-      if (value !== undefined) model[key] = value
-    }
-    models.push(model)
-  })
-  const payload = { id: p.id, displayName: p.displayName ?? '', api: p.api ?? '', baseURL: p.baseURL ?? '', models }
-  if (p.apiKeyEnv) payload.apiKeyEnv = p.apiKeyEnv
-  return payload
-}
-async function saveProviderEditor() {
-  const st = providerEditorState
-  if (!st) return
-  syncEditorFromDom()
-  const showError = (message) => {
-    const box = $('#pe-error')
-    if (box) box.textContent = message
-    else toast(message, true)
-  }
+async function saveModel() {
+  const d = readModelDetail()
+  const fail = (message) => { const box = $('#m-err'); if (box) box.textContent = message; else toast(message, true) }
+  if (d.id === '') return fail('模型 ID 不能为空')
+  if (!/^https?:\/\/\S+$/.test(d.baseURL)) return fail('API 地址必须是 http(s):// 开头的有效地址')
+  if (Number.isNaN(d.contextWindow) || Number.isNaN(d.maxTokens)) return fail('容量需为数字,可加 K 或 M 后缀')
   try {
-    if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(st.provider.id)) throw 'Provider ID 需以小写字母开头,之后可用小写字母、数字和短横线'
-    if (modelViewCache.providers.some((row) => row.id === st.provider.id && row.id !== st.targetId)) throw `已有提供方使用了这个 ID:${st.provider.id}`
-    if (st.provider.baseURL !== '' && !/^https?:\/\/\S+$/.test(st.provider.baseURL)) throw 'API 地址必须是 http(s):// 开头的有效地址'
-    const payload = providerPayloadFromDraft()
-    const body = { provider: payload }
-    const apiKey = $('#pe-key').value
-    if (apiKey !== '') body.apiKey = apiKey
-    await api(`/api/model-configs/providers/${encodeURIComponent(st.targetId)}`, { method: 'PUT', body })
-    closeModal()
-    providerEditorState = null
-    toast(`已保存 ${payload.displayName || payload.id}`)
+    const body = { model: { id: d.id, name: d.name, api: d.api, baseURL: d.baseURL, label: d.label } }
+    if (d.apiKeyEnv) body.model.apiKeyEnv = d.apiKeyEnv
+    if (d.contextWindow !== undefined) body.model.contextWindow = d.contextWindow
+    if (d.maxTokens !== undefined) body.model.maxTokens = d.maxTokens
+    if (d.apiKey !== '') body.apiKey = d.apiKey
+    const view = await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'PUT', body })
+    if (d.isDefault) {
+      const saved = view.models.find((m) => m.id === d.id && m.baseURL === d.baseURL)
+      if (saved !== undefined) await api('/api/model-configs/default', { method: 'POST', body: { uid: saved.uid } })
+    }
+    toast(`已保存 ${d.id}`)
+    modelDetail = null
     renderSettings()
-  } catch (error) { showError(String(error)) }
+  } catch (error) { fail(String(error)) }
 }
-async function deleteProvider(id) {
-  const row = modelViewCache.providers.find((p) => p.id === id)
-  const label = row ? (row.displayName || row.id) : id
-  if (!confirm(`删除提供方 ${label}?会移除它的配置与存储的 API 密钥。`)) return
+async function deleteModel() {
+  if (modelDetail === null || modelDetail.uid === 'new') return toast('先在列表里选一个要删除的模型', true)
+  if (!confirm(`删除模型 ${modelDetail.id}?`)) return
   try {
-    await api(`/api/model-configs/providers/${encodeURIComponent(id)}`, { method: 'DELETE' })
-    toast(`已删除 ${label}`)
+    await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'DELETE' })
+    toast(`已删除 ${modelDetail.id}`)
+    modelDetail = null
     renderSettings()
   } catch (error) { toast(`删除失败: ${error}`, true) }
-}
-async function setDefaultModel() {
-  const [provider, model] = ($('#s-defaultmodel')?.value ?? '').split('|')
-  if (!provider || !model) return
-  try {
-    await api('/api/model-configs/default', { method: 'POST', body: { provider, model } })
-    toast(`默认模型 → ${provider} / ${model}`)
-  } catch (error) { toast(`设置失败: ${error}`, true); renderSettings() }
 }
 async function importModelConfig() {
   const containerId = $('#s-impsrc')?.value
@@ -1728,40 +1650,31 @@ async function importModelConfig() {
   try {
     const r = await api('/api/model-configs/import', { method: 'POST', body: { containerId } })
     const info = r.import ?? {}
-    toast(`导入完成:新增 ${(info.added ?? []).length} / 更新 ${(info.updated ?? []).length} 个提供方${(info.refKeys ?? []).length ? `,API Key ${info.refKeys.length} 枚` : ''}`)
+    toast(`导入完成:新增 ${(info.added ?? []).length} / 更新 ${(info.updated ?? []).length} 个模型${(info.refKeys ?? []).length ? `,API Key ${info.refKeys.length} 枚` : ''}`)
+    modelDetail = null
     renderSettings()
   } catch (error) { toast(`导入失败: ${error}`, true) }
 }
-async function fetchProviderModels() {
-  syncEditorFromDom()
-  const st = providerEditorState
-  if (!st.provider.baseURL) {
-    const box = $('#pe-error')
-    if (box) box.textContent = '请先填写 API 地址,再获取'
-    return
-  }
-  const apiKey = $('#pe-key')?.value ?? ''
+async function fetchModelsForDetail() {
+  if (modelDetail === null) return
+  const d = readModelDetail()
+  const fail = (message) => { const box = $('#m-err'); if (box) box.textContent = message }
+  if (!/^https?:\/\/\S+$/.test(d.baseURL)) return fail('请先填 API 地址,再获取')
   try {
-    const r = await api('/api/model-configs/fetch-models', { method: 'POST', body: { baseURL: st.provider.baseURL, api: st.provider.api, apiKey, providerId: st.targetId === 'new' ? st.provider.id : st.targetId } })
-    renderFetchCandidates(r.models)
-  } catch (error) {
-    const box = $('#pe-error')
-    if (box) box.textContent = String(error)
-    else toast(String(error), true)
-  }
+    const r = await api('/api/model-configs/fetch-models', { method: 'POST', body: { baseURL: d.baseURL, api: d.api, apiKey: d.apiKey, uid: modelDetail.uid } })
+    renderFetchCandidates(r.models, d)
+  } catch (error) { fail(String(error)) }
 }
-function renderFetchCandidates(candidates) {
-  const existing = new Set(providerEditorState.provider.models.map((m) => m.id))
-  window.__fetchCandidates = candidates
-  openModal('选择要添加的模型', `<p class="muted" style="margin-bottom:8px">以下是模型提供方的可用模型,勾选要添加的模型(已配置的已跳过)。</p>
+function renderFetchCandidates(candidates, connection) {
+  window.__fetchCandidates = { candidates, connection }
+  const known = new Set(modelViewCache.models.map((m) => `${m.id}|${m.baseURL}`))
+  openModal('选择要添加的模型', `<p class="muted" style="margin-bottom:8px">以下是该提供方的可用模型;勾选后按当前连接信息(地址/协议/密钥/提供方名称)逐个加入配置表。</p>
     <div class="row" style="margin-bottom:8px"><input type="search" id="fc-search" placeholder="搜索模型" style="flex:1" oninput="filterFetchList()"><button type="button" class="tiny" onclick="toggleFetchAll()">全选</button></div>
-    <div class="fetch-list" id="fc-list">${candidates.map((m, index) => `<label class="fetch-item" data-id="${escapeHtml(m.id.toLowerCase())}" data-name="${escapeHtml((m.name ?? '').toLowerCase())}"><input type="checkbox" class="fc-check" value="${index}"><code>${escapeHtml(m.id)}</code>${m.name ? `<span class="muted">${escapeHtml(m.name)}</span>` : ''}</label>`).join('')}</div>
-    <div class="row" style="margin-top:14px"><button type="button" onclick="renderProviderEditor()">返回</button><span style="flex:1"></span><button class="primary" type="button" onclick="adoptFetchCandidates()">添加所选</button></div>`)
-  if (existing.size > 0) {
-    document.querySelectorAll('#fc-list .fc-check').forEach((box) => {
-      if (existing.has(candidates[Number(box.value)]?.id)) box.closest('.fetch-item').style.opacity = '0.5'
-    })
-  }
+    <div class="fetch-list" id="fc-list">${candidates.map((m, index) => {
+      const exists = known.has(`${m.id}|${connection.baseURL}`)
+      return `<label class="fetch-item" data-id="${escapeHtml(m.id.toLowerCase())}" data-name="${escapeHtml((m.name ?? '').toLowerCase())}" style="${exists ? 'opacity:.5' : ''}"><input type="checkbox" class="fc-check" value="${index}"><code>${escapeHtml(m.id)}</code>${m.name ? `<span class="muted">${escapeHtml(m.name)}</span>` : ''}${exists ? '<span class="muted">(已在表中)</span>' : ''}</label>`
+    }).join('')}</div>
+    <div class="row" style="margin-top:14px"><button type="button" onclick="renderModelDetail()">返回</button><span style="flex:1"></span><button class="primary" type="button" onclick="adoptCandidates()">添加所选</button></div>`)
 }
 function filterFetchList() {
   const query = ($('#fc-search')?.value ?? '').toLowerCase()
@@ -1774,20 +1687,28 @@ function toggleFetchAll() {
   const allChecked = boxes.length > 0 && boxes.every((box) => box.checked)
   boxes.forEach((box) => { box.checked = !allChecked })
 }
-function adoptFetchCandidates() {
-  const candidates = window.__fetchCandidates ?? []
-  const st = providerEditorState
-  const existing = new Set(st.provider.models.map((m) => m.id))
+async function adoptCandidates() {
+  const picked = window.__fetchCandidates
+  if (picked === undefined) return
+  const boxes = [...document.querySelectorAll('#fc-list .fc-check:checked')]
+  if (boxes.length === 0) return toast('没有勾选任何模型', true)
   let added = 0
-  document.querySelectorAll('#fc-list .fc-check:checked').forEach((box) => {
-    const candidate = candidates[Number(box.value)]
-    if (!candidate || existing.has(candidate.id)) return
-    st.provider.models.push({ id: candidate.id, name: candidate.name ?? '', ctx: capText(candidate.contextWindow), max: capText(candidate.maxTokens) })
-    existing.add(candidate.id)
-    added++
-  })
-  renderProviderEditor()
-  toast(added > 0 ? `已添加 ${added} 个模型` : '没有新增模型')
+  try {
+    for (const box of boxes) {
+      const candidate = picked.candidates[Number(box.value)]
+      if (candidate === undefined) continue
+      const model = { id: candidate.id, name: candidate.name ?? '', api: picked.connection.api, baseURL: picked.connection.baseURL, label: picked.connection.label }
+      if (candidate.contextWindow !== undefined) model.contextWindow = candidate.contextWindow
+      if (candidate.maxTokens !== undefined) model.maxTokens = candidate.maxTokens
+      const body = { model }
+      if (picked.connection.apiKey !== '') body.apiKey = picked.connection.apiKey
+      await api('/api/model-configs/models/new', { method: 'PUT', body })
+      added++
+    }
+    toast(`已加入 ${added} 个模型`)
+    modelDetail = null
+    renderSettings()
+  } catch (error) { toast(`添加失败: ${error}`, true) }
 }
 
 // ── 弹窗 ──

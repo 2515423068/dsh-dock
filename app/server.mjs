@@ -738,78 +738,53 @@ const MODEL_MODALITIES = ['text', 'image']
 
 /** 由 provider id 派生凭据引用:acme-gw → ACME_GW_API_KEY(与上游 deriveKeyRef 同构)。 */
 function deriveKeyRef(id) {
-  return `${String(id).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
+  const stem = String(id).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  return `${/^[0-9]/.test(stem) ? `P${stem}` : stem || 'PROVIDER'}_API_KEY`
 }
 
 // 上游 pi-ai 内置目录里的常见 route(只有一条 API Key 就能用,模型清单由目录提供)。
 // 名单随安装的 pi-ai 版本变化,这里只做「添加提供方」的快捷入口,不校验合法性。
-const CATALOG_PROVIDER_PRESETS = [
-  ['openrouter', 'OpenRouter'],
-  ['deepseek', 'DeepSeek(pi-ai 目录)'],
-  ['openai', 'OpenAI'],
-  ['anthropic', 'Anthropic'],
-  ['google', 'Google Gemini'],
-  ['groq', 'Groq'],
-  ['mistral', 'Mistral'],
-  ['xai', 'xAI'],
-  ['nvidia', 'NVIDIA NIM'],
-  ['moonshotai', 'Moonshot'],
-  ['zai', 'Z.ai'],
-  ['together', 'Together'],
-  ['cerebras', 'Cerebras'],
-  ['fireworks', 'Fireworks'],
-  ['huggingface', 'Hugging Face'],
-]
-
-/** 内置预设:「目录提供方」只差一把 Key;「自定义模板」给出端点与模型骨架。 */
+/** 详情表单的「快速填充」模板:填连接信息(协议 / 地址 / 凭证引用 / 提供方名称)与样例模型。 */
 const PROVIDER_PRESETS = [
-  ...CATALOG_PROVIDER_PRESETS.map(([id, displayName]) => ({
-    id,
-    label: displayName,
-    hint: `pi-ai 内置目录路由:只需填 API 密钥,模型清单由 DSH 目录提供(${id})`,
-    kind: 'catalog',
-    provider: { id, displayName, api: '', baseURL: '', apiKeyEnv: deriveKeyRef(id), models: [] },
-  })),
   {
     id: 'llama-local',
     label: '本地 llama.cpp',
-    hint: 'llama-launcher 的 OpenAI 兼容端点;本地服务不校验密钥,占位填 local 即可',
-    kind: 'custom',
-    provider: {
-      id: 'llama-local',
-      displayName: '本地 llama.cpp',
-      api: 'openai-completions',
-      baseURL: 'http://127.0.0.1:8080/v1',
-      apiKeyEnv: deriveKeyRef('llama-local'),
-      models: [
-        { id: 'spark-x2.5-4b-q4-32k', name: '本地模型(模型 ID 需与 llama-server 暴露的一致)', contextWindow: 131072, maxTokens: 8192 },
-      ],
-    },
+    api: 'openai-completions',
+    baseURL: 'http://127.0.0.1:8080/v1',
+    apiKeyEnv: 'LLAMA_LOCAL_API_KEY',
+    providerLabel: '本地 llama.cpp',
     apiKey: 'local',
+    models: [{ id: 'spark-x2.5-4b-q4-32k', name: '本地模型(模型 ID 与 llama-server 暴露的一致)', contextWindow: 131072, maxTokens: 8192 }],
   },
   {
     id: 'openrouter-free',
     label: 'OpenRouter 免费模型',
-    hint: '显式列出 :free 模型(不依赖目录);需要 OPENROUTER_API_KEY',
-    kind: 'custom',
-    provider: {
-      id: 'openrouter-free',
-      displayName: 'OpenRouter 免费',
-      api: 'openai-completions',
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKeyEnv: 'OPENROUTER_API_KEY',
-      models: [
-        { id: 'openrouter/free', name: 'Free Models Router', contextWindow: 200000, maxTokens: 4096 },
-        { id: 'openai/gpt-oss-20b:free', name: 'OpenAI: gpt-oss-20b (free)', contextWindow: 131072, maxTokens: 32768 },
-      ],
-    },
+    api: 'openai-completions',
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    providerLabel: 'OpenRouter',
+    models: [
+      { id: 'openrouter/free', name: 'Free Models Router', contextWindow: 200000, maxTokens: 4096 },
+      { id: 'openai/gpt-oss-20b:free', name: 'OpenAI: gpt-oss-20b (free)', contextWindow: 131072, maxTokens: 32768 },
+    ],
+  },
+  {
+    id: 'deepseek-api',
+    label: 'DeepSeek 官方 API',
+    api: 'openai-completions',
+    baseURL: 'https://api.deepseek.com',
+    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    providerLabel: 'DeepSeek',
+    models: [{ id: 'deepseek-chat', name: 'DeepSeek Chat', contextWindow: 131072, maxTokens: 8192 }],
   },
   {
     id: 'custom',
     label: '自定义 OpenAI 兼容端点',
-    hint: '任何 OpenAI 兼容网关(vLLM / Ollama / LM Studio / 中转站),填地址与模型 ID',
-    kind: 'custom',
-    provider: { id: 'my-provider', displayName: '', api: 'openai-completions', baseURL: '', apiKeyEnv: '', models: [] },
+    api: 'openai-completions',
+    baseURL: '',
+    apiKeyEnv: '',
+    providerLabel: '',
+    models: [],
   },
 ]
 
@@ -1121,69 +1096,73 @@ function toYamlBlock(value, indent = 0) {
 }
 
 // ── 模型配置表的读写与视图 ──────────────────────────────────────────────────
+// 表的一行 = 一个**模型**,连它所属提供方的连接信息(协议 / 地址 / 凭证引用)一起存在行上。
+// 不单独维护「提供方」实体:新建容器注入时按 (api, baseURL, apiKeyEnv) 自动归纳 ——
+// 连接信息相同的模型合并成一个 `llm-pi-ai.providers.<route>`,模型进它的 models[]。
 
-/** 提供方行的规范化:未知字段丢弃,缺失字段补空,数字只留正整数。 */
-function normalizeModelRow(raw) {
-  const row = {}
-  if (typeof raw?.id === 'string') row.id = raw.id.trim()
-  if (typeof raw?.name === 'string') row.name = raw.name.trim()
-  for (const key of ['contextWindow', 'maxTokens']) {
-    const n = Number(raw?.[key])
-    if (Number.isInteger(n) && n > 0) row[key] = n
-  }
-  if (Array.isArray(raw?.input)) {
-    const input = raw.input.filter((m) => MODEL_MODALITIES.includes(m))
-    if (input.length > 0) row.input = [...new Set(input)]
-  }
-  return row
-}
 
-function normalizeStringMap(raw) {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
-  const out = {}
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === 'string' && key.trim() !== '') out[key.trim()] = value
-  }
-  return Object.keys(out).length > 0 ? out : undefined
-}
-
-function normalizeCompat(raw) {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
-  const out = {}
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === 'boolean' || typeof value === 'string') out[key] = value
-  }
-  return Object.keys(out).length > 0 ? out : undefined
-}
-
-function normalizeProviderRow(raw) {
-  const row = {
+/** 一行模型配置的规范化(未知字段丢弃;input 属高级字段,导入时原样保留)。 */
+function normalizeModelEntry(raw) {
+  const entry = {
+    uid: typeof raw?.uid === 'string' && raw.uid !== '' ? raw.uid : randomUUID().slice(0, 8),
     id: typeof raw?.id === 'string' ? raw.id.trim() : '',
-    displayName: typeof raw?.displayName === 'string' ? raw.displayName.trim() : '',
+    name: typeof raw?.name === 'string' ? raw.name.trim() : '',
     api: typeof raw?.api === 'string' ? raw.api.trim() : '',
     baseURL: typeof raw?.baseURL === 'string' ? raw.baseURL.trim() : '',
     apiKeyEnv: typeof raw?.apiKeyEnv === 'string' ? raw.apiKeyEnv.trim() : '',
+    label: typeof raw?.label === 'string' ? raw.label.trim() : '',
+    routeHint: typeof raw?.routeHint === 'string' ? raw.routeHint.trim() : '',
   }
-  const headers = normalizeStringMap(raw?.headers)
-  if (headers) row.headers = headers
-  const compat = normalizeCompat(raw?.compat)
-  if (compat) row.compat = compat
-  row.models = Array.isArray(raw?.models) ? raw.models.map(normalizeModelRow).filter((m) => m.id) : []
-  return row
+  for (const key of ['contextWindow', 'maxTokens']) {
+    const n = Number(raw?.[key])
+    if (Number.isInteger(n) && n > 0) entry[key] = n
+  }
+  if (Array.isArray(raw?.input)) {
+    const input = raw.input.filter((modality) => MODEL_MODALITIES.includes(modality))
+    if (input.length > 0) entry.input = [...new Set(input)]
+  }
+  return entry
+}
+
+/** 把 provider 结构摊平成模型行(旧 v1 表迁移 / 从容器导入共用)。 */
+function providersToModelEntries(providers) {
+  if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return { entries: [], skipped: [] }
+  const entries = []
+  const skipped = []
+  for (const [route, profile] of Object.entries(providers)) {
+    const provider = profile ?? {}
+    const models = Array.isArray(provider.models) ? provider.models : []
+    if (models.length === 0) {
+      skipped.push(provider.displayName ?? route)
+      continue
+    }
+    for (const model of models) {
+      entries.push(normalizeModelEntry({
+        id: model?.id,
+        name: model?.name,
+        contextWindow: model?.contextWindow,
+        maxTokens: model?.maxTokens,
+        input: model?.input,
+        api: provider.api,
+        baseURL: provider.baseURL,
+        apiKeyEnv: provider.apiKeyEnv,
+        label: provider.displayName ?? route,
+        routeHint: route,
+      }))
+    }
+  }
+  return { entries: entries.filter((entry) => entry.id), skipped }
 }
 
 function normalizeModelConfig(raw) {
-  const providers = Array.isArray(raw?.providers) ? raw.providers.map(normalizeProviderRow).filter((p) => p.id) : []
+  let models = []
+  if (Array.isArray(raw?.models)) models = raw.models.map(normalizeModelEntry).filter((entry) => entry.id)
+  else if (Array.isArray(raw?.providers)) models = providersToModelEntries(Object.fromEntries(raw.providers.map((p) => [p.id, p]))).entries
   const cfg = {
-    version: 1,
-    providers,
-    default: {
-      provider: typeof raw?.default?.provider === 'string' ? raw.default.provider.trim() : '',
-      model: typeof raw?.default?.model === 'string' ? raw.default.model.trim() : '',
-    },
-    basics: {
-      rawSections: {},
-    },
+    version: 2,
+    models,
+    defaultUid: typeof raw?.defaultUid === 'string' ? raw.defaultUid : '',
+    basics: { rawSections: {} },
     importedFrom: raw?.importedFrom && typeof raw.importedFrom === 'object' ? raw.importedFrom : null,
   }
   const rawSections = raw?.basics?.rawSections
@@ -1192,16 +1171,8 @@ function normalizeModelConfig(raw) {
       if (typeof text === 'string' && text.trim() !== '') cfg.basics.rawSections[key] = text
     }
   }
-  reconcileDefaultModel(cfg)
+  if (!cfg.models.some((entry) => entry.uid === cfg.defaultUid)) cfg.defaultUid = cfg.models[0]?.uid ?? ''
   return cfg
-}
-
-/** 默认模型必须落在现存 provider 的模型清单里;否则退到第一个可用模型。 */
-function reconcileDefaultModel(cfg) {
-  const provider = cfg.providers.find((p) => p.id === cfg.default.provider)
-  if (provider && provider.models.some((m) => m.id === cfg.default.model)) return
-  const first = cfg.providers.find((p) => p.models.length > 0)
-  cfg.default = first ? { provider: first.id, model: first.models[0].id } : { provider: '', model: '' }
 }
 
 function saveModelConfig(cfg) {
@@ -1232,15 +1203,6 @@ function splitSectionsOutsideManaged(text) {
   return sections
 }
 
-/** 从 settings.yaml 解析结果里抽 provider 行(兼容流式/块式两种写法)。 */
-function providersFromParsedSettings(parsed) {
-  const providers = parsed?.['llm-pi-ai']?.providers
-  if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return []
-  return Object.entries(providers)
-    .map(([id, profile]) => normalizeProviderRow({ id, ...(profile ?? {}) }))
-    .filter((p) => p.id)
-}
-
 function defaultFromParsedSettings(parsed) {
   const def = parsed?.['agent-default-model']
   if (def === null || typeof def !== 'object') return null
@@ -1266,8 +1228,7 @@ function credentialRefValues(parsed) {
 
 /**
  * 读取模型配置表。首次调用时若只有旧版整份模板(state/profile-template/),
- * 就地迁移成新表(旧文件保留不动,便于回退)。
- * @returns 模型配置(始终是规范化结构)。
+ * 就地迁移成新表(旧文件保留,便于回退)。
  */
 function loadModelConfig() {
   const raw = readJson(MODEL_CONFIG_PATH(), null)
@@ -1286,10 +1247,11 @@ function migrateLegacyProfileTemplate() {
     log(`旧模板迁移失败(将退回旧模板注入): ${error}`)
     return null
   }
+  const settingsText = fs.readFileSync(tplSettingsPath(), 'utf8')
+  const { entries } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
   const cfg = normalizeModelConfig({
-    providers: providersFromParsedSettings(parsed),
-    default: defaultFromParsedSettings(parsed) ?? { provider: '', model: '' },
-    basics: { rawSections: splitSectionsOutsideManaged(fs.readFileSync(tplSettingsPath(), 'utf8')) },
+    models: entries,
+    basics: { rawSections: splitSectionsOutsideManaged(settingsText) },
     importedFrom: { ...readJson(tplMetaPath(), {}), migratedFromLegacy: true },
   })
   saveModelConfig(cfg)
@@ -1298,26 +1260,174 @@ function migrateLegacyProfileTemplate() {
     let refs = {}
     try { refs = credentialRefValues(parseYamlSubset(fs.readFileSync(tplRefsPath(), 'utf8'))) } catch { refs = {} }
     const keys = loadModelKeys()
-    for (const provider of cfg.providers) {
-      const value = provider.apiKeyEnv ? refs[provider.apiKeyEnv] : undefined
-      if (typeof value === 'string' && value !== '') { keys[provider.id] = value; keyCount++ }
+    for (const entry of cfg.models) {
+      const value = entry.apiKeyEnv ? refs[entry.apiKeyEnv] : undefined
+      if (typeof value === 'string' && value !== '') { keys[entry.apiKeyEnv] = value; keyCount++ }
     }
     if (keyCount > 0) saveModelKeys(keys)
   }
-  log(`已把旧初始配置模板迁移为模型配置表:${cfg.providers.length} 个提供方 / ${keyCount} 枚 API Key(旧文件保留)`)
+  const sourceDefault = defaultFromParsedSettings(parsed)
+  if (sourceDefault !== null) {
+    const row = cfg.models.find((entry) => entry.id === sourceDefault.model)
+    if (row) { cfg.defaultUid = row.uid; saveModelConfig(cfg) }
+  }
+  log(`已把旧初始配置模板迁移为模型配置表:${cfg.models.length} 个模型 / ${keyCount} 枚 API Key(旧文件保留)`)
   return cfg
 }
 
 function modelConfigHasContent(cfg) {
-  return cfg.providers.length > 0 || Object.keys(cfg.basics.rawSections).length > 0
+  return cfg.models.length > 0 || Object.keys(cfg.basics.rawSections).length > 0
+}
+
+/** route 名:小写字母开头,非字母数字折成短横线(上游凭据名与 route 都吃这个规则)。 */
+function slugifyRoute(text) {
+  const slug = String(text ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  if (slug === '') return 'provider'
+  return /^[a-z]/.test(slug) ? slug : `p-${slug}`
+}
+
+/** 没写提供方名称时,用端点主机名当分组名。 */
+function hostLabelOf(baseURL) {
+  try {
+    const host = new URL(baseURL).hostname.replace(/^www\./, '')
+    return host.split('.')[0] || host
+  } catch {
+    return ''
+  }
 }
 
 /**
- * 从某个容器一键导入配置:读它的 profile/settings.yaml(提供方 + 默认模型 +
- * 非模型配置段)与 .credentials.yaml(refs 密钥值),按提供方 ID 合并进表
- * —— 同 ID 覆盖、新 ID 追加,密钥值只入 state/model-keys.json(接口不回显)。
- * @param containerId - 来源容器 id。
- * @returns 摘要 `{ added, updated, refKeys, defaultSet, default, source, providerCount }`,或 `{ error }`。
+ * 按连接信息 (api, baseURL, apiKeyEnv) 把模型行归纳成提供方分组 —— 这就是
+ * 「多个模型属于同一提供商时自动归纳」的实现。同组只写一个 providers 条目。
+ * @returns `[{ route, displayName, api, baseURL, apiKeyEnv, models }]`
+ */
+function groupModelEntries(models) {
+  const groups = new Map()
+  const usedRoutes = new Set()
+  for (const entry of models) {
+    const key = [entry.api, entry.baseURL, entry.apiKeyEnv].join('|')
+    let group = groups.get(key)
+    if (group === undefined) {
+      const displayName = entry.label || hostLabelOf(entry.baseURL) || entry.id
+      // 中文显示名 slug 后可能只剩空壳:退回导入时的原始 route 名,保证 route 稳定可读
+      const slugged = slugifyRoute(displayName)
+      let route = slugged === 'provider' && entry.routeHint ? slugifyRoute(entry.routeHint) : slugged
+      let suffix = 2
+      while (usedRoutes.has(route)) route = `${slugifyRoute(displayName)}-${suffix++}`
+      usedRoutes.add(route)
+      group = { route, displayName, api: entry.api, baseURL: entry.baseURL, apiKeyEnv: entry.apiKeyEnv, models: [] }
+      groups.set(key, group)
+    }
+    const model = { id: entry.id }
+    if (entry.name) model.name = entry.name
+    if (entry.contextWindow) model.contextWindow = entry.contextWindow
+    if (entry.maxTokens) model.maxTokens = entry.maxTokens
+    if (entry.input) model.input = entry.input
+    group.models.push(model)
+  }
+  return [...groups.values()]
+}
+
+function defaultModelEntry(cfg) {
+  return cfg.models.find((entry) => entry.uid === cfg.defaultUid) ?? null
+}
+
+/** 给前端的视图:密钥只回显「是否已设置」,值绝不出库。 */
+function modelConfigView() {
+  const cfg = loadModelConfig()
+  const keys = loadModelKeys()
+  const groups = groupModelEntries(cfg.models)
+  const groupOf = (entry) => groups.find((group) => group.models.some((model) => model.id === entry.id && group.baseURL === entry.baseURL && group.api === entry.api))
+  const def = defaultModelEntry(cfg)
+  const defGroup = def === null ? undefined : groupOf(def)
+  return {
+    models: cfg.models.map((entry) => ({
+      ...entry,
+      apiKeySet: entry.apiKeyEnv !== '' && typeof keys[entry.apiKeyEnv] === 'string' && keys[entry.apiKeyEnv] !== '',
+      route: groupOf(entry)?.route ?? '',
+      providerLabel: groupOf(entry)?.displayName ?? '',
+    })),
+    defaultUid: cfg.defaultUid,
+    defaultModel: def === null ? null : { provider: defGroup?.route ?? '', model: def.id, uid: def.uid },
+    providers: groups.map((group) => ({
+      route: group.route,
+      displayName: group.displayName,
+      api: group.api,
+      baseURL: group.baseURL,
+      apiKeyEnv: group.apiKeyEnv,
+      modelCount: group.models.length,
+      apiKeySet: group.apiKeyEnv !== '' && typeof keys[group.apiKeyEnv] === 'string' && keys[group.apiKeyEnv] !== '',
+    })),
+    importedFrom: cfg.importedFrom,
+    rawSectionKeys: Object.keys(cfg.basics.rawSections),
+    presets: PROVIDER_PRESETS,
+    protocols: PROVIDER_API_PROTOCOLS,
+  }
+}
+
+/** 校验一行模型配置;返回错误文案或 null。 */
+function validateModelEntry(entry) {
+  if (entry.id === '') return '模型 ID 不能为空(要跟提供方暴露的模型名完全一致)'
+  if (entry.api !== '' && !PROVIDER_API_PROTOCOLS.includes(entry.api)) return `API 协议只支持 ${PROVIDER_API_PROTOCOLS.join(' / ')}`
+  if (entry.baseURL === '') {
+    // 目录内置 route 可以只填模型 ID(端点与协议由 DSH 目录提供);填了地址才要求协议
+    if (entry.api !== '') return null
+  } else if (!/^https?:\/\/\S+$/.test(entry.baseURL)) {
+    return 'API 地址必须是 http(s):// 开头的有效地址'
+  } else if (!PROVIDER_API_PROTOCOLS.includes(entry.api)) {
+    return `填了 API 地址就要选协议(${PROVIDER_API_PROTOCOLS.join(' / ')})`
+  }
+  if (entry.apiKeyEnv !== '' && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.apiKeyEnv)) return '凭据引用(环境变量名)只能包含字母/数字/下划线,且不以数字开头'
+  for (const key of ['contextWindow', 'maxTokens']) {
+    if (entry[key] !== undefined && (!Number.isInteger(entry[key]) || entry[key] <= 0)) return '上下文窗口与最大输出必须是正整数'
+  }
+  return null
+}
+
+/** 把模型配置表归纳成新建容器的 settings.yaml。 */
+function buildInitialSettingsYaml(cfg) {
+  const parts = Object.values(cfg.basics.rawSections).map((text) => text.trimEnd())
+  const groups = groupModelEntries(cfg.models)
+  if (groups.length > 0) {
+    const providers = {}
+    for (const group of groups) {
+      const entry = {}
+      if (group.displayName && group.displayName !== group.route) entry.displayName = group.displayName
+      if (group.api) entry.api = group.api
+      if (group.baseURL) entry.baseURL = group.baseURL
+      if (group.apiKeyEnv) entry.apiKeyEnv = group.apiKeyEnv
+      entry.models = group.models
+      providers[group.route] = entry
+    }
+    parts.push(`llm-pi-ai:\n  providers:\n${toYamlBlock(providers, 4)}`)
+  }
+  const def = defaultModelEntry(cfg)
+  const defGroup = def === null ? undefined : groups.find((group) => group.models.some((model) => model.id === def.id))
+  if (def !== null && defGroup !== undefined) {
+    parts.push(`agent-default-model:\n  provider: ${yamlScalarText(defGroup.route)}\n  model: ${yamlScalarText(def.id)}`)
+  }
+  return parts.length > 0 ? `${parts.join('\n')}\n` : ''
+}
+
+/** 把密钥渲染成 .credentials.yaml 的扁平 refs(见 flatRefEntries 的新旧兼容说明)。 */
+function buildCredentialEntryLines(cfg, keys) {
+  const lines = []
+  const seen = new Set()
+  for (const group of groupModelEntries(cfg.models)) {
+    if (group.apiKeyEnv === '' || seen.has(group.apiKeyEnv)) continue
+    const value = keys[group.apiKeyEnv]
+    if (typeof value === 'string' && value !== '') {
+      seen.add(group.apiKeyEnv)
+      lines.push(`${group.apiKeyEnv}: ${yamlScalarText(value)}`)
+    }
+  }
+  return lines
+}
+
+/**
+ * 从某个容器一键导入:把它的 llm-pi-ai.providers 摊平成模型行,按
+ * (模型 ID + API 地址 + 协议) 合并 —— 同一条更新、新的追加;密钥按 refs 取值入库。
+ * @returns 摘要 `{ added, updated, skipped, refKeys, source, defaultSet, defaultModel }`,或 `{ error }`。
  */
 function importModelConfigFromContainer(containerId) {
   const cdir = path.join(CONTAINERS_DIR, String(containerId ?? ''))
@@ -1332,22 +1442,23 @@ function importModelConfigFromContainer(containerId) {
   } catch (error) {
     return { error: `解析来源容器 settings.yaml 失败: ${error}` }
   }
-  const imported = providersFromParsedSettings(parsed)
-  if (imported.length === 0) {
-    return { error: '来源容器没有配置任何 llm-pi-ai 提供方' }
+  const { entries, skipped } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
+  if (entries.length === 0) {
+    return { error: skipped.length > 0 ? `来源容器的提供方(${skipped.join(' / ')})没有模型清单,无法摊平成模型` : '来源容器没有配置任何提供方' }
   }
   const cfg = loadModelConfig()
   const keys = loadModelKeys()
   const added = []
   const updated = []
-  for (const provider of imported) {
-    const index = cfg.providers.findIndex((row) => row.id === provider.id)
+  for (const entry of entries) {
+    const index = cfg.models.findIndex((row) => row.id === entry.id && row.baseURL === entry.baseURL && row.api === entry.api)
     if (index === -1) {
-      cfg.providers.push(provider)
-      added.push(provider.id)
+      cfg.models.push(entry)
+      added.push(entry.id)
     } else {
-      cfg.providers[index] = provider
-      updated.push(provider.id)
+      entry.uid = cfg.models[index].uid
+      cfg.models[index] = entry
+      updated.push(entry.id)
     }
   }
   for (const [key, text] of Object.entries(splitSectionsOutsideManaged(settingsText))) {
@@ -1359,180 +1470,36 @@ function importModelConfigFromContainer(containerId) {
     try { refs = credentialRefValues(parseYamlSubset(fs.readFileSync(credSrc, 'utf8'))) } catch { refs = {} }
   }
   const refKeys = []
-  for (const provider of imported) {
-    const value = provider.apiKeyEnv ? refs[provider.apiKeyEnv] : undefined
+  for (const entry of entries) {
+    const value = entry.apiKeyEnv === '' ? undefined : refs[entry.apiKeyEnv]
     if (typeof value === 'string' && value !== '') {
-      keys[provider.id] = value
-      refKeys.push(provider.apiKeyEnv)
+      keys[entry.apiKeyEnv] = value
+      if (!refKeys.includes(entry.apiKeyEnv)) refKeys.push(entry.apiKeyEnv)
     }
   }
   const sourceDefault = defaultFromParsedSettings(parsed)
-  if (sourceDefault || cfg.default.provider === '') cfg.default = sourceDefault ?? cfg.default
-  reconcileDefaultModel(cfg)
+  let defaultSet = false
+  if (sourceDefault !== null) {
+    const matched = entries.find((entry) => entry.id === sourceDefault.model)
+    const row = matched === undefined ? undefined : cfg.models.find((entry) => entry.id === matched.id && entry.baseURL === matched.baseURL)
+    if (row !== undefined) { cfg.defaultUid = row.uid; defaultSet = true }
+  }
   const meta = readJson(path.join(cdir, 'container.json'), {})
   const source = meta.name ?? String(containerId)
   cfg.importedFrom = { containerId: String(containerId), containerName: source, at: nowSeconds() }
   saveModelKeys(keys)
   saveModelConfig(cfg)
+  const def = defaultModelEntry(cfg)
   return {
     added,
     updated,
+    skipped,
     refKeys,
     source,
-    providerCount: cfg.providers.length,
-    default: cfg.default,
-    defaultSet: sourceDefault !== null && sourceDefault !== undefined
-      && cfg.default.provider === sourceDefault.provider && cfg.default.model === sourceDefault.model,
+    defaultSet,
+    modelCount: cfg.models.length,
+    defaultModel: def === null ? null : { model: def.id },
   }
-}
-
-/** 给前端的视图:密钥只回显「是否已设置」,值绝不出库。 */
-function modelConfigView() {
-  const cfg = loadModelConfig()
-  const keys = loadModelKeys()
-  return {
-    providers: cfg.providers.map((provider) => ({
-      ...provider,
-      apiKeySet: typeof keys[provider.id] === 'string' && keys[provider.id] !== '',
-    })),
-    default: cfg.default,
-    rawSectionKeys: Object.keys(cfg.basics.rawSections),
-    importedFrom: cfg.importedFrom,
-    defaultCandidates: cfg.providers.flatMap((p) => p.models.map((m) => ({ provider: p.id, model: m.id, name: m.name || m.id }))),
-    presets: PROVIDER_PRESETS,
-    protocols: PROVIDER_API_PROTOCOLS,
-    modalities: MODEL_MODALITIES,
-  }
-}
-
-/** 局部更新一行:客户端没发的字段保留原值(界面不暴露 headers / compat 等高级字段)。 */
-function mergeProviderRow(base, patch) {
-  const merged = normalizeProviderRow(base)
-  if (patch === null || typeof patch !== 'object') return merged
-  for (const field of ['id', 'displayName', 'api', 'baseURL', 'apiKeyEnv']) {
-    if (Object.hasOwn(patch, field)) merged[field] = typeof patch[field] === 'string' ? patch[field].trim() : ''
-  }
-  if (Object.hasOwn(patch, 'headers')) {
-    const headers = normalizeStringMap(patch.headers)
-    if (headers) merged.headers = headers
-    else delete merged.headers
-  }
-  if (Object.hasOwn(patch, 'compat')) {
-    const compat = normalizeCompat(patch.compat)
-    if (compat) merged.compat = compat
-    else delete merged.compat
-  }
-  if (Object.hasOwn(patch, 'models')) {
-    merged.models = Array.isArray(patch.models) ? patch.models.map(normalizeModelRow).filter((model) => model.id) : []
-  }
-  return merged
-}
-
-/** 校验一行提供方;返回错误文案或 null。 */
-function validateProviderRow(row) {
-  if (!PROVIDER_ID_PATTERN.test(row.id)) return '提供方 ID 需以小写字母开头,之后可用小写字母、数字和短横线(它同时用于派生凭据名)'
-  if (row.api !== '' && !PROVIDER_API_PROTOCOLS.includes(row.api)) return `协议只支持 ${PROVIDER_API_PROTOCOLS.join(' / ')}`
-  if (row.baseURL !== '' && !/^https?:\/\/\S+$/.test(row.baseURL)) return 'API 地址必须是 http(s):// 开头的有效地址'
-  if (row.apiKeyEnv !== '' && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(row.apiKeyEnv)) return '凭证引用(环境变量名)只能包含字母/数字/下划线,且不以数字开头'
-  for (const model of row.models) {
-    if (typeof model.contextWindow === 'number' && model.contextWindow <= 0) return `模型 ${model.id} 的上下文窗口必须是正整数`
-    if (typeof model.maxTokens === 'number' && model.maxTokens <= 0) return `模型 ${model.id} 的最大输出必须是正整数`
-  }
-  // 目录内置 route 可以只填密钥(模型清单由 DSH 目录提供);非目录 route 一旦给了
-  // 端点就必须有模型清单,否则 pi-ai 解析时会报「目录不认识这个 route」。
-  const isCatalogRoute = CATALOG_PROVIDER_PRESETS.some(([id]) => id === row.id)
-  if (!isCatalogRoute && row.models.length === 0 && row.baseURL !== '') {
-    return '填了 API 地址的提供方至少需要一个模型;目录内置提供方只需填密钥'
-  }
-  return null
-}
-
-/**
- * 询问提供方有哪些模型(`GET {baseURL}/models`),给界面「获取可用模型」用。
- * 走 curl(项目既有的外部命令通道):回环地址直连,公网地址按设置里的代理走。
- * @returns `{ models }` 或 `{ error }`。
- */
-async function discoverProviderModels({ baseURL, api, apiKey }) {
-  const root = String(baseURL ?? '').trim().replace(/\/+$/, '')
-  if (!/^https?:\/\/\S+$/.test(root)) return { error: '请先填写合法的 API 地址(http(s)://...)' }
-  const protocol = String(api ?? '').trim() || 'openai-completions'
-  const args = ['-sS', '--max-time', '20']
-  let url
-  if (protocol === 'anthropic-messages') {
-    url = `${root.replace(/\/v1$/, '')}/v1/models?limit=1000`
-    if (apiKey) args.push('-H', `x-api-key: ${apiKey}`)
-    args.push('-H', 'anthropic-version: 2023-06-01')
-  } else if (protocol === 'openai-completions' || protocol === 'openai-responses') {
-    url = `${root}/models`
-    if (apiKey) args.push('-H', `Authorization: Bearer ${apiKey}`)
-  } else {
-    return { error: `协议 ${protocol} 不支持自动获取模型,请手工填写模型 ID` }
-  }
-  let host
-  try { host = new URL(url).hostname } catch { return { error: 'API 地址无法解析' } }
-  const proxy = readSettings().proxy?.trim()
-  if (proxy && !['127.0.0.1', 'localhost', '::1'].includes(host)) args.push('-x', proxy)
-  args.push(url)
-  let stdout
-  try {
-    ({ stdout } = await execFileAsync('curl', args, { timeout: 25_000 }))
-  } catch (error) {
-    return { error: `请求提供方失败: ${String(error).split('\n')[0]}` }
-  }
-  let parsed
-  try { parsed = JSON.parse(stdout) } catch { return { error: '提供方返回的不是 JSON(检查地址与协议)' } }
-  const list = Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.models) ? parsed.models : [])
-  const models = []
-  for (const item of list) {
-    const id = typeof item?.id === 'string' ? item.id : (typeof item?.name === 'string' ? item.name : '')
-    if (!id) continue
-    const row = { id }
-    const name = typeof item?.display_name === 'string' ? item.display_name : ''
-    if (name && name !== id) row.name = name
-    const context = Number(item?.context_length ?? item?.context_window ?? item?.max_context_length)
-    if (Number.isInteger(context) && context > 0) row.contextWindow = context
-    const maxTokens = Number(item?.top_provider?.max_completion_tokens ?? item?.max_output_tokens)
-    if (Number.isInteger(maxTokens) && maxTokens > 0) row.maxTokens = maxTokens
-    models.push(row)
-  }
-  if (models.length === 0) return { error: '该提供方没有列出任何模型,请手工添加' }
-  models.sort((a, b) => a.id.localeCompare(b.id))
-  return { models }
-}
-
-/** 把模型配置表渲染成新建容器的 settings.yaml。 */
-function buildInitialSettingsYaml(cfg) {
-  const parts = Object.values(cfg.basics.rawSections).map((text) => text.trimEnd())
-  if (cfg.providers.length > 0) {
-    const providers = {}
-    for (const provider of cfg.providers) {
-      const entry = {}
-      if (provider.displayName) entry.displayName = provider.displayName
-      if (provider.api) entry.api = provider.api
-      if (provider.baseURL) entry.baseURL = provider.baseURL
-      if (provider.apiKeyEnv) entry.apiKeyEnv = provider.apiKeyEnv
-      if (provider.headers) entry.headers = provider.headers
-      if (provider.compat) entry.compat = provider.compat
-      if (provider.models.length > 0) entry.models = provider.models
-      providers[provider.id] = entry
-    }
-    parts.push(`llm-pi-ai:\n  providers:\n${toYamlBlock(providers, 4)}`)
-  }
-  if (cfg.default.provider && cfg.default.model) {
-    parts.push(`agent-default-model:\n  provider: ${yamlScalarText(cfg.default.provider)}\n  model: ${yamlScalarText(cfg.default.model)}`)
-  }
-  return parts.length > 0 ? `${parts.join('\n')}\n` : ''
-}
-
-/** 把密钥渲染成 .credentials.yaml 的扁平 refs(见 flatRefEntries 的新旧兼容说明)。 */
-function buildCredentialEntryLines(cfg, keys) {
-  const lines = []
-  for (const provider of cfg.providers) {
-    if (!provider.apiKeyEnv) continue
-    const value = keys[provider.id]
-    if (typeof value === 'string' && value !== '') lines.push(`${provider.apiKeyEnv}: ${yamlScalarText(value)}`)
-  }
-  return lines
 }
 
 // 旧版「整份模板」信息的兼容视图:新表有内容时由模型配置表合成,
@@ -1540,19 +1507,20 @@ function buildCredentialEntryLines(cfg, keys) {
 function profileTemplateInfo() {
   const cfg = loadModelConfig()
   const keys = loadModelKeys()
+  const groups = groupModelEntries(cfg.models)
   const sections = Object.keys(cfg.basics.rawSections)
-  if (cfg.providers.length > 0) sections.push('llm-pi-ai')
-  if (cfg.default.provider) sections.push('agent-default-model')
-  const refKeys = cfg.providers.filter((provider) => provider.apiKeyEnv).map((provider) => provider.apiKeyEnv)
+  if (cfg.models.length > 0) sections.push('llm-pi-ai')
+  if (defaultModelEntry(cfg) !== null) sections.push('agent-default-model')
+  const refKeys = groups.filter((group) => group.apiKeyEnv !== '').map((group) => group.apiKeyEnv)
   return {
     exists: modelConfigHasContent(cfg),
     capturedAt: cfg.importedFrom?.at ?? cfg.importedFrom?.capturedAt ?? null,
     source: cfg.importedFrom?.containerName ?? cfg.importedFrom?.source ?? null,
     sections,
     refKeys,
-    providerCount: cfg.providers.length,
-    modelCount: cfg.providers.reduce((sum, provider) => sum + provider.models.length, 0),
-    keyCount: cfg.providers.filter((provider) => typeof keys[provider.id] === 'string' && keys[provider.id] !== '').length,
+    modelCount: cfg.models.length,
+    providerCount: groups.length,
+    keyCount: refKeys.filter((ref) => typeof keys[ref] === 'string' && keys[ref] !== '').length,
   }
 }
 
@@ -1584,8 +1552,10 @@ function applyProfileTemplate(containerPath, line) {
       fs.writeFileSync(credPath, `${composed ? `${composed}\n` : ''}refs: { ${entryLines.join(', ')} }\n`, { mode: 0o600 })
     }
   }
-  const modelCount = cfg.providers.reduce((sum, provider) => sum + provider.models.length, 0)
-  line(`已注入模型配置:${cfg.providers.length} 个提供方 / ${modelCount} 个模型${cfg.default.provider ? `;默认模型 ${cfg.default.provider} / ${cfg.default.model}` : ''}${entryLines.length > 0 ? `;API Key(${entryLines.map((entry) => entry.split(':')[0]).join(' / ')})` : ''}`)
+  const groups = groupModelEntries(cfg.models)
+  const def = defaultModelEntry(cfg)
+  const defGroup = def === null ? undefined : groups.find((group) => group.models.some((model) => model.id === def.id))
+  line(`已注入模型配置:${cfg.models.length} 个模型,自动归纳为 ${groups.length} 个提供方${def !== null ? `;默认模型 ${defGroup?.route ?? ''} / ${def.id}` : ''}${entryLines.length > 0 ? `;API Key(${entryLines.map((entry) => entry.split(':')[0]).join(' / ')})` : ''}`)
 }
 
 // 旧版整份模板注入(仅当模型配置表为空、且旧模板文件仍在时作为兜底)
@@ -2011,7 +1981,7 @@ async function handleApi(request, response, url) {
     return send(200, readSettings())
   }
 
-  // ── 模型配置表(新容器初始配置) ──
+  // ── 模型配置表:一行 = 一个模型,注入时按连接信息自动归纳成提供方 ──
   if (route === 'GET /api/model-configs') {
     return send(200, modelConfigView())
   }
@@ -2025,74 +1995,67 @@ async function handleApi(request, response, url) {
     const { containerId } = await readJsonBody(request)
     const result = importModelConfigFromContainer(containerId)
     if (result.error) return send(400, { error: result.error })
-    log(`从容器 ${result.source} 导入模型配置:新增 ${result.added.length} / 更新 ${result.updated.length} 个提供方${result.refKeys.length > 0 ? `,API Key ${result.refKeys.length} 枚` : ''}`)
+    log(`从容器 ${result.source} 导入模型配置:新增 ${result.added.length} / 更新 ${result.updated.length} 个模型${result.refKeys.length > 0 ? `,API Key ${result.refKeys.length} 枚` : ''}`)
     return send(200, { ...modelConfigView(), import: result })
   }
   if (route === 'POST /api/model-configs/default') {
-    const { provider, model } = await readJsonBody(request)
+    const { uid } = await readJsonBody(request)
     const cfg = loadModelConfig()
-    if (!cfg.providers.some((p) => p.id === provider && p.models.some((m) => m.id === model))) {
-      return send(400, { error: '默认模型必须来自已有提供方的模型清单' })
-    }
-    cfg.default = { provider: String(provider), model: String(model) }
+    if (!cfg.models.some((entry) => entry.uid === uid)) return send(400, { error: '默认模型必须来自表里已有的模型' })
+    cfg.defaultUid = String(uid)
     saveModelConfig(cfg)
-    log(`模型配置表:默认模型 → ${cfg.default.provider} / ${cfg.default.model}`)
+    log(`模型配置表:默认模型 → ${defaultModelEntry(cfg)?.id ?? ''}`)
     return send(200, modelConfigView())
   }
   if (route === 'POST /api/model-configs/fetch-models') {
-    const { baseURL, api, apiKey, providerId } = await readJsonBody(request)
+    const { baseURL, api, apiKey, uid } = await readJsonBody(request)
     let key = typeof apiKey === 'string' ? apiKey : ''
-    if (key === '' && typeof providerId === 'string' && providerId !== '') key = loadModelKeys()[providerId] ?? ''
+    if (key === '' && typeof uid === 'string' && uid !== '') {
+      const row = loadModelConfig().models.find((entry) => entry.uid === uid)
+      if (row !== undefined && row.apiKeyEnv !== '') key = loadModelKeys()[row.apiKeyEnv] ?? ''
+    }
     const result = await discoverProviderModels({ baseURL, api, apiKey: key })
     if (result.error) return send(400, { error: result.error })
     return send(200, result)
   }
-  const providerRowMatch = url.pathname.match(/^\/api\/model-configs\/providers\/([^/]+)$/)
-  if (providerRowMatch && request.method === 'PUT') {
-    const targetId = decodeURIComponent(providerRowMatch[1])
+  const modelRowMatch = url.pathname.match(/^\/api\/model-configs\/models\/([^/]+)$/)
+  if (modelRowMatch && request.method === 'PUT') {
+    const targetUid = decodeURIComponent(modelRowMatch[1])
     const body = await readJsonBody(request)
     const cfg = loadModelConfig()
-    const index = targetId === 'new' ? -1 : cfg.providers.findIndex((p) => p.id === targetId)
-    if (targetId !== 'new' && index === -1) return send(404, { error: `提供方不存在: ${targetId}` })
-    const row = index === -1
-      ? normalizeProviderRow(body.provider ?? {})
-      : mergeProviderRow(cfg.providers[index], body.provider ?? {})
-    // 界面只填密钥字面量:引用留空时按 <ROUTE>_API_KEY 派生(与上游 deriveKeyRef 同构)
-    if (typeof body.apiKey === 'string' && body.apiKey !== '' && row.apiKeyEnv === '') row.apiKeyEnv = deriveKeyRef(row.id)
-    const invalid = validateProviderRow(row)
+    const index = targetUid === 'new' ? -1 : cfg.models.findIndex((entry) => entry.uid === targetUid)
+    if (targetUid !== 'new' && index === -1) return send(404, { error: `模型配置不存在: ${targetUid}` })
+    // 以旧行为底、界面提交的字段覆盖其上:界面没暴露的 input / routeHint 等高级字段原样保留
+    const previous = index === -1 ? {} : cfg.models[index]
+    const entry = normalizeModelEntry({ ...previous, ...(body.model ?? {}), uid: index === -1 ? undefined : previous.uid })
+    // 界面只填密钥字面量:引用留空时按「提供方名称 / 端点主机」派生(同提供方的模型会归到同一组)
+    if (typeof body.apiKey === 'string' && body.apiKey !== '' && entry.apiKeyEnv === '') {
+      entry.apiKeyEnv = deriveKeyRef(entry.label || hostLabelOf(entry.baseURL) || entry.id)
+    }
+    const invalid = validateModelEntry(entry)
     if (invalid) return send(400, { error: invalid })
-    const duplicate = cfg.providers.findIndex((p) => p.id === row.id)
-    if (duplicate !== -1 && duplicate !== index) return send(400, { error: `提供方 ID 已存在: ${row.id}` })
-    if (index === -1) cfg.providers.push(row)
-    else cfg.providers[index] = row
+    if (index === -1) cfg.models.push(entry)
+    else cfg.models[index] = entry
     const keys = loadModelKeys()
-    if (index !== -1 && targetId !== row.id && typeof keys[targetId] === 'string') {
-      keys[row.id] = keys[targetId]
-      delete keys[targetId]
-      if (cfg.default.provider === targetId) cfg.default.provider = row.id
+    if (typeof body.apiKey === 'string' && entry.apiKeyEnv !== '') {
+      if (body.apiKey === '') delete keys[entry.apiKeyEnv]
+      else keys[entry.apiKeyEnv] = body.apiKey
     }
-    if (typeof body.apiKey === 'string') {
-      if (body.apiKey === '') delete keys[row.id]
-      else keys[row.id] = body.apiKey
-    }
-    reconcileDefaultModel(cfg)
+    if (!cfg.models.some((row) => row.uid === cfg.defaultUid)) cfg.defaultUid = entry.uid
     saveModelKeys(keys)
     saveModelConfig(cfg)
-    log(`模型配置表:保存提供方 ${row.id}(${row.models.length} 个模型)`)
+    log(`模型配置表:保存模型 ${entry.id}(${entry.baseURL})`)
     return send(200, modelConfigView())
   }
-  if (providerRowMatch && request.method === 'DELETE') {
-    const targetId = decodeURIComponent(providerRowMatch[1])
+  if (modelRowMatch && request.method === 'DELETE') {
+    const targetUid = decodeURIComponent(modelRowMatch[1])
     const cfg = loadModelConfig()
-    const index = cfg.providers.findIndex((p) => p.id === targetId)
-    if (index === -1) return send(404, { error: `提供方不存在: ${targetId}` })
-    cfg.providers.splice(index, 1)
-    const keys = loadModelKeys()
-    delete keys[targetId]
-    reconcileDefaultModel(cfg)
-    saveModelKeys(keys)
+    const index = cfg.models.findIndex((entry) => entry.uid === targetUid)
+    if (index === -1) return send(404, { error: `模型配置不存在: ${targetUid}` })
+    const [removed] = cfg.models.splice(index, 1)
+    if (cfg.defaultUid === removed.uid) cfg.defaultUid = cfg.models[0]?.uid ?? ''
     saveModelConfig(cfg)
-    log(`模型配置表:删除提供方 ${targetId}`)
+    log(`模型配置表:删除模型 ${removed.id}`)
     return send(200, modelConfigView())
   }
 

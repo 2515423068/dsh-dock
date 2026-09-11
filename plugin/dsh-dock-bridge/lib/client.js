@@ -378,13 +378,13 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshSettings
 			]);
-			const saveProvider = (0, react.useCallback)(async (targetId, provider, apiKey) => {
+			const saveModel = (0, react.useCallback)(async (targetUid, model, apiKey) => {
 				try {
-					const body = apiKey === "" ? { provider } : {
-						provider,
+					const body = apiKey === "" ? { model } : {
+						model,
 						apiKey
 					};
-					await mutate("modelConfig", () => rest("PUT", `/api/model-configs/providers/${encodeURIComponent(targetId)}`, body, "提供方保存失败"));
+					await mutate("modelConfig", () => rest("PUT", `/api/model-configs/models/${encodeURIComponent(targetUid)}`, body, "模型保存失败"));
 					refreshModelConfig();
 					return true;
 				} catch {
@@ -395,9 +395,9 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshModelConfig
 			]);
-			const deleteProvider = (0, react.useCallback)(async (id) => {
+			const deleteModel = (0, react.useCallback)(async (uid) => {
 				try {
-					await mutate("modelConfig", () => rest("DELETE", `/api/model-configs/providers/${encodeURIComponent(id)}`, void 0, "提供方删除失败"));
+					await mutate("modelConfig", () => rest("DELETE", `/api/model-configs/models/${encodeURIComponent(uid)}`, void 0, "模型删除失败"));
 					refreshModelConfig();
 					return true;
 				} catch {
@@ -408,12 +408,9 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshModelConfig
 			]);
-			const setDefaultModel = (0, react.useCallback)(async (provider, model) => {
+			const setDefaultModel = (0, react.useCallback)(async (uid) => {
 				try {
-					await mutate("modelConfig", () => rest("POST", "/api/model-configs/default", {
-						provider,
-						model
-					}, "默认模型保存失败"));
+					await mutate("modelConfig", () => rest("POST", "/api/model-configs/default", { uid }, "默认模型保存失败"));
 					refreshModelConfig();
 					return true;
 				} catch {
@@ -481,8 +478,8 @@ window.__ModuleLoader__.load({
 				refreshSettings,
 				refreshTemplate,
 				refreshModelConfig,
-				saveProvider,
-				deleteProvider,
+				saveModel,
+				deleteModel,
 				setDefaultModel,
 				importModelConfig,
 				fetchProviderModels,
@@ -504,7 +501,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -514,73 +511,76 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"guideBody": "yFwJXq_guideBody",
-			"saveRow": "yFwJXq_saveRow",
-			"selfBadge": "yFwJXq_selfBadge",
-			"cardTitle": "yFwJXq_cardTitle",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"rowUrl": "yFwJXq_rowUrl",
-			"rowHead": "yFwJXq_rowHead",
-			"cellAction": "yFwJXq_cellAction",
-			"taskInline": "yFwJXq_taskInline",
-			"dotOk": "yFwJXq_dotOk",
-			"formRow": "yFwJXq_formRow",
-			"cardBody": "yFwJXq_cardBody",
-			"card": "yFwJXq_card",
-			"errorNote": "yFwJXq_errorNote",
-			"labelCol": "yFwJXq_labelCol",
-			"rows": "yFwJXq_rows",
-			"section": "yFwJXq_section",
-			"cardActions": "yFwJXq_cardActions",
-			"taskFailed": "yFwJXq_taskFailed",
-			"taskHead": "yFwJXq_taskHead",
-			"taskLine": "yFwJXq_taskLine",
-			"formGrid": "yFwJXq_formGrid",
-			"inlineForm": "yFwJXq_inlineForm",
-			"rowMeta": "yFwJXq_rowMeta",
-			"rowActions": "yFwJXq_rowActions",
-			"table": "yFwJXq_table",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"verSelect": "yFwJXq_verSelect",
-			"providerRow": "yFwJXq_providerRow",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"providerActions": "yFwJXq_providerActions",
-			"rangeInput": "yFwJXq_rangeInput",
-			"link": "yFwJXq_link",
-			"grow": "yFwJXq_grow",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"formLabel": "yFwJXq_formLabel",
-			"dot": "yFwJXq_dot",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"guide": "yFwJXq_guide",
-			"row": "yFwJXq_row",
-			"providerName": "yFwJXq_providerName",
-			"tabs": "yFwJXq_tabs",
-			"guideTitle": "yFwJXq_guideTitle",
-			"title": "yFwJXq_title",
-			"logPath": "yFwJXq_logPath",
-			"chipRow": "yFwJXq_chipRow",
-			"errorLine": "yFwJXq_errorLine",
-			"cardHead": "yFwJXq_cardHead",
+			"narrow": "yFwJXq_narrow",
 			"modelRow": "yFwJXq_modelRow",
 			"dotMiss": "yFwJXq_dotMiss",
-			"subTitle": "yFwJXq_subTitle",
+			"dotOk": "yFwJXq_dotOk",
+			"checkLine": "yFwJXq_checkLine",
+			"statusLabel": "yFwJXq_statusLabel",
+			"rowMeta": "yFwJXq_rowMeta",
+			"card": "yFwJXq_card",
+			"guide": "yFwJXq_guide",
+			"errorLine": "yFwJXq_errorLine",
+			"dot": "yFwJXq_dot",
+			"inlineForm": "yFwJXq_inlineForm",
+			"grow": "yFwJXq_grow",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"spin": "yFwJXq_spin",
+			"providerName": "yFwJXq_providerName",
+			"tabs": "yFwJXq_tabs",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"providerActions": "yFwJXq_providerActions",
+			"table": "yFwJXq_table",
+			"rowTitle": "yFwJXq_rowTitle",
 			"stoppedDot": "yFwJXq_stoppedDot",
-			"mutedCell": "yFwJXq_mutedCell",
+			"taskHead": "yFwJXq_taskHead",
+			"cardBody": "yFwJXq_cardBody",
+			"rowActions": "yFwJXq_rowActions",
+			"capInput": "yFwJXq_capInput",
+			"modelField": "yFwJXq_modelField",
+			"cardTitle": "yFwJXq_cardTitle",
+			"verSelect": "yFwJXq_verSelect",
+			"taskInline": "yFwJXq_taskInline",
+			"subTitle": "yFwJXq_subTitle",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"intro": "yFwJXq_intro",
+			"row": "yFwJXq_row",
+			"rows": "yFwJXq_rows",
+			"saveRow": "yFwJXq_saveRow",
+			"tabPanel": "yFwJXq_tabPanel",
+			"cardActions": "yFwJXq_cardActions",
+			"rowHead": "yFwJXq_rowHead",
 			"empty": "yFwJXq_empty",
 			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"intro": "yFwJXq_intro",
-			"spin": "yFwJXq_spin",
-			"tab": "yFwJXq_tab",
-			"hintIcon": "yFwJXq_hintIcon",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"statusLabel": "yFwJXq_statusLabel",
-			"rowLine": "yFwJXq_rowLine",
-			"narrow": "yFwJXq_narrow",
+			"taskFailed": "yFwJXq_taskFailed",
+			"logPath": "yFwJXq_logPath",
+			"rowUrl": "yFwJXq_rowUrl",
+			"mutedCell": "yFwJXq_mutedCell",
+			"taskLine": "yFwJXq_taskLine",
+			"link": "yFwJXq_link",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"errorNote": "yFwJXq_errorNote",
+			"formGrid": "yFwJXq_formGrid",
 			"outputTail": "yFwJXq_outputTail",
-			"tabPanel": "yFwJXq_tabPanel",
-			"rowTitle": "yFwJXq_rowTitle",
-			"footerNote": "yFwJXq_footerNote"
+			"section": "yFwJXq_section",
+			"tab": "yFwJXq_tab",
+			"footerNote": "yFwJXq_footerNote",
+			"formRow": "yFwJXq_formRow",
+			"guideBody": "yFwJXq_guideBody",
+			"labelCol": "yFwJXq_labelCol",
+			"rangeInput": "yFwJXq_rangeInput",
+			"hintIcon": "yFwJXq_hintIcon",
+			"rowLine": "yFwJXq_rowLine",
+			"chipRow": "yFwJXq_chipRow",
+			"selfBadge": "yFwJXq_selfBadge",
+			"title": "yFwJXq_title",
+			"formLabel": "yFwJXq_formLabel",
+			"cellAction": "yFwJXq_cellAction",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"guideTitle": "yFwJXq_guideTitle",
+			"providerRow": "yFwJXq_providerRow",
+			"cardHead": "yFwJXq_cardHead"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1167,416 +1167,171 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/ModelConfigGroup.tsx
 		/**
-		* Model-config group of the settings card: the new-container initial config as an
-		* editable provider table. Mirrors the DSH Dock WebUI panel (and, in field choice,
-		* the harness's own Models settings section): provider rows with credential state,
-		* a catalog quick-add, a custom-provider editor with base URL / protocol / models,
-		* one-click import from a container, and the default-model picker. API keys are
-		* write-only: the server echoes whether one is stored, never the value.
+		* Model-config group of the settings card: the new-container initial config as a
+		* flat list of MODELS. One row = one model plus its provider connection facts
+		* (base URL / protocol / API key / provider label); container creation groups rows
+		* that share a connection into one `llm-pi-ai.providers` entry automatically.
+		* Mirrors the DSH Dock WebUI panel. API keys are write-only: the server reports
+		* whether one is stored, never the value.
 		*/
-		/** Format a capacity the way the editor accepts it back (whole K/M only). */
+		/** Whole K/M only, so the text round-trips. */
 		function capText(n) {
 			if (typeof n !== "number") return "";
 			if (n >= 1e6 && n % 1e6 === 0) return `${n / 1e6}M`;
 			if (n >= 1e3 && n % 1e3 === 0) return `${n / 1e3}K`;
 			return String(n);
 		}
-		/** Parse a capacity; `''` means inherit, `null` means invalid. */
+		/** `''` inherits, a number is the value, `null` is invalid. */
 		function parseCap(text) {
 			const trimmed = text.replace(/\s+/g, "");
 			if (trimmed === "") return void 0;
 			const match = trimmed.match(/^(\d+(?:\.\d+)?)([km])?$/i);
 			if (match === null) return null;
-			const value = Number(match[1]) * (match[2]?.toLowerCase() === "k" ? 1e3 : match[2] !== void 0 ? 1e6 : 1);
+			const value = Number(match[1]) * (match[2] === void 0 ? 1 : match[2].toLowerCase() === "k" ? 1e3 : 1e6);
 			return Number.isInteger(value) && value > 0 ? value : null;
 		}
-		function modelDrafts(provider) {
-			return provider.models.map((model) => ({
-				id: model.id,
-				name: model.name ?? "",
-				ctx: capText(model.contextWindow),
-				max: capText(model.maxTokens)
-			}));
-		}
-		/** Build the row we send to `PUT /api/model-configs/providers/:id`. */
-		function toProvider(draft) {
-			const models = [];
-			const seen = /* @__PURE__ */ new Set();
-			for (const [index, row] of draft.models.entries()) {
-				if (row.id.trim() === "") return `第 ${index + 1} 个模型缺少模型 ID`;
-				if (seen.has(row.id.trim())) return `模型 ID 重复:${row.id.trim()}`;
-				seen.add(row.id.trim());
-				const model = { id: row.id.trim() };
-				if (row.name.trim() !== "") model.name = row.name.trim();
-				const ctx = parseCap(row.ctx);
-				if (ctx === null) return `${row.id.trim()} 的上下文窗口无法识别(可写 131072 / 256K / 1M)`;
-				if (ctx !== void 0) model.contextWindow = ctx;
-				const max = parseCap(row.max);
-				if (max === null) return `${row.id.trim()} 的最大输出无法识别(可写 8192 / 32K)`;
-				if (max !== void 0) model.maxTokens = max;
-				models.push(model);
-			}
-			const provider = {
-				id: draft.id.trim(),
-				displayName: draft.displayName.trim(),
-				api: draft.api,
-				baseURL: draft.baseURL.trim(),
-				models
+		function draftOf(entry, defaultUid) {
+			return {
+				uid: entry.uid,
+				id: entry.id,
+				name: entry.name ?? "",
+				baseURL: entry.baseURL ?? "",
+				api: entry.api ?? "",
+				apiKey: "",
+				apiKeySet: entry.apiKeySet === true,
+				apiKeyEnv: entry.apiKeyEnv ?? "",
+				label: entry.label ?? "",
+				ctx: capText(entry.contextWindow),
+				max: capText(entry.maxTokens),
+				isDefault: entry.uid === defaultUid
 			};
-			if (draft.apiKeyEnv !== "") provider.apiKeyEnv = draft.apiKeyEnv;
-			return provider;
 		}
+		const BLANK = {
+			uid: "new",
+			id: "",
+			name: "",
+			baseURL: "",
+			api: "",
+			apiKey: "",
+			apiKeySet: false,
+			apiKeyEnv: "",
+			label: "",
+			ctx: "",
+			max: "",
+			isDefault: false
+		};
 		/** The model-config group body. */
 		function ModelConfigGroup({ t, store }) {
 			const view = store.modelConfig;
 			const [draft, setDraft] = (0, react.useState)();
-			const [source, setSource] = (0, react.useState)("");
-			const [note, setNote] = (0, react.useState)();
 			const [failure, setFailure] = (0, react.useState)();
-			const error = store.modelConfigError;
+			const [note, setNote] = (0, react.useState)();
+			const [source, setSource] = (0, react.useState)("");
 			const busy = store.isBusy("modelConfig");
 			(0, react.useEffect)(() => {
-				if (view !== void 0 && source === "" && store.containers.length > 0) setSource(store.containers[0].id);
-			}, [
-				view,
-				source,
-				store.containers
-			]);
-			const openNew = (mode) => {
-				setFailure(void 0);
-				setNote(void 0);
-				const preset = mode === "catalog" ? view?.presets.find((entry) => entry.kind === "catalog") : view?.presets.find((entry) => entry.kind === "custom");
-				const provider = preset?.provider ?? {
-					id: "",
-					displayName: "",
-					api: view?.protocols[0] ?? "",
-					baseURL: "",
-					models: []
-				};
-				setDraft({
-					targetId: "new",
-					mode,
-					id: provider.id,
-					displayName: provider.displayName ?? "",
-					api: provider.api ?? "",
-					baseURL: provider.baseURL ?? "",
-					apiKeyEnv: provider.apiKeyEnv ?? "",
-					models: modelDrafts(provider),
-					apiKey: preset?.apiKey ?? "",
-					apiKeySet: false
-				});
-			};
-			const openEdit = (provider) => {
-				setFailure(void 0);
-				setNote(void 0);
-				setDraft({
-					targetId: provider.id,
-					mode: "edit",
-					id: provider.id,
-					displayName: provider.displayName ?? "",
-					api: provider.api ?? "",
-					baseURL: provider.baseURL ?? "",
-					apiKeyEnv: provider.apiKeyEnv ?? "",
-					models: modelDrafts(provider),
-					apiKey: "",
-					apiKeySet: provider.apiKeySet === true
-				});
-			};
-			const applyPreset = (presetId) => {
-				const preset = view?.presets.find((entry) => entry.id === presetId);
-				if (preset === void 0 || draft === void 0) return;
-				setDraft({
-					...draft,
-					id: preset.provider.id,
-					displayName: preset.provider.displayName ?? "",
-					api: preset.provider.api ?? "",
-					baseURL: preset.provider.baseURL ?? "",
-					apiKeyEnv: preset.provider.apiKeyEnv ?? "",
-					models: modelDrafts(preset.provider),
-					apiKey: preset.apiKey ?? ""
-				});
-			};
-			const save = async () => {
-				if (draft === void 0) return;
-				const provider = toProvider(draft);
-				if (typeof provider === "string") {
-					setFailure(provider);
-					return;
+				if (source === "" && store.containers.length > 0) setSource(store.containers[0].id);
+			}, [source, store.containers]);
+			(0, react.useEffect)(() => {
+				if (view !== void 0 && draft === void 0 && view.models.length > 0) {
+					const first = view.models.find((entry) => entry.uid === view.defaultUid) ?? view.models[0];
+					setDraft(draftOf(first, view.defaultUid));
 				}
-				setFailure(void 0);
-				if (await store.saveProvider(draft.targetId, provider, draft.apiKey)) {
-					setDraft(void 0);
-					setNote(t("settings.modelSaved", { provider: provider.displayName !== "" ? provider.displayName : provider.id }));
-				} else setFailure(t("error.operationFailed"));
-			};
-			const importFrom = async () => {
-				if (source === "") return;
-				setFailure(void 0);
-				const ok = await store.importModelConfig(source);
-				setNote(ok ? t("settings.modelImported") : void 0);
-				if (!ok) setFailure(t("error.operationFailed"));
-			};
+			}, [view, draft]);
 			if (view === void 0) return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
 				className: DockSection_module_css_default.subTitle,
 				children: t("settings.modelTitle")
-			}), error !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
-				title: error.title,
-				detail: error.detail
+			}), store.modelConfigError !== void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+				title: store.modelConfigError.title,
+				detail: store.modelConfigError.detail
 			}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 				className: DockSection_module_css_default.mutedCell,
 				children: t("settings.modelLoading")
 			})] });
-			const setDefault = async (value) => {
-				const [provider, model] = value.split("|");
-				if (provider === void 0 || model === void 0) return;
-				if (!await store.setDefaultModel(provider, model)) setFailure(t("error.operationFailed"));
+			const patch = (next) => {
+				if (draft !== void 0) setDraft({
+					...draft,
+					...next
+				});
 			};
-			if (draft !== void 0) {
-				const catalogPresets = view.presets.filter((entry) => entry.kind === "catalog");
-				const customPresets = view.presets.filter((entry) => entry.kind === "custom");
-				return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
-						className: DockSection_module_css_default.subTitle,
-						children: t("settings.modelTitle")
-					}),
-					error !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
-						title: error.title,
-						detail: error.detail
-					}),
-					draft.mode === "catalog" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelProvider")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
-							className: DockSection_module_css_default.verSelect,
-							value: draft.id,
-							onChange: (event) => {
-								applyPreset(event.target.value);
-							},
-							children: catalogPresets.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: entry.id,
-								children: entry.label
-							}, entry.id))
-						})]
-					}),
-					draft.mode === "custom" && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelTemplates")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-							className: DockSection_module_css_default.chipRow,
-							children: customPresets.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								onClick: () => {
-									applyPreset(entry.id);
-								},
-								children: entry.label
-							}, entry.id))
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelId")
-						}), draft.mode === "edit" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.mutedCell,
-							children: draft.id
-						}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.id,
-							placeholder: "acme-gateway",
-							onChange: (event) => {
-								setDraft({
-									...draft,
-									id: event.target.value
-								});
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelKey")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							type: "password",
-							value: draft.apiKey,
-							placeholder: draft.apiKeySet ? t("settings.modelKeyStored") : t("settings.modelKeyPlaceholder"),
-							onChange: (event) => {
-								setDraft({
-									...draft,
-									apiKey: event.target.value
-								});
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelDisplayName")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.displayName,
-							onChange: (event) => {
-								setDraft({
-									...draft,
-									displayName: event.target.value
-								});
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelApi")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-							className: DockSection_module_css_default.verSelect,
-							value: draft.api,
-							onChange: (event) => {
-								setDraft({
-									...draft,
-									api: event.target.value
-								});
-							},
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: "",
-								children: t("settings.modelApiUnset")
-							}), view.protocols.map((protocol) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: protocol,
-								children: protocol
-							}, protocol))]
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelBaseUrl")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.baseURL,
-							placeholder: "https://gateway.example/v1",
-							onChange: (event) => {
-								setDraft({
-									...draft,
-									baseURL: event.target.value
-								});
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.labelCol,
-								children: t("settings.modelCatalog")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.mutedCell,
-								children: t("settings.modelCatalogHint")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								disabled: busy || draft.baseURL.trim() === "",
-								onClick: () => {
-									fetchModels();
-								},
-								children: t("settings.modelFetch")
-							})
-						]
-					}),
-					draft.models.map((row, index) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelRow,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								value: row.id,
-								placeholder: t("settings.modelIdField"),
-								onChange: (event) => {
-									patchModel(index, { id: event.target.value });
-								}
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								value: row.name,
-								placeholder: t("settings.modelNameField"),
-								onChange: (event) => {
-									patchModel(index, { name: event.target.value });
-								}
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								value: row.ctx,
-								placeholder: "256K",
-								onChange: (event) => {
-									patchModel(index, { ctx: event.target.value });
-								}
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								value: row.max,
-								placeholder: "32K",
-								onChange: (event) => {
-									patchModel(index, { max: event.target.value });
-								}
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								onClick: () => {
-									setDraft({
-										...draft,
-										models: draft.models.filter((_, at) => at !== index)
-									});
-								},
-								children: "✕"
-							})
-						]
-					}, `${index}-${row.id}`)),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							onClick: () => {
-								setDraft({
-									...draft,
-									models: [...draft.models, {
-										id: "",
-										name: "",
-										ctx: "",
-										max: ""
-									}]
-								});
-							},
-							children: t("settings.modelAddRow")
-						})
-					}),
-					failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: DockSection_module_css_default.errorNote,
-						children: failure
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.saveRow,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							onClick: () => {
-								setDraft(void 0);
-								setFailure(void 0);
-							},
-							children: t("cancel")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							variant: "primary",
-							disabled: busy,
-							onClick: () => {
-								save();
-							},
-							children: busy ? t("settings.modelSaving") : t("settings.modelSave")
-						})]
-					})
-				] });
-			}
+			const save = async () => {
+				if (draft === void 0) return;
+				const ctx = parseCap(draft.ctx);
+				const max = parseCap(draft.max);
+				if (draft.id.trim() === "") {
+					setFailure(t("settings.modelIdRequired"));
+					return;
+				}
+				if (ctx === null || max === null) {
+					setFailure(t("settings.modelCapacityInvalid"));
+					return;
+				}
+				const model = {
+					id: draft.id.trim(),
+					name: draft.name.trim(),
+					api: draft.api,
+					baseURL: draft.baseURL.trim(),
+					label: draft.label.trim()
+				};
+				if (draft.apiKeyEnv !== "") model.apiKeyEnv = draft.apiKeyEnv;
+				if (ctx !== void 0) model.contextWindow = ctx;
+				if (max !== void 0) model.maxTokens = max;
+				setFailure(void 0);
+				if (!await store.saveModel(draft.uid, model, draft.apiKey)) {
+					setFailure(t("error.operationFailed"));
+					return;
+				}
+				setNote(t("settings.modelSaved", { model: draft.id.trim() }));
+				if (draft.isDefault && view.defaultUid !== draft.uid) {
+					const refreshed = store.modelConfig?.models.find((entry) => entry.id === draft.id.trim() && entry.baseURL === draft.baseURL.trim());
+					if (refreshed !== void 0) await store.setDefaultModel(refreshed.uid);
+				}
+				setDraft(void 0);
+			};
+			const remove = async () => {
+				if (draft === void 0 || draft.uid === "new") return;
+				if (!await store.deleteModel(draft.uid)) {
+					setFailure(t("error.operationFailed"));
+					return;
+				}
+				setNote(t("settings.modelDeleted", { model: draft.id }));
+				setDraft(void 0);
+			};
+			const importFrom = async () => {
+				if (source === "") return;
+				setFailure(void 0);
+				if (!await store.importModelConfig(source)) {
+					setFailure(t("error.operationFailed"));
+					return;
+				}
+				setNote(t("settings.modelImported"));
+				setDraft(void 0);
+			};
+			const fetchModels = async () => {
+				if (draft === void 0) return;
+				const answer = await store.fetchProviderModels({
+					baseURL: draft.baseURL.trim(),
+					api: draft.api,
+					apiKey: draft.apiKey,
+					uid: draft.uid
+				});
+				if (typeof answer === "string") {
+					setFailure(answer);
+					return;
+				}
+				if (answer.length === 0) {
+					setFailure(t("settings.modelFetchedNone"));
+					return;
+				}
+				const first = answer[0];
+				setFailure(void 0);
+				patch({
+					id: first.id,
+					name: first.name ?? "",
+					ctx: capText(first.contextWindow),
+					max: capText(first.maxTokens)
+				});
+				setNote(t("settings.modelFetched", { count: String(answer.length) }));
+			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
 					className: DockSection_module_css_default.subTitle,
@@ -1586,77 +1341,217 @@ window.__ModuleLoader__.load({
 					className: DockSection_module_css_default.intro,
 					children: t("settings.modelIntro")
 				}),
-				error !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
-					title: error.title,
-					detail: error.detail
+				store.modelConfigError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+					title: store.modelConfigError.title,
+					detail: store.modelConfigError.detail
 				}),
 				view.importedFrom != null && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.footerNote,
 					children: view.importedFrom.migratedFromLegacy === true ? t("settings.modelMigrated") : t("settings.modelImportedFrom", { source: view.importedFrom.containerName ?? "?" })
 				}),
-				view.providers.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-					className: DockSection_module_css_default.mutedCell,
-					children: t("settings.modelEmpty")
-				}),
-				view.providers.map((provider) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: DockSection_module_css_default.providerRow,
-					children: [
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.providerName,
-							children: provider.displayName !== void 0 && provider.displayName !== "" ? provider.displayName : provider.id
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: provider.apiKeySet === true ? DockSection_module_css_default.dotOk : DockSection_module_css_default.dotMiss,
-							title: provider.apiKeySet === true ? t("settings.modelKeyOk") : t("settings.modelKeyMissing")
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: DockSection_module_css_default.mutedCell,
-							children: [
-								provider.id,
-								" · ",
-								t("settings.modelCount", { count: String(provider.models.length) }),
-								" · ",
-								provider.baseURL !== void 0 && provider.baseURL !== "" ? provider.baseURL : t("settings.modelCatalogEndpoint")
-							]
-						}),
-						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
-							className: DockSection_module_css_default.providerActions,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								onClick: () => {
-									openEdit(provider);
-								},
-								children: t("settings.modelEdit")
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								disabled: busy,
-								onClick: () => {
-									remove(provider.id);
-								},
-								children: t("settings.modelDelete")
-							})]
-						})
-					]
-				}, provider.id)),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.rowLine,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-						size: "sm",
-						variant: "primary",
-						disabled: busy,
-						onClick: () => {
-							openNew("catalog");
-						},
-						children: t("settings.modelAdd")
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-						size: "sm",
-						disabled: busy,
-						onClick: () => {
-							openNew("custom");
-						},
-						children: t("settings.modelAddCustom")
-					})]
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelPick")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							className: DockSection_module_css_default.verSelect,
+							value: draft?.uid ?? "",
+							onChange: (event) => {
+								const found = view.models.find((entry) => entry.uid === event.target.value);
+								setFailure(void 0);
+								setDraft(found === void 0 ? void 0 : draftOf(found, view.defaultUid));
+							},
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t("settings.modelPickNone")
+							}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("option", {
+								value: entry.uid,
+								children: [
+									entry.id,
+									entry.providerLabel !== void 0 && entry.providerLabel !== "" ? ` · ${entry.providerLabel}` : "",
+									entry.uid === view.defaultUid ? " ★" : ""
+								]
+							}, entry.uid))]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							variant: "primary",
+							disabled: busy,
+							onClick: () => {
+								setFailure(void 0);
+								setDraft({
+									...BLANK,
+									api: view.protocols[0] ?? "",
+									isDefault: view.models.length === 0
+								});
+							},
+							children: t("settings.modelNew")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							disabled: busy || draft === void 0 || draft.uid === "new",
+							onClick: () => {
+								remove();
+							},
+							children: t("settings.modelDelete")
+						})
+					]
 				}),
+				draft === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					className: DockSection_module_css_default.mutedCell,
+					children: t("settings.modelDetailHint")
+				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelIdField")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							value: draft.id,
+							onChange: (event) => {
+								patch({ id: event.target.value });
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelNameField")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							value: draft.name,
+							onChange: (event) => {
+								patch({ name: event.target.value });
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelBaseUrl")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							value: draft.baseURL,
+							placeholder: "https://gateway.example/v1",
+							onChange: (event) => {
+								patch({ baseURL: event.target.value });
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelApi")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+							className: DockSection_module_css_default.verSelect,
+							value: draft.api,
+							onChange: (event) => {
+								patch({ api: event.target.value });
+							},
+							children: view.protocols.map((protocol) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: protocol,
+								children: protocol
+							}, protocol))
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelKey")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							type: "password",
+							value: draft.apiKey,
+							placeholder: draft.apiKeySet ? t("settings.modelKeyStored") : t("settings.modelKeyPlaceholder"),
+							onChange: (event) => {
+								patch({ apiKey: event.target.value });
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("settings.modelProviderLabel")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							value: draft.label,
+							placeholder: t("settings.modelProviderLabelHint"),
+							onChange: (event) => {
+								patch({ label: event.target.value });
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.modelField,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelCapacity")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.capInput,
+								value: draft.ctx,
+								placeholder: "256K",
+								onChange: (event) => {
+									patch({ ctx: event.target.value });
+								}
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.capInput,
+								value: draft.max,
+								placeholder: "32K",
+								onChange: (event) => {
+									patch({ max: event.target.value });
+								}
+							})
+						]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.rowLine,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+								className: DockSection_module_css_default.checkLine,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									type: "checkbox",
+									checked: draft.isDefault,
+									onChange: (event) => {
+										patch({ isDefault: event.target.checked });
+									}
+								}), t("settings.modelDefault")]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								disabled: busy || draft.baseURL.trim() === "",
+								onClick: () => {
+									fetchModels();
+								},
+								children: t("settings.modelFetch")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "primary",
+								disabled: busy,
+								onClick: () => {
+									save();
+								},
+								children: busy ? t("settings.modelSaving") : t("settings.modelSave")
+							})
+						]
+					}),
+					failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.errorNote,
+						children: failure
+					})
+				] }),
 				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.rowLine,
 					children: [
@@ -1688,75 +1583,22 @@ window.__ModuleLoader__.load({
 						})
 					]
 				}),
-				view.defaultCandidates.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-					className: DockSection_module_css_default.rowLine,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-						className: DockSection_module_css_default.labelCol,
-						children: t("settings.modelDefault")
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
-						className: DockSection_module_css_default.verSelect,
-						value: `${view.default.provider}|${view.default.model}`,
-						onChange: (event) => {
-							setDefault(event.target.value);
-						},
-						children: view.defaultCandidates.map((candidate) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("option", {
-							value: `${candidate.provider}|${candidate.model}`,
-							children: [
-								candidate.provider,
-								" / ",
-								candidate.name
-							]
-						}, `${candidate.provider}|${candidate.model}`))
-					})]
+				view.providers.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					className: DockSection_module_css_default.footerNote,
+					children: t("settings.modelProvidersNote", {
+						count: String(view.providers.length),
+						routes: view.providers.map((entry) => `${entry.route}(${entry.modelCount})`).join("、")
+					})
 				}),
 				note !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.footerNote,
 					children: note
 				}),
-				failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+				draft === void 0 && failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.errorNote,
 					children: failure
 				})
 			] });
-			function patchModel(index, patch) {
-				if (draft === void 0) return;
-				setDraft({
-					...draft,
-					models: draft.models.map((row, at) => at === index ? {
-						...row,
-						...patch
-					} : row)
-				});
-			}
-			async function remove(id) {
-				if (!await store.deleteProvider(id)) setFailure(t("error.operationFailed"));
-			}
-			async function fetchModels() {
-				if (draft === void 0) return;
-				const answer = await store.fetchProviderModels({
-					baseURL: draft.baseURL.trim(),
-					api: draft.api,
-					apiKey: draft.apiKey,
-					providerId: draft.targetId === "new" ? draft.id : draft.targetId
-				});
-				if (typeof answer === "string") {
-					setFailure(answer);
-					return;
-				}
-				const known = new Set(draft.models.map((row) => row.id));
-				const added = answer.filter((model) => !known.has(model.id)).map((model) => ({
-					id: model.id,
-					name: model.name ?? "",
-					ctx: capText(model.contextWindow),
-					max: capText(model.maxTokens)
-				}));
-				setFailure(void 0);
-				setDraft({
-					...draft,
-					models: [...draft.models, ...added]
-				});
-				setNote(t("settings.modelFetched", { count: String(added.length) }));
-			}
 		}
 		//#endregion
 		//#region src/client/SettingsCard.tsx
@@ -2473,7 +2315,7 @@ window.__ModuleLoader__.load({
 			"settings.templateHint": "从已配置好的容器捕获配置(测试版公告已确认 / provider 定义 / 默认模型)与 API Key(凭据 refs,仅存本地 0600 文件,接口只回显键名不回显值);新建容器自动注入,首次打开不再出现「测试版公告」和「API Key 录入」弹窗。重复导入即更新模板;模板不随源容器后续改动自动更新。",
 			"settings.templateClearConfirm": "清除已捕获的初始配置模板?之后新建容器不再自动注入配置。",
 			"settings.modelTitle": "模型配置",
-			"settings.modelIntro": "表里每行 = settings.yaml 里 llm-pi-ai.providers 的一个 route;新建容器时整表注入,默认模型写进 agent-default-model。API 密钥只存本机 0600 文件,接口只回显「已配置/缺失」。",
+			"settings.modelIntro": "一行一个模型(连 API 地址 / 协议 / 密钥 / 提供方名称一起存)。新建容器时,连接信息相同的模型自动归纳成一个 llm-pi-ai.providers 条目,标注默认的那个写进 agent-default-model。API 密钥只存本机 0600 文件,接口只回显「已配置/缺失」。",
 			"settings.modelLoading": "加载模型配置…",
 			"settings.modelEmpty": "还没有配置任何提供方;可以手工添加,或从已配置好的容器一键导入。",
 			"settings.modelProvider": "提供方",
@@ -2493,7 +2335,7 @@ window.__ModuleLoader__.load({
 			"settings.modelAddRow": "添加模型",
 			"settings.modelSave": "保存",
 			"settings.modelSaving": "保存中…",
-			"settings.modelSaved": "已保存 {provider}",
+			"settings.modelSaved": "已保存 {model}",
 			"settings.modelEdit": "编辑",
 			"settings.modelDelete": "删除",
 			"settings.modelAdd": "添加提供方",
@@ -2508,6 +2350,18 @@ window.__ModuleLoader__.load({
 			"settings.modelKeyMissing": "API 密钥缺失",
 			"settings.modelCount": "{count} 个模型",
 			"settings.modelCatalogEndpoint": "目录默认端点",
+			"settings.modelPick": "选择模型",
+			"settings.modelPickNone": "(未选择模型)",
+			"settings.modelNew": "新增",
+			"settings.modelDetailHint": "从上面的下拉列表选一个模型来查看/修改,或点「新增」。",
+			"settings.modelProviderLabel": "提供方名称",
+			"settings.modelProviderLabelHint": "同名的模型会归到同一个提供方(留空则按地址主机名)",
+			"settings.modelCapacity": "上下文 / 最大输出",
+			"settings.modelDeleted": "已删除 {model}",
+			"settings.modelIdRequired": "模型 ID 不能为空",
+			"settings.modelCapacityInvalid": "容量需为数字,可加 K 或 M 后缀",
+			"settings.modelFetchedNone": "该提供方没有列出任何模型",
+			"settings.modelProvidersNote": "将写入 {count} 个提供方:{routes}",
 			"settings.modelIdField": "模型 ID",
 			"settings.modelNameField": "显示名称",
 			"settings.baseUrl": "服务地址(baseUrl)",
@@ -2623,7 +2477,7 @@ window.__ModuleLoader__.load({
 			"settings.templateHint": "Captures the config (beta-notice acknowledgement / provider definitions / default model) and API keys (credential refs, local 0600 file only, the API echoes key names but never values) from a configured container; new containers get it injected automatically so the beta-notice and API-key prompts never appear on first open. Re-importing updates the template; the template does not track later changes of the source container.",
 			"settings.templateClearConfirm": "Clear the captured initial-config template? New containers will no longer get automatic config injection.",
 			"settings.modelTitle": "Model configuration",
-			"settings.modelIntro": "Each row is one `llm-pi-ai.providers` route in settings.yaml; new containers get the whole table injected and the default model written to agent-default-model. API keys live only in a local 0600 file; the API echoes configured/missing, never the value.",
+			"settings.modelIntro": "One row per model, carrying its API base URL / protocol / key / provider name. At container creation rows sharing a connection collapse into one llm-pi-ai.providers entry, and the starred row becomes agent-default-model. API keys live only in a local 0600 file; the API echoes configured/missing, never the value.",
 			"settings.modelLoading": "Loading model configuration…",
 			"settings.modelEmpty": "No provider configured yet; add one by hand or import from a configured container.",
 			"settings.modelProvider": "Provider",
@@ -2643,7 +2497,7 @@ window.__ModuleLoader__.load({
 			"settings.modelAddRow": "Add model",
 			"settings.modelSave": "Save",
 			"settings.modelSaving": "Saving…",
-			"settings.modelSaved": "Saved {provider}",
+			"settings.modelSaved": "Saved {model}",
 			"settings.modelEdit": "Edit",
 			"settings.modelDelete": "Delete",
 			"settings.modelAdd": "Add provider",
@@ -2658,6 +2512,18 @@ window.__ModuleLoader__.load({
 			"settings.modelKeyMissing": "API key missing",
 			"settings.modelCount": "{count} models",
 			"settings.modelCatalogEndpoint": "catalog endpoint",
+			"settings.modelPick": "Choose a model",
+			"settings.modelPickNone": "(no model selected)",
+			"settings.modelNew": "New",
+			"settings.modelDetailHint": "Pick a model above to view/edit it, or press New.",
+			"settings.modelProviderLabel": "Provider name",
+			"settings.modelProviderLabelHint": "Models sharing this name group into one provider (empty = host name)",
+			"settings.modelCapacity": "Context / max output",
+			"settings.modelDeleted": "Deleted {model}",
+			"settings.modelIdRequired": "A model ID is required",
+			"settings.modelCapacityInvalid": "A capacity must be a number, optionally suffixed K or M",
+			"settings.modelFetchedNone": "The provider listed no models",
+			"settings.modelProvidersNote": "Writes {count} providers: {routes}",
 			"settings.modelIdField": "Model ID",
 			"settings.modelNameField": "Display name",
 			"settings.baseUrl": "Service address (baseUrl)",
