@@ -1546,6 +1546,10 @@ function parseCap(text) {
   const n = Number(m[1]) * (m[2] ? (m[2].toLowerCase() === 'k' ? 1000 : 1000000) : 1)
   return Number.isInteger(n) && n > 0 ? n : NaN
 }
+/** 回环/内网地址:本地服务通常不校验密钥。 */
+function isLocalEndpoint(baseURL) {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(String(baseURL ?? ''))
+}
 function modelConfigImportedChip(view) {
   const from = view.importedFrom
   if (!from) return ''
@@ -1662,7 +1666,11 @@ function renderModelPanel() {
           <b>${escapeHtml(m.id)}</b>
           <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
           <span style="flex:1"></span>
-          ${m.apiKeySet === false ? '<span class="chip chip-warn">缺密钥</span>' : ''}
+          ${m.apiKeySet === false && m.hasAuthHeader !== true
+            ? (isLocalEndpoint(m.baseURL)
+                ? '<span class="chip" title="本地服务通常不校验密钥;但 DSH 的 provider 必须有 apiKeyEnv 或 Authorization 头,否则调用报 No API key for provider —— 建议在密钥里填占位(如 local)">本地无密钥</span>'
+                : '<span class="chip chip-warn" title="这一行声明了凭证引用但没有存密钥;不填的话 DSH 调用时会报 No API key for provider">缺密钥</span>')
+            : ''}
           <button type="button" class="dd-x" title="删除这个模型" onclick="deleteModelRow('${m.uid}', event)">✕</button>
         </div>`).join('')
   }

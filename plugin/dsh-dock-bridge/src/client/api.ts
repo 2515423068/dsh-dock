@@ -104,6 +104,9 @@ export interface ModelConfigEntry {
   readonly input?: readonly string[]
   /** `GET` answers only: whether a key is stored (values never leave the server). */
   readonly apiKeySet?: boolean
+  /** `GET` answers only: the row authenticates through an Authorization header. */
+  readonly hasAuthHeader?: boolean
+  readonly headers?: Readonly<Record<string, string>>
   /** `GET` answers only: the auto-grouped provider route this row will land in. */
   readonly route?: string
   readonly providerLabel?: string

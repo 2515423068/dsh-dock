@@ -1101,6 +1101,26 @@ function toYamlBlock(value, indent = 0) {
 // 连接信息相同的模型合并成一个 `llm-pi-ai.providers.<route>`,模型进它的 models[]。
 
 
+/** 字符串映射(请求头之类的键值对):只留字符串值。 */
+function normalizeStringMap(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const out = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && key.trim() !== '') out[key.trim()] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** compat 开关映射:只留布尔/字符串值。 */
+function normalizeCompat(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const out = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'boolean' || typeof value === 'string') out[key] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
 /** 一行模型配置的规范化(未知字段丢弃;input 属高级字段,导入时原样保留)。 */
 function normalizeModelEntry(raw) {
   const entry = {
@@ -1113,6 +1133,10 @@ function normalizeModelEntry(raw) {
     label: typeof raw?.label === 'string' ? raw.label.trim() : '',
     routeHint: typeof raw?.routeHint === 'string' ? raw.routeHint.trim() : '',
   }
+  const headers = normalizeStringMap(raw?.headers)
+  if (headers) entry.headers = headers
+  const compat = normalizeCompat(raw?.compat)
+  if (compat) entry.compat = compat
   for (const key of ['contextWindow', 'maxTokens']) {
     const n = Number(raw?.[key])
     if (Number.isInteger(n) && n > 0) entry[key] = n
@@ -1147,6 +1171,8 @@ function providersToModelEntries(providers) {
         api: provider.api,
         baseURL: provider.baseURL,
         apiKeyEnv: provider.apiKeyEnv,
+        headers: provider.headers,
+        compat: provider.compat,
         label: provider.displayName ?? route,
         routeHint: route,
       }))
@@ -1313,7 +1339,7 @@ function groupModelEntries(models) {
   const groups = new Map()
   const usedRoutes = new Set()
   for (const entry of models) {
-    const key = [entry.api, entry.baseURL, entry.apiKeyEnv].join('|')
+    const key = [entry.api, entry.baseURL, entry.apiKeyEnv, JSON.stringify(entry.headers ?? {})].join('|')
     let group = groups.get(key)
     if (group === undefined) {
       const displayName = entry.label || hostLabelOf(entry.baseURL) || entry.id
@@ -1323,7 +1349,7 @@ function groupModelEntries(models) {
       let suffix = 2
       while (usedRoutes.has(route)) route = `${slugifyRoute(displayName)}-${suffix++}`
       usedRoutes.add(route)
-      group = { route, displayName, api: entry.api, baseURL: entry.baseURL, apiKeyEnv: entry.apiKeyEnv, models: [] }
+      group = { route, displayName, api: entry.api, baseURL: entry.baseURL, apiKeyEnv: entry.apiKeyEnv, headers: entry.headers, compat: entry.compat, models: [] }
       groups.set(key, group)
     }
     const model = { id: entry.id }
@@ -1351,6 +1377,7 @@ function modelConfigView() {
   return {
     models: cfg.models.map((entry) => ({
       ...entry,
+      hasAuthHeader: typeof entry.headers?.Authorization === 'string' || typeof entry.headers?.authorization === 'string',
       apiKeySet: entry.apiKeyEnv !== '' && typeof keys[entry.apiKeyEnv] === 'string' && keys[entry.apiKeyEnv] !== '',
       route: groupOf(entry)?.route ?? '',
       providerLabel: groupOf(entry)?.displayName ?? '',
@@ -1410,6 +1437,8 @@ function buildInitialSettingsYaml(cfg) {
     if (group.api) entry.api = group.api
     if (group.baseURL) entry.baseURL = group.baseURL
     if (group.apiKeyEnv) entry.apiKeyEnv = group.apiKeyEnv
+    if (group.headers) entry.headers = group.headers
+    if (group.compat) entry.compat = group.compat
     entry.models = group.models
     providers[group.route] = entry
   }

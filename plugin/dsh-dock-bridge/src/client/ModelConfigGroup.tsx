@@ -68,6 +68,11 @@ function draftOf(entry: ModelConfigEntry, defaultUid: string): Draft {
   }
 }
 
+/** Loopback/private addresses: local servers usually ignore the key. */
+function isLocalEndpoint(baseURL: string | undefined): boolean {
+  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(baseURL ?? '')
+}
+
 const BLANK: Draft = {
   uid: 'new', id: '', name: '', baseURL: '', api: '', apiKey: '', apiKeySet: false,
   apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: false,
@@ -204,7 +209,11 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   <b>{entry.id}</b>
                   <span className={css.ddMeta}>{entry.providerLabel ?? ''}</span>
                   <span className={css.grow} />
-                  {entry.apiKeySet === false && <span className={css.modelWarn}>{t('settings.modelKeyMissing')}</span>}
+                  {entry.apiKeySet === false && entry.hasAuthHeader !== true && (
+                    <span className={isLocalEndpoint(entry.baseURL) ? css.mutedCell : css.modelWarn}>
+                      {isLocalEndpoint(entry.baseURL) ? t('settings.modelKeyLocal') : t('settings.modelKeyMissing')}
+                    </span>
+                  )}
                   <button
                     type="button"
                     className={css.ddX}
