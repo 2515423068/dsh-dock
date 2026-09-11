@@ -168,6 +168,17 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
       )}
 
       <div className={css.rowLine}>
+        <span className={css.labelCol}>{t('settings.modelImportLabel')}</span>
+        <select className={css.verSelect} value={source} onChange={event => { setSource(event.target.value) }}>
+          {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
+          {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+        </select>
+        <Button size="sm" variant="outline" disabled={busy || source === ''} onClick={() => { void importFrom() }}>
+          {t('settings.modelImport')}
+        </Button>
+      </div>
+
+      <div className={css.rowLine}>
         <div className={css.dd}>
           <button type="button" className={css.ddTrigger} onClick={() => { setOpen(!open) }}>
             <span className={css.ddLabel}>{currentLabel}</span>
@@ -191,7 +202,7 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                     {entry.uid === view.defaultUid ? '★' : '☆'}
                   </button>
                   <b>{entry.id}</b>
-                  <span className={css.mutedCell}>{entry.providerLabel ?? ''}</span>
+                  <span className={css.ddMeta}>{entry.providerLabel ?? ''}</span>
                   <span className={css.grow} />
                   {entry.apiKeySet === false && <span className={css.modelWarn}>{t('settings.modelKeyMissing')}</span>}
                   <button
@@ -214,14 +225,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
           onClick={() => { setFailure(undefined); setOpen(false); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
         >
           {t('settings.modelNew')}
-        </Button>
-        <span className={css.grow} />
-        <select className={css.verSelect} value={source} onChange={event => { setSource(event.target.value) }}>
-          {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
-          {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-        </select>
-        <Button size="sm" disabled={busy || source === ''} onClick={() => { void importFrom() }}>
-          {t('settings.modelImport')}
         </Button>
       </div>
 
@@ -274,7 +277,7 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                     : draft.uid === view.defaultUid ? t('settings.modelDefaultCurrent') : t('settings.modelDefaultHint')}
                 </span>
                 <span className={css.grow} />
-                <Button size="sm" disabled={busy || draft.uid === 'new'} onClick={() => { void removeUid(draft.uid, draft.id) }}>
+                <Button size="sm" variant="outline" disabled={busy || draft.uid === 'new'} onClick={() => { void removeUid(draft.uid, draft.id) }}>
                   {t('settings.modelDelete')}
                 </Button>
                 <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>

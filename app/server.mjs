@@ -1126,14 +1126,15 @@ function normalizeModelEntry(raw) {
 
 /** 把 provider 结构摊平成模型行(旧 v1 表迁移 / 从容器导入共用)。 */
 function providersToModelEntries(providers) {
-  if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return { entries: [], skipped: [] }
+  if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return { entries: [], passthrough: [] }
   const entries = []
-  const skipped = []
+  const passthrough = []
   for (const [route, profile] of Object.entries(providers)) {
     const provider = profile ?? {}
     const models = Array.isArray(provider.models) ? provider.models : []
     if (models.length === 0) {
-      skipped.push(provider.displayName ?? route)
+      // 目录内置 route(只声明端点/凭证,模型清单由 DSH 目录提供):原样保留,注入时照抄
+      passthrough.push({ route, profile: provider })
       continue
     }
     for (const model of models) {
@@ -1151,7 +1152,7 @@ function providersToModelEntries(providers) {
       }))
     }
   }
-  return { entries: entries.filter((entry) => entry.id), skipped }
+  return { entries: entries.filter((entry) => entry.id), passthrough }
 }
 
 function normalizeModelConfig(raw) {
@@ -1162,6 +1163,7 @@ function normalizeModelConfig(raw) {
     version: 2,
     models,
     defaultUid: typeof raw?.defaultUid === 'string' ? raw.defaultUid : '',
+    passthrough: {},
     basics: { rawSections: {} },
     importedFrom: raw?.importedFrom && typeof raw.importedFrom === 'object' ? raw.importedFrom : null,
   }
@@ -1169,6 +1171,11 @@ function normalizeModelConfig(raw) {
   if (rawSections !== null && typeof rawSections === 'object' && !Array.isArray(rawSections)) {
     for (const [key, text] of Object.entries(rawSections)) {
       if (typeof text === 'string' && text.trim() !== '') cfg.basics.rawSections[key] = text
+    }
+  }
+  if (raw !== null && raw.passthrough !== null && typeof raw.passthrough === 'object' && !Array.isArray(raw.passthrough)) {
+    for (const [route, profile] of Object.entries(raw.passthrough)) {
+      if (profile !== null && typeof profile === 'object' && !Array.isArray(profile)) cfg.passthrough[route] = profile
     }
   }
   if (!cfg.models.some((entry) => entry.uid === cfg.defaultUid)) cfg.defaultUid = cfg.models[0]?.uid ?? ''
@@ -1248,9 +1255,10 @@ function migrateLegacyProfileTemplate() {
     return null
   }
   const settingsText = fs.readFileSync(tplSettingsPath(), 'utf8')
-  const { entries } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
+  const { entries, passthrough } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
   const cfg = normalizeModelConfig({
     models: entries,
+    passthrough: Object.fromEntries(passthrough.map((item) => [item.route, item.profile])),
     basics: { rawSections: splitSectionsOutsideManaged(settingsText) },
     importedFrom: { ...readJson(tplMetaPath(), {}), migratedFromLegacy: true },
   })
@@ -1276,7 +1284,7 @@ function migrateLegacyProfileTemplate() {
 }
 
 function modelConfigHasContent(cfg) {
-  return cfg.models.length > 0 || Object.keys(cfg.basics.rawSections).length > 0
+  return cfg.models.length > 0 || Object.keys(cfg.passthrough).length > 0 || Object.keys(cfg.basics.rawSections).length > 0
 }
 
 /** route 名:小写字母开头,非字母数字折成短横线(上游凭据名与 route 都吃这个规则)。 */
@@ -1358,6 +1366,13 @@ function modelConfigView() {
       modelCount: group.models.length,
       apiKeySet: group.apiKeyEnv !== '' && typeof keys[group.apiKeyEnv] === 'string' && keys[group.apiKeyEnv] !== '',
     })),
+    passthrough: Object.entries(cfg.passthrough).map(([route, profile]) => ({
+      route,
+      displayName: typeof profile.displayName === 'string' && profile.displayName !== '' ? profile.displayName : route,
+      apiKeyEnv: typeof profile.apiKeyEnv === 'string' ? profile.apiKeyEnv : '',
+      apiKeySet: typeof profile.apiKeyEnv === 'string' && profile.apiKeyEnv !== ''
+        && typeof keys[profile.apiKeyEnv] === 'string' && keys[profile.apiKeyEnv] !== '',
+    })),
     importedFrom: cfg.importedFrom,
     rawSectionKeys: Object.keys(cfg.basics.rawSections),
     presets: PROVIDER_PRESETS,
@@ -1388,17 +1403,21 @@ function validateModelEntry(entry) {
 function buildInitialSettingsYaml(cfg) {
   const parts = Object.values(cfg.basics.rawSections).map((text) => text.trimEnd())
   const groups = groupModelEntries(cfg.models)
-  if (groups.length > 0) {
-    const providers = {}
-    for (const group of groups) {
-      const entry = {}
-      if (group.displayName && group.displayName !== group.route) entry.displayName = group.displayName
-      if (group.api) entry.api = group.api
-      if (group.baseURL) entry.baseURL = group.baseURL
-      if (group.apiKeyEnv) entry.apiKeyEnv = group.apiKeyEnv
-      entry.models = group.models
-      providers[group.route] = entry
-    }
+  const providers = {}
+  for (const group of groups) {
+    const entry = {}
+    if (group.displayName && group.displayName !== group.route) entry.displayName = group.displayName
+    if (group.api) entry.api = group.api
+    if (group.baseURL) entry.baseURL = group.baseURL
+    if (group.apiKeyEnv) entry.apiKeyEnv = group.apiKeyEnv
+    entry.models = group.models
+    providers[group.route] = entry
+  }
+  // 目录内置 route(无模型清单)原样照抄;同名 route 以模型归纳结果为准
+  for (const [route, profile] of Object.entries(cfg.passthrough)) {
+    if (providers[route] === undefined) providers[route] = profile
+  }
+  if (Object.keys(providers).length > 0) {
     parts.push(`llm-pi-ai:\n  providers:\n${toYamlBlock(providers, 4)}`)
   }
   const def = defaultModelEntry(cfg)
@@ -1413,12 +1432,16 @@ function buildInitialSettingsYaml(cfg) {
 function buildCredentialEntryLines(cfg, keys) {
   const lines = []
   const seen = new Set()
-  for (const group of groupModelEntries(cfg.models)) {
-    if (group.apiKeyEnv === '' || seen.has(group.apiKeyEnv)) continue
-    const value = keys[group.apiKeyEnv]
+  const refs = groupModelEntries(cfg.models).map((group) => group.apiKeyEnv)
+  for (const profile of Object.values(cfg.passthrough)) {
+    if (typeof profile.apiKeyEnv === 'string') refs.push(profile.apiKeyEnv)
+  }
+  for (const ref of refs) {
+    if (typeof ref !== 'string' || ref === '' || seen.has(ref)) continue
+    const value = keys[ref]
     if (typeof value === 'string' && value !== '') {
-      seen.add(group.apiKeyEnv)
-      lines.push(`${group.apiKeyEnv}: ${yamlScalarText(value)}`)
+      seen.add(ref)
+      lines.push(`${ref}: ${yamlScalarText(value)}`)
     }
   }
   return lines
@@ -1427,7 +1450,7 @@ function buildCredentialEntryLines(cfg, keys) {
 /**
  * 从某个容器一键导入:把它的 llm-pi-ai.providers 摊平成模型行,按
  * (模型 ID + API 地址 + 协议) 合并 —— 同一条更新、新的追加;密钥按 refs 取值入库。
- * @returns 摘要 `{ added, updated, skipped, refKeys, source, defaultSet, defaultModel }`,或 `{ error }`。
+ * @returns 摘要 `{ added, updated, passthrough, refKeys, source, defaultSet, defaultModel }`,或 `{ error }`。
  */
 function importModelConfigFromContainer(containerId) {
   const cdir = path.join(CONTAINERS_DIR, String(containerId ?? ''))
@@ -1442,9 +1465,9 @@ function importModelConfigFromContainer(containerId) {
   } catch (error) {
     return { error: `解析来源容器 settings.yaml 失败: ${error}` }
   }
-  const { entries, skipped } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
-  if (entries.length === 0) {
-    return { error: skipped.length > 0 ? `来源容器的提供方(${skipped.join(' / ')})没有模型清单,无法摊平成模型` : '来源容器没有配置任何提供方' }
+  const { entries, passthrough } = providersToModelEntries(parsed?.['llm-pi-ai']?.providers)
+  if (entries.length === 0 && passthrough.length === 0) {
+    return { error: '来源容器没有配置任何提供方' }
   }
   const cfg = loadModelConfig()
   const keys = loadModelKeys()
@@ -1461,6 +1484,7 @@ function importModelConfigFromContainer(containerId) {
       updated.push(entry.id)
     }
   }
+  for (const item of passthrough) cfg.passthrough[item.route] = item.profile
   for (const [key, text] of Object.entries(splitSectionsOutsideManaged(settingsText))) {
     cfg.basics.rawSections[key] = text
   }
@@ -1470,11 +1494,13 @@ function importModelConfigFromContainer(containerId) {
     try { refs = credentialRefValues(parseYamlSubset(fs.readFileSync(credSrc, 'utf8'))) } catch { refs = {} }
   }
   const refKeys = []
-  for (const entry of entries) {
-    const value = entry.apiKeyEnv === '' ? undefined : refs[entry.apiKeyEnv]
+  const wantedRefs = [...entries.map((entry) => entry.apiKeyEnv), ...passthrough.map((item) => item.profile.apiKeyEnv)]
+  for (const ref of wantedRefs) {
+    if (typeof ref !== 'string' || ref === '') continue
+    const value = refs[ref]
     if (typeof value === 'string' && value !== '') {
-      keys[entry.apiKeyEnv] = value
-      if (!refKeys.includes(entry.apiKeyEnv)) refKeys.push(entry.apiKeyEnv)
+      keys[ref] = value
+      if (!refKeys.includes(ref)) refKeys.push(ref)
     }
   }
   const sourceDefault = defaultFromParsedSettings(parsed)
@@ -1493,7 +1519,7 @@ function importModelConfigFromContainer(containerId) {
   return {
     added,
     updated,
-    skipped,
+    passthrough: passthrough.map((item) => item.route),
     refKeys,
     source,
     defaultSet,
@@ -1509,7 +1535,7 @@ function profileTemplateInfo() {
   const keys = loadModelKeys()
   const groups = groupModelEntries(cfg.models)
   const sections = Object.keys(cfg.basics.rawSections)
-  if (cfg.models.length > 0) sections.push('llm-pi-ai')
+  if (cfg.models.length > 0 || Object.keys(cfg.passthrough).length > 0) sections.push('llm-pi-ai')
   if (defaultModelEntry(cfg) !== null) sections.push('agent-default-model')
   const refKeys = groups.filter((group) => group.apiKeyEnv !== '').map((group) => group.apiKeyEnv)
   return {

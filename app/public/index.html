@@ -1669,9 +1669,11 @@ function renderModelPanel() {
   renderModelDetail()
   const note = $('#model-providers')
   if (note !== null) {
-    note.textContent = modelViewCache.providers.length > 0
+    const groups = modelViewCache.providers.length > 0
       ? `将写入 ${modelViewCache.providers.length} 个提供方:${modelViewCache.providers.map((p) => `${p.route}(${p.modelCount})`).join('、')}`
       : '表里还没有模型。'
+    const pass = (modelViewCache.passthrough ?? []).map((p) => `${p.route}${p.apiKeySet ? '' : '(缺密钥)'}`)
+    note.textContent = pass.length > 0 ? `${groups};另有目录提供方(无模型清单,原样注入):${pass.join('、')}` : groups
   }
 }
 function renderModelDetail() {
