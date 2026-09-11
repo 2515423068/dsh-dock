@@ -203,6 +203,13 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   </button>
                 </div>
               ))}
+              <div
+                className={css.ddItem}
+                onClick={() => { setFailure(undefined); setOpen(false); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
+              >
+                <span className={css.ddTag}>{t('settings.modelNewTag')}</span>
+                <b>＋ {t('settings.modelNew')}</b>
+              </div>
               {view.models.map(entry => (
                 <div
                   key={entry.uid}
@@ -233,14 +240,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
             </div>
           )}
         </div>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={busy}
-          onClick={() => { setFailure(undefined); setOpen(false); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
-        >
-          {t('settings.modelNew')}
-        </Button>
       </div>
 
       <div className={css.detailFrame}>

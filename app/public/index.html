@@ -693,6 +693,7 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .dd-caret { flex: 0 0 auto; color: var(--dsw-label-tertiary); }
 .dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: max-content; min-width: 100%; max-width: min(860px, 92vw); max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
 .dd-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 20px; cursor: pointer; }
+.dd-new { color: var(--dsw-link); border-top: 0.5px solid var(--dsw-border-l2); margin-top: 4px; }
 .dd-tag { flex: 0 0 auto; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 18px; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
 .dd-item:hover { background: var(--dsw-chip-hover); }
 .dd-item.active { background: color-mix(in srgb, var(--dsw-link) 10%, transparent); }
@@ -1494,7 +1495,6 @@ async function renderSettings() {
           </button>
           <div class="dd-panel" id="model-dd-panel" hidden></div>
         </div>
-        <button class="primary" onclick="newModel()">+ 新增模型</button>
         <span style="flex:1"></span>
         <select id="s-impsrc" class="ver-select">${(containers ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">(无容器)</option>'}</select>
         <button onclick="importModelConfig()">从容器导入</button>
@@ -1682,7 +1682,7 @@ function renderModelPanel() {
           <span class="muted">${escapeHtml(p.displayName ?? '')}</span>
           <span class="muted">模型由 DSH 目录提供</span>
           <button type="button" class="dd-x" title="移除这个目录提供方" onclick="deletePassthrough('${escapeHtml(p.route)}', event)">✕</button>
-        </div>`).join('')
+        </div>`).join('') + '<div class="dd-item dd-new" onclick="newModel()"><span class="dd-tag">新建</span><b>＋ 新建模型</b></div>'
   }
   renderModelDetail()
   const note = $('#model-providers')

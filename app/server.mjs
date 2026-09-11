@@ -1151,6 +1151,52 @@ function normalizeModelEntry(raw) {
   return entry
 }
 
+/**
+ * 读某个容器里 pi-ai 内置目录的模型清单(`@earendil-works/pi-ai/dist/providers/data/<route>.json`)。
+ * 目录按协议分组:`{ "openai-completions": { modelId: {...} }, ... }`。
+ * @returns `{ api, models }`(api 为 null 表示该 route 的模型跨多个协议,无法用一条 settings route 表达),找不到返回 null。
+ */
+function resolveCatalogModels(containerDir, route) {
+  const bases = [
+    path.join(containerDir, 'profile', 'profiles', 'node_modules', '@earendil-works', 'pi-ai', 'dist', 'providers', 'data'),
+    path.join(containerDir, 'harness', 'node_modules', '@earendil-works', 'pi-ai', 'dist', 'providers', 'data'),
+  ]
+  for (const base of bases) {
+    const file = path.join(base, `${route}.json`)
+    if (!fs.existsSync(file)) continue
+    const raw = readJson(file, null)
+    if (raw === null || typeof raw !== 'object') continue
+    const groups = Array.isArray(raw) ? { '': raw } : raw
+    const apis = Object.keys(groups).filter((key) => key !== '')
+    const models = []
+    for (const [api, group] of Object.entries(groups)) {
+      const rows = Array.isArray(group) ? group : Object.values(group ?? {})
+      for (const item of rows) {
+        if (item === null || typeof item !== 'object' || typeof item.id !== 'string') continue
+        const model = { id: item.id, api, baseUrl: typeof item.baseUrl === 'string' ? item.baseUrl : '' }
+        if (typeof item.name === 'string' && item.name !== '') model.name = item.name
+        const context = Number(item.contextWindow)
+        if (Number.isInteger(context) && context > 0) model.contextWindow = context
+        const maxTokens = Number(item.maxTokens)
+        if (Number.isInteger(maxTokens) && maxTokens > 0) model.maxTokens = maxTokens
+        if (Array.isArray(item.input)) {
+          const input = item.input.filter((m) => m === 'text' || m === 'image')
+          if (input.length > 0) model.input = [...new Set(input)]
+        }
+        models.push(model)
+      }
+    }
+    if (models.length === 0) continue
+    const modelsByApi = {}
+    for (const model of models) {
+      if (modelsByApi[model.api] === undefined) modelsByApi[model.api] = []
+      modelsByApi[model.api].push(model)
+    }
+    return { apis, models, modelsByApi }
+  }
+  return null
+}
+
 /** 把 provider 结构摊平成模型行(旧 v1 表迁移 / 从容器导入共用)。 */
 function providersToModelEntries(providers) {
   if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return { entries: [], passthrough: [] }
@@ -1541,6 +1587,38 @@ function importModelConfigFromContainer(containerId) {
   if (entries.length === 0 && passthrough.length === 0) {
     return { error: '来源容器没有配置任何提供方' }
   }
+  // 目录提供方(无模型清单)尽量摊平成模型行:只有**单协议**目录(或提供方自己声明了协议)才能
+  // 用一条 settings route 表达;多协议 route(如 openrouter 同时有 anthropic-messages 与
+  // openai-completions)在 settings.yaml 里无法表达,只能原样 passthrough。
+  const keptPassthrough = []
+  const expandedRoutes = []
+  for (const item of passthrough) {
+    const catalog = resolveCatalogModels(cdir, item.route)
+    const declared = (item.profile.api ?? '').trim()
+    let chosen = null
+    if (catalog !== null) {
+      if (declared !== '' && catalog.modelsByApi[declared] !== undefined) chosen = { api: declared, models: catalog.modelsByApi[declared] }
+      else if (catalog.apis.length === 1) chosen = { api: catalog.apis[0], models: catalog.modelsByApi[catalog.apis[0]] }
+    }
+    if (chosen === null) { keptPassthrough.push(item); continue }
+    for (const model of chosen.models) {
+      entries.push(normalizeModelEntry({
+        id: model.id,
+        name: model.name,
+        contextWindow: model.contextWindow,
+        maxTokens: model.maxTokens,
+        input: model.input,
+        api: chosen.api,
+        baseURL: (item.profile.baseURL ?? '') !== '' ? item.profile.baseURL : model.baseUrl,
+        apiKeyEnv: item.profile.apiKeyEnv,
+        headers: item.profile.headers,
+        compat: item.profile.compat,
+        label: item.profile.displayName ?? item.route,
+        routeHint: item.route,
+      }))
+    }
+    expandedRoutes.push(`${item.route}(${chosen.models.length})`)
+  }
   const cfg = loadModelConfig()
   const keys = loadModelKeys()
   const added = []
@@ -1556,7 +1634,6 @@ function importModelConfigFromContainer(containerId) {
       updated.push(entry.id)
     }
   }
-  for (const item of passthrough) cfg.passthrough[item.route] = item.profile
   for (const [key, text] of Object.entries(splitSectionsOutsideManaged(settingsText))) {
     cfg.basics.rawSections[key] = text
   }
@@ -1582,6 +1659,7 @@ function importModelConfigFromContainer(containerId) {
     const row = matched === undefined ? undefined : cfg.models.find((entry) => entry.id === matched.id && entry.baseURL === matched.baseURL)
     if (row !== undefined) { cfg.defaultUid = row.uid; defaultSet = true }
   }
+  for (const item of keptPassthrough) cfg.passthrough[item.route] = item.profile
   ensurePlaceholderKeys(cfg, keys)
   const meta = readJson(path.join(cdir, 'container.json'), {})
   const source = meta.name ?? String(containerId)
@@ -1592,7 +1670,8 @@ function importModelConfigFromContainer(containerId) {
   return {
     added,
     updated,
-    passthrough: passthrough.map((item) => item.route),
+    passthrough: keptPassthrough.map((item) => item.route),
+    expandedRoutes,
     refKeys,
     source,
     defaultSet,
