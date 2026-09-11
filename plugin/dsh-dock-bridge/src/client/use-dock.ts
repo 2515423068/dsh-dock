@@ -388,6 +388,16 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshModelConfig])
 
+  const deletePassthrough = useCallback(async (route: string) => {
+    try {
+      await mutate('modelConfig', () => rest('DELETE', `/api/model-configs/passthrough/${encodeURIComponent(route)}`, undefined, '目录提供方移除失败'))
+      void refreshModelConfig()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshModelConfig])
+
   const importModelConfig = useCallback(async (containerId: string) => {
     try {
       await mutate('modelConfig', () => rest('POST', '/api/model-configs/import', { containerId }, '模型配置导入失败'))
@@ -440,6 +450,7 @@ export function useDock(call: DockCall): DockStore {
     deleteModel,
     setDefaultModel,
     importModelConfig,
+    deletePassthrough,
     createContainer,
     startContainer,
     stopContainer,
@@ -488,6 +499,7 @@ export interface DockStore {
   deleteModel: (uid: string) => Promise<boolean>
   setDefaultModel: (uid: string) => Promise<boolean>
   importModelConfig: (containerId: string) => Promise<boolean>
+  deletePassthrough: (route: string) => Promise<boolean>
   createContainer: (input: { name: string; version: string; profile: string }) => Promise<void>
   startContainer: (id: string, force?: boolean) => Promise<void>
   stopContainer: (id: string, force?: boolean) => Promise<void>

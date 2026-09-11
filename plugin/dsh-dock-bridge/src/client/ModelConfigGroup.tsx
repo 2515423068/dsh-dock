@@ -68,11 +68,6 @@ function draftOf(entry: ModelConfigEntry, defaultUid: string): Draft {
   }
 }
 
-/** Loopback/private addresses: local servers usually ignore the key. */
-function isLocalEndpoint(baseURL: string | undefined): boolean {
-  return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(baseURL ?? '')
-}
-
 const BLANK: Draft = {
   uid: 'new', id: '', name: '', baseURL: '', api: '', apiKey: '', apiKeySet: false,
   apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: false,
@@ -192,6 +187,22 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
           {open && (
             <div className={css.ddPanel}>
               {view.models.length === 0 && <div className={css.ddItemMuted}>{t('settings.modelEmpty')}</div>}
+              {view.passthrough.map(item => (
+                <div key={`pass-${item.route}`} className={css.ddItem}>
+                  <span className={css.ddTag}>{t('settings.modelCatalogTag')}</span>
+                  <b>{item.route}</b>
+                  <span className={css.ddMeta}>{item.displayName}</span>
+                  <span className={css.grow} />
+                  <button
+                    type="button"
+                    className={css.ddX}
+                    title={t('settings.modelDelete')}
+                    onClick={() => { void store.deletePassthrough(item.route).then(() => { setDraft(undefined) }) }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
               {view.models.map(entry => (
                 <div
                   key={entry.uid}
@@ -209,11 +220,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   <b>{entry.id}</b>
                   <span className={css.ddMeta}>{entry.providerLabel ?? ''}</span>
                   <span className={css.grow} />
-                  {entry.apiKeySet === false && entry.hasAuthHeader !== true && (
-                    <span className={isLocalEndpoint(entry.baseURL) ? css.mutedCell : css.modelWarn}>
-                      {isLocalEndpoint(entry.baseURL) ? t('settings.modelKeyLocal') : t('settings.modelKeyMissing')}
-                    </span>
-                  )}
                   <button
                     type="button"
                     className={css.ddX}

@@ -421,6 +421,19 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshModelConfig
 			]);
+			const deletePassthrough = (0, react.useCallback)(async (route) => {
+				try {
+					await mutate("modelConfig", () => rest("DELETE", `/api/model-configs/passthrough/${encodeURIComponent(route)}`, void 0, "目录提供方移除失败"));
+					refreshModelConfig();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshModelConfig
+			]);
 			const importModelConfig = (0, react.useCallback)(async (containerId) => {
 				try {
 					await mutate("modelConfig", () => rest("POST", "/api/model-configs/import", { containerId }, "模型配置导入失败"));
@@ -474,6 +487,7 @@ window.__ModuleLoader__.load({
 				deleteModel,
 				setDefaultModel,
 				importModelConfig,
+				deletePassthrough,
 				createContainer,
 				startContainer,
 				stopContainer,
@@ -492,7 +506,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{max-width:100%;display:inline-block;position:relative}.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);min-width:220px;max-width:100%;height:32px;color:inherit;font:inherit;cursor:pointer;background:0 0;border-radius:8px;align-items:center;gap:10px;padding:0 10px;font-size:13px;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:300px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);width:100%;max-width:100%;height:32px;color:inherit;font:inherit;cursor:pointer;background:0 0;border-radius:8px;align-items:center;gap:10px;padding:0 10px;font-size:13px;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -502,94 +516,95 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"row": "yFwJXq_row",
-			"mutedCell": "yFwJXq_mutedCell",
-			"formRow": "yFwJXq_formRow",
-			"ddLabel": "yFwJXq_ddLabel",
-			"guideTitle": "yFwJXq_guideTitle",
-			"providerName": "yFwJXq_providerName",
-			"ddX": "yFwJXq_ddX",
-			"link": "yFwJXq_link",
-			"chipRow": "yFwJXq_chipRow",
-			"rowLine": "yFwJXq_rowLine",
-			"intro": "yFwJXq_intro",
-			"cardActions": "yFwJXq_cardActions",
-			"ddItem": "yFwJXq_ddItem",
-			"detailFrame": "yFwJXq_detailFrame",
-			"dot": "yFwJXq_dot",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"empty": "yFwJXq_empty",
-			"rowHead": "yFwJXq_rowHead",
-			"saveRow": "yFwJXq_saveRow",
-			"ddStar": "yFwJXq_ddStar",
-			"tabs": "yFwJXq_tabs",
-			"labelCol": "yFwJXq_labelCol",
-			"tabPanel": "yFwJXq_tabPanel",
-			"rowUrl": "yFwJXq_rowUrl",
-			"errorNote": "yFwJXq_errorNote",
-			"subTitle": "yFwJXq_subTitle",
-			"footerNote": "yFwJXq_footerNote",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"dotOk": "yFwJXq_dotOk",
-			"modelField": "yFwJXq_modelField",
-			"errorLine": "yFwJXq_errorLine",
-			"capInput": "yFwJXq_capInput",
-			"narrow": "yFwJXq_narrow",
-			"ddCaret": "yFwJXq_ddCaret",
-			"rows": "yFwJXq_rows",
-			"modelItem": "yFwJXq_modelItem",
-			"providerRow": "yFwJXq_providerRow",
-			"dotMiss": "yFwJXq_dotMiss",
-			"verSelect": "yFwJXq_verSelect",
-			"dd": "yFwJXq_dd",
-			"rowActions": "yFwJXq_rowActions",
-			"tab": "yFwJXq_tab",
-			"modelList": "yFwJXq_modelList",
 			"title": "yFwJXq_title",
-			"taskFailed": "yFwJXq_taskFailed",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"cardTitle": "yFwJXq_cardTitle",
-			"table": "yFwJXq_table",
-			"taskInline": "yFwJXq_taskInline",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"ddPanel": "yFwJXq_ddPanel",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"formLabel": "yFwJXq_formLabel",
-			"hintIcon": "yFwJXq_hintIcon",
-			"section": "yFwJXq_section",
-			"selfBadge": "yFwJXq_selfBadge",
-			"cardHead": "yFwJXq_cardHead",
-			"inlineForm": "yFwJXq_inlineForm",
-			"formGrid": "yFwJXq_formGrid",
-			"rowTitle": "yFwJXq_rowTitle",
-			"logPath": "yFwJXq_logPath",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"guide": "yFwJXq_guide",
-			"taskHead": "yFwJXq_taskHead",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"spin": "yFwJXq_spin",
-			"providerActions": "yFwJXq_providerActions",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"cellAction": "yFwJXq_cellAction",
-			"ddMeta": "yFwJXq_ddMeta",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"modelWarn": "yFwJXq_modelWarn",
-			"grow": "yFwJXq_grow",
-			"taskLine": "yFwJXq_taskLine",
-			"guideBody": "yFwJXq_guideBody",
-			"modelRow": "yFwJXq_modelRow",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"card": "yFwJXq_card",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"builtinBadge": "yFwJXq_builtinBadge",
 			"statusLabel": "yFwJXq_statusLabel",
+			"logPath": "yFwJXq_logPath",
+			"row": "yFwJXq_row",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"providerName": "yFwJXq_providerName",
+			"dd": "yFwJXq_dd",
+			"rowLine": "yFwJXq_rowLine",
+			"rowMeta": "yFwJXq_rowMeta",
+			"rowTitle": "yFwJXq_rowTitle",
+			"dot": "yFwJXq_dot",
+			"guideBody": "yFwJXq_guideBody",
+			"hintIcon": "yFwJXq_hintIcon",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"tabs": "yFwJXq_tabs",
+			"providerRow": "yFwJXq_providerRow",
+			"verSelect": "yFwJXq_verSelect",
+			"tab": "yFwJXq_tab",
+			"saveRow": "yFwJXq_saveRow",
+			"taskFailed": "yFwJXq_taskFailed",
 			"rangeInput": "yFwJXq_rangeInput",
-			"cardBody": "yFwJXq_cardBody",
-			"checkLine": "yFwJXq_checkLine",
+			"taskInline": "yFwJXq_taskInline",
+			"narrow": "yFwJXq_narrow",
+			"errorNote": "yFwJXq_errorNote",
+			"modelField": "yFwJXq_modelField",
+			"formLabel": "yFwJXq_formLabel",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"ddPanel": "yFwJXq_ddPanel",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"ddStar": "yFwJXq_ddStar",
+			"cardTitle": "yFwJXq_cardTitle",
+			"empty": "yFwJXq_empty",
+			"taskHead": "yFwJXq_taskHead",
+			"taskLine": "yFwJXq_taskLine",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"rowUrl": "yFwJXq_rowUrl",
+			"subTitle": "yFwJXq_subTitle",
+			"inlineForm": "yFwJXq_inlineForm",
+			"mutedCell": "yFwJXq_mutedCell",
+			"card": "yFwJXq_card",
 			"outputTail": "yFwJXq_outputTail",
-			"rowMeta": "yFwJXq_rowMeta"
+			"dotOk": "yFwJXq_dotOk",
+			"selfBadge": "yFwJXq_selfBadge",
+			"errorLine": "yFwJXq_errorLine",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"guide": "yFwJXq_guide",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"detailFrame": "yFwJXq_detailFrame",
+			"modelItem": "yFwJXq_modelItem",
+			"table": "yFwJXq_table",
+			"chipRow": "yFwJXq_chipRow",
+			"formRow": "yFwJXq_formRow",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"ddCaret": "yFwJXq_ddCaret",
+			"ddMeta": "yFwJXq_ddMeta",
+			"checkLine": "yFwJXq_checkLine",
+			"modelWarn": "yFwJXq_modelWarn",
+			"tabPanel": "yFwJXq_tabPanel",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"intro": "yFwJXq_intro",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"modelList": "yFwJXq_modelList",
+			"cardActions": "yFwJXq_cardActions",
+			"formGrid": "yFwJXq_formGrid",
+			"dotMiss": "yFwJXq_dotMiss",
+			"ddItem": "yFwJXq_ddItem",
+			"ddTag": "yFwJXq_ddTag",
+			"rowHead": "yFwJXq_rowHead",
+			"rows": "yFwJXq_rows",
+			"cellAction": "yFwJXq_cellAction",
+			"footerNote": "yFwJXq_footerNote",
+			"section": "yFwJXq_section",
+			"link": "yFwJXq_link",
+			"spin": "yFwJXq_spin",
+			"cardBody": "yFwJXq_cardBody",
+			"rowActions": "yFwJXq_rowActions",
+			"guideTitle": "yFwJXq_guideTitle",
+			"ddX": "yFwJXq_ddX",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"labelCol": "yFwJXq_labelCol",
+			"grow": "yFwJXq_grow",
+			"modelRow": "yFwJXq_modelRow",
+			"providerActions": "yFwJXq_providerActions",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"ddLabel": "yFwJXq_ddLabel",
+			"capInput": "yFwJXq_capInput",
+			"cardHead": "yFwJXq_cardHead"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1217,10 +1232,6 @@ window.__ModuleLoader__.load({
 				isDefault: entry.uid === defaultUid
 			};
 		}
-		/** Loopback/private addresses: local servers usually ignore the key. */
-		function isLocalEndpoint(baseURL) {
-			return /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\]|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(baseURL ?? "");
-		}
 		const BLANK = {
 			uid: "new",
 			id: "",
@@ -1393,51 +1404,76 @@ window.__ModuleLoader__.load({
 							})]
 						}), open && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 							className: DockSection_module_css_default.ddPanel,
-							children: [view.models.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-								className: DockSection_module_css_default.ddItemMuted,
-								children: t("settings.modelEmpty")
-							}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-								className: draft?.uid === entry.uid ? DockSection_module_css_default.ddItemActive : DockSection_module_css_default.ddItem,
-								onClick: () => {
-									setFailure(void 0);
-									setDraft(draftOf(entry, view.defaultUid));
-									setOpen(false);
-								},
-								children: [
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: entry.uid === view.defaultUid ? DockSection_module_css_default.ddStarOn : DockSection_module_css_default.ddStar,
-										title: entry.uid === view.defaultUid ? t("settings.modelDefaultCurrent") : t("settings.modelDefault"),
-										onClick: (event) => {
-											event.stopPropagation();
-											store.setDefaultModel(entry.uid).then(() => {
-												setDraft(void 0);
-											});
-										},
-										children: entry.uid === view.defaultUid ? "★" : "☆"
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: entry.id }),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: DockSection_module_css_default.ddMeta,
-										children: entry.providerLabel ?? ""
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
-									entry.apiKeySet === false && entry.hasAuthHeader !== true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-										className: isLocalEndpoint(entry.baseURL) ? DockSection_module_css_default.mutedCell : DockSection_module_css_default.modelWarn,
-										children: isLocalEndpoint(entry.baseURL) ? t("settings.modelKeyLocal") : t("settings.modelKeyMissing")
-									}),
-									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-										type: "button",
-										className: DockSection_module_css_default.ddX,
-										title: t("settings.modelDelete"),
-										onClick: (event) => {
-											event.stopPropagation();
-											removeUid(entry.uid, entry.id);
-										},
-										children: "✕"
-									})
-								]
-							}, entry.uid))]
+							children: [
+								view.models.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.ddItemMuted,
+									children: t("settings.modelEmpty")
+								}),
+								view.passthrough.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: DockSection_module_css_default.ddItem,
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.ddTag,
+											children: t("settings.modelCatalogTag")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: item.route }),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.ddMeta,
+											children: item.displayName
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: DockSection_module_css_default.ddX,
+											title: t("settings.modelDelete"),
+											onClick: () => {
+												store.deletePassthrough(item.route).then(() => {
+													setDraft(void 0);
+												});
+											},
+											children: "✕"
+										})
+									]
+								}, `pass-${item.route}`)),
+								view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: draft?.uid === entry.uid ? DockSection_module_css_default.ddItemActive : DockSection_module_css_default.ddItem,
+									onClick: () => {
+										setFailure(void 0);
+										setDraft(draftOf(entry, view.defaultUid));
+										setOpen(false);
+									},
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: entry.uid === view.defaultUid ? DockSection_module_css_default.ddStarOn : DockSection_module_css_default.ddStar,
+											title: entry.uid === view.defaultUid ? t("settings.modelDefaultCurrent") : t("settings.modelDefault"),
+											onClick: (event) => {
+												event.stopPropagation();
+												store.setDefaultModel(entry.uid).then(() => {
+													setDraft(void 0);
+												});
+											},
+											children: entry.uid === view.defaultUid ? "★" : "☆"
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: entry.id }),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.ddMeta,
+											children: entry.providerLabel ?? ""
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: DockSection_module_css_default.ddX,
+											title: t("settings.modelDelete"),
+											onClick: (event) => {
+												event.stopPropagation();
+												removeUid(entry.uid, entry.id);
+											},
+											children: "✕"
+										})
+									]
+								}, entry.uid))
+							]
 						})]
 					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 						size: "sm",
@@ -2368,6 +2404,7 @@ window.__ModuleLoader__.load({
 			"settings.modelKeyOk": "API 密钥已配置",
 			"settings.modelKeyMissing": "API 密钥缺失",
 			"settings.modelKeyLocal": "本地无密钥(可填 local)",
+			"settings.modelCatalogTag": "目录",
 			"settings.modelCount": "{count} 个模型",
 			"settings.modelCatalogEndpoint": "目录默认端点",
 			"settings.modelPick": "选择模型",
@@ -2534,6 +2571,7 @@ window.__ModuleLoader__.load({
 			"settings.modelKeyOk": "API key configured",
 			"settings.modelKeyMissing": "API key missing",
 			"settings.modelKeyLocal": "No local key (use local)",
+			"settings.modelCatalogTag": "Catalog",
 			"settings.modelCount": "{count} models",
 			"settings.modelCatalogEndpoint": "catalog endpoint",
 			"settings.modelPick": "Choose a model",

@@ -735,6 +735,9 @@ const PROVIDER_API_PROTOCOLS = ['openai-completions', 'openai-responses', 'anthr
 // 不能以数字开头(见 harness packages/llm/llm-pi-ai/src/auth.ts)。
 const PROVIDER_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 const MODEL_MODALITIES = ['text', 'image']
+// 空密钥时的占位值:pi-ai 必须有 key 或 authorization 头,否则调用报 No API key for provider。
+// 面板无法判断某行是不是本地服务,所以统一兜底 —— 本地服务不校验该值,云端填错会得到明确的 401。
+const PLACEHOLDER_KEY = 'local'
 
 /** 由 provider id 派生凭据引用:acme-gw → ACME_GW_API_KEY(与上游 deriveKeyRef 同构)。 */
 function deriveKeyRef(id) {
@@ -1300,6 +1303,8 @@ function migrateLegacyProfileTemplate() {
     }
     if (keyCount > 0) saveModelKeys(keys)
   }
+  ensurePlaceholderKeys(cfg, loadModelKeys())
+  saveModelKeys(loadModelKeys())
   const sourceDefault = defaultFromParsedSettings(parsed)
   if (sourceDefault !== null) {
     const row = cfg.models.find((entry) => entry.id === sourceDefault.model)
@@ -1307,6 +1312,44 @@ function migrateLegacyProfileTemplate() {
   }
   log(`已把旧初始配置模板迁移为模型配置表:${cfg.models.length} 个模型 / ${keyCount} 枚 API Key(旧文件保留)`)
   return cfg
+}
+
+/** 有没有 Authorization 头(有头就不需要密钥)。 */
+function hasAuthHeaderProfile(profile) {
+  const headers = profile?.headers
+  return headers !== null && typeof headers === 'object'
+    && (typeof headers.Authorization === 'string' || typeof headers.authorization === 'string')
+}
+
+/**
+ * 兜底:每一行都必须能给出一个密钥 —— 没有 Authorization 头时,空引用按名称派生,
+ * 空值填占位 key(PLACEHOLDER_KEY)。这样本地服务能正常调用,云端则是明确的鉴权失败。
+ */
+function ensurePlaceholderKeys(cfg, keys) {
+  let changed = false
+  for (const entry of cfg.models) {
+    if (hasAuthHeaderProfile(entry)) continue
+    if (entry.apiKeyEnv === '') {
+      entry.apiKeyEnv = deriveKeyRef(entry.label || hostLabelOf(entry.baseURL) || entry.id)
+      changed = true
+    }
+    if (typeof keys[entry.apiKeyEnv] !== 'string' || keys[entry.apiKeyEnv] === '') {
+      keys[entry.apiKeyEnv] = PLACEHOLDER_KEY
+      changed = true
+    }
+  }
+  for (const [route, profile] of Object.entries(cfg.passthrough)) {
+    if (hasAuthHeaderProfile(profile)) continue
+    if (typeof profile.apiKeyEnv !== 'string' || profile.apiKeyEnv === '') {
+      profile.apiKeyEnv = deriveKeyRef(route)
+      changed = true
+    }
+    if (typeof keys[profile.apiKeyEnv] !== 'string' || keys[profile.apiKeyEnv] === '') {
+      keys[profile.apiKeyEnv] = PLACEHOLDER_KEY
+      changed = true
+    }
+  }
+  return changed
 }
 
 function modelConfigHasContent(cfg) {
@@ -1539,6 +1582,7 @@ function importModelConfigFromContainer(containerId) {
     const row = matched === undefined ? undefined : cfg.models.find((entry) => entry.id === matched.id && entry.baseURL === matched.baseURL)
     if (row !== undefined) { cfg.defaultUid = row.uid; defaultSet = true }
   }
+  ensurePlaceholderKeys(cfg, keys)
   const meta = readJson(path.join(cdir, 'container.json'), {})
   const source = meta.name ?? String(containerId)
   cfg.importedFrom = { containerId: String(containerId), containerName: source, at: nowSeconds() }
@@ -2062,6 +2106,16 @@ async function handleApi(request, response, url) {
     log(`模型配置表:默认模型 → ${defaultModelEntry(cfg)?.id ?? ''}`)
     return send(200, modelConfigView())
   }
+  const passRowMatch = url.pathname.match(/^\/api\/model-configs\/passthrough\/([^/]+)$/)
+  if (passRowMatch && request.method === 'DELETE') {
+    const route = decodeURIComponent(passRowMatch[1])
+    const cfg = loadModelConfig()
+    if (cfg.passthrough[route] === undefined) return send(404, { error: `目录提供方不存在: ${route}` })
+    delete cfg.passthrough[route]
+    saveModelConfig(cfg)
+    log(`模型配置表:删除目录提供方 ${route}`)
+    return send(200, modelConfigView())
+  }
   const modelRowMatch = url.pathname.match(/^\/api\/model-configs\/models\/([^/]+)$/)
   if (modelRowMatch && request.method === 'PUT') {
     const targetUid = decodeURIComponent(modelRowMatch[1])
@@ -2072,19 +2126,13 @@ async function handleApi(request, response, url) {
     // 以旧行为底、界面提交的字段覆盖其上:界面没暴露的 input / routeHint 等高级字段原样保留
     const previous = index === -1 ? {} : cfg.models[index]
     const entry = normalizeModelEntry({ ...previous, ...(body.model ?? {}), uid: index === -1 ? undefined : previous.uid })
-    // 界面只填密钥字面量:引用留空时按「提供方名称 / 端点主机」派生(同提供方的模型会归到同一组)
-    if (typeof body.apiKey === 'string' && body.apiKey !== '' && entry.apiKeyEnv === '') {
-      entry.apiKeyEnv = deriveKeyRef(entry.label || hostLabelOf(entry.baseURL) || entry.id)
-    }
     const invalid = validateModelEntry(entry)
     if (invalid) return send(400, { error: invalid })
     if (index === -1) cfg.models.push(entry)
     else cfg.models[index] = entry
     const keys = loadModelKeys()
-    if (typeof body.apiKey === 'string' && entry.apiKeyEnv !== '') {
-      if (body.apiKey === '') delete keys[entry.apiKeyEnv]
-      else keys[entry.apiKeyEnv] = body.apiKey
-    }
+    if (typeof body.apiKey === 'string' && body.apiKey !== '' && entry.apiKeyEnv !== '') keys[entry.apiKeyEnv] = body.apiKey
+    ensurePlaceholderKeys(cfg, keys)
     if (!cfg.models.some((row) => row.uid === cfg.defaultUid)) cfg.defaultUid = entry.uid
     saveModelKeys(keys)
     saveModelConfig(cfg)

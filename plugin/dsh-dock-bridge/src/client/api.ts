@@ -129,6 +129,8 @@ export interface ModelConfigView {
   readonly defaultUid: string
   readonly defaultModel: { readonly provider: string; readonly model: string; readonly uid: string } | null
   readonly providers: readonly ModelConfigProviderGroup[]
+  /** Catalog routes carried verbatim (no explicit model list; DSH's catalog serves them). */
+  readonly passthrough: readonly { readonly route: string; readonly displayName: string; readonly apiKeyEnv: string; readonly apiKeySet: boolean }[]
   readonly protocols: readonly string[]
   readonly rawSectionKeys?: readonly string[]
   readonly importedFrom?: {
