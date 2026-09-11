@@ -89,6 +89,64 @@ export interface ProfileTemplate {
   readonly refKeys?: readonly string[]
 }
 
+/** One model entry inside a provider row (`llm-pi-ai.providers.<route>.models[]`). */
+export interface ModelConfigModel {
+  readonly id: string
+  readonly name?: string
+  readonly contextWindow?: number
+  readonly maxTokens?: number
+  readonly input?: readonly string[]
+}
+
+/** One provider row of the model-config table (`llm-pi-ai.providers.<route>`). */
+export interface ModelConfigProvider {
+  readonly id: string
+  readonly displayName?: string
+  readonly api?: string
+  readonly baseURL?: string
+  readonly apiKeyEnv?: string
+  readonly headers?: Readonly<Record<string, string>>
+  readonly compat?: Readonly<Record<string, string | boolean>>
+  readonly models: readonly ModelConfigModel[]
+  /** `GET` answers only: whether a key is stored (values never leave the server). */
+  readonly apiKeySet?: boolean
+}
+
+/** One built-in provider preset (catalog route or custom template). */
+export interface ModelConfigPreset {
+  readonly id: string
+  readonly label: string
+  readonly hint?: string
+  readonly kind: 'catalog' | 'custom'
+  readonly provider: ModelConfigProvider
+  /** Prefilled key for templates that need a placeholder (e.g. local llama.cpp). */
+  readonly apiKey?: string
+}
+
+/** `GET /api/model-configs` projection. */
+export interface ModelConfigView {
+  readonly providers: readonly ModelConfigProvider[]
+  readonly default: { readonly provider: string; readonly model: string }
+  readonly defaultCandidates: readonly { readonly provider: string; readonly model: string; readonly name: string }[]
+  readonly presets: readonly ModelConfigPreset[]
+  readonly protocols: readonly string[]
+  readonly rawSectionKeys?: readonly string[]
+  readonly importedFrom?: {
+    readonly containerName?: string
+    readonly at?: number
+    readonly migratedFromLegacy?: boolean
+  } | null
+}
+
+/** `POST /api/model-configs/import` summary. */
+export interface ModelConfigImport {
+  readonly added: readonly string[]
+  readonly updated: readonly string[]
+  readonly refKeys: readonly string[]
+  readonly source?: string
+  readonly defaultSet?: boolean
+}
+
 /** One DSH Dock background task (tool and page share this projection). */
 export interface DockTask {
   readonly id: string

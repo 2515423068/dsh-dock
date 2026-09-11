@@ -18,6 +18,7 @@ const REST_ALLOWLIST = [
   '/api/versions',
   '/api/settings',
   '/api/profile-template',
+  '/api/model-configs',
   '/api/tasks',
 ]
 

@@ -14,6 +14,7 @@ import type { DockSettings } from './api.ts'
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
+import { ModelConfigGroup } from './ModelConfigGroup.tsx'
 import { ConfirmDialog, ErrorNote, SectionCard } from './parts.tsx'
 
 const EMPTY: DockSettings = {
@@ -62,11 +63,9 @@ export function SettingsCard({ t, store }: {
   const [draft, setDraft] = useState<DockSettings>(EMPTY)
   const [portStart, setPortStart] = useState('')
   const [portEnd, setPortEnd] = useState('')
-  const [tplSource, setTplSource] = useState('')
-  const [tplConfirmClear, setTplConfirmClear] = useState(false)
   const [baseUrl, setBaseUrlField] = useState('')
   const [savedNote, setSavedNote] = useState<string>()
-  const opError = store.opErrorFor(['settings', 'baseUrl', 'template'])
+  const opError = store.opErrorFor(['settings', 'baseUrl', 'modelConfig'])
 
   useEffect(() => {
     if (store.settings !== undefined) {
@@ -112,34 +111,15 @@ export function SettingsCard({ t, store }: {
     setSavedNote(saved ? t('status.baseUrlSaved') : t('error.operationFailed'))
   }
 
-  const capture = async (containerId: string): Promise<void> => {
-    setSavedNote(undefined)
-    const saved = await store.captureTemplate(containerId)
-    setSavedNote(saved ? t('settings.saved') : t('error.operationFailed'))
-  }
-
-  const clear = async (): Promise<void> => {
-    setTplConfirmClear(false)
-    setSavedNote(undefined)
-    const saved = await store.clearTemplate()
-    setSavedNote(saved ? t('settings.saved') : t('error.operationFailed'))
-  }
-
   const chip = (label: string, apply: () => void): ReactNode => (
     <Pill key={label} onClick={apply}>{label}</Pill>
   )
-
-  const effectiveSource = tplSource !== '' ? tplSource : (store.containers[0]?.id ?? '')
-  const tpl = store.template
 
   return (
     <SectionCard title={t('settings.title')}>
       <p className={css.intro}>{t('settings.intro')}</p>
       {store.settingsError !== undefined && (
         <ErrorNote title={store.settingsError.title} detail={store.settingsError.detail} />
-      )}
-      {store.templateError !== undefined && (
-        <ErrorNote title={store.templateError.title} detail={store.templateError.detail} />
       )}
       {opError !== undefined && (
         <ErrorNote title={opError.title} detail={opError.detail} output={opError.output} />
@@ -234,45 +214,6 @@ export function SettingsCard({ t, store }: {
               {store.isBusy('settings') ? t('settings.saving') : t('settings.save')}
             </Button>
           </div>
-
-          <h4 className={css.subTitle}>{t('settings.template')}</h4>
-          <div className={css.rowLine}>
-            <span className={css.labelCol}>{t('settings.templateLabel')} <Hint text={t('settings.templateHint')} /></span>
-            {tpl !== undefined && tpl.exists
-              ? (
-                <Pill>
-                  {t('settings.templateCaptured', {
-                    source: tpl.source ?? '?',
-                    sections: String(tpl.sections?.length ?? 0),
-                    keys: (tpl.refKeys !== undefined && tpl.refKeys.length > 0)
-                      ? tpl.refKeys.join(' / ')
-                      : t('settings.templateNoKeys'),
-                  })}
-                </Pill>
-                )
-              : <span className={css.mutedCell}>{t('settings.templateNone')}</span>}
-            <select
-              className={css.verSelect}
-              value={effectiveSource}
-              onChange={event => { setTplSource(event.target.value) }}
-            >
-              {store.containers.length === 0 && <option value="">{t('settings.templateNoContainer')}</option>}
-              {store.containers.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </select>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={effectiveSource.length === 0 || store.isBusy('template')}
-              onClick={() => { void capture(effectiveSource) }}
-            >
-              {t('settings.templateImport')}
-            </Button>
-            {tpl !== undefined && tpl.exists && (
-              <Button size="sm" onClick={() => { setTplConfirmClear(true) }}>
-                {t('settings.templateClear')}
-              </Button>
-            )}
-          </div>
         </>
       )}
 
@@ -298,17 +239,7 @@ export function SettingsCard({ t, store }: {
         </div>
       </div>
 
-      <ConfirmDialog
-        open={tplConfirmClear}
-        title={t('settings.templateClear')}
-        body={t('settings.templateClearConfirm')}
-        confirmLabel={t('settings.templateClear')}
-        cancelLabel={t('cancel')}
-        danger
-        busy={store.isBusy('template')}
-        onConfirm={() => { void clear() }}
-        onClose={() => { setTplConfirmClear(false) }}
-      />
+      <ModelConfigGroup t={t} store={store} />
     </SectionCard>
   )
 }

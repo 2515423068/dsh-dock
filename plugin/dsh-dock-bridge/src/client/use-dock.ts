@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ContainerRow, DockSettings, DockStatus, DockTask, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigModel, ModelConfigProvider, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -84,6 +84,8 @@ export function useDock(call: DockCall): DockStore {
   const [settingsError, setSettingsError] = useState<OpError>()
   const [template, setTemplate] = useState<ProfileTemplate>()
   const [templateError, setTemplateError] = useState<OpError>()
+  const [modelConfig, setModelConfig] = useState<ModelConfigView>()
+  const [modelConfigError, setModelConfigError] = useState<OpError>()
   const [tasks, setTasks] = useState<readonly DockTask[]>([])
   const [busyOps, setBusyOps] = useState<ReadonlySet<string>>(() => new Set())
   const [opError, setOpError] = useState<OpError & { key: string }>()
@@ -177,6 +179,15 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [rest])
 
+  const refreshModelConfig = useCallback(async () => {
+    setModelConfigError(undefined)
+    try {
+      setModelConfig(await rest<ModelConfigView>('GET', '/api/model-configs', undefined, '模型配置加载失败'))
+    } catch (error) {
+      setModelConfigError(asOpError(error))
+    }
+  }, [rest])
+
 
   const refreshTasks = useCallback(async () => {
     try {
@@ -232,13 +243,15 @@ export function useDock(call: DockCall): DockStore {
       setVersions(undefined)
       setSettings(undefined)
       setTemplate(undefined)
+      setModelConfig(undefined)
       return
     }
     void refreshContainers()
     void refreshVersions()
     void refreshSettings()
     void refreshTemplate()
-  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings, refreshTemplate])
+    void refreshModelConfig()
+  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings, refreshTemplate, refreshModelConfig])
 
   const taskFor = useCallback((kind: string, refId: string): DockTask | undefined =>
     tasks.find(entry => entry.kind === kind && entry.refId === refId), [tasks])
@@ -344,25 +357,63 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshSettings])
 
-  const captureTemplate = useCallback(async (containerId: string) => {
+  const saveProvider = useCallback(async (targetId: string, provider: ModelConfigProvider, apiKey: string) => {
     try {
-      await mutate('template', () => rest('POST', '/api/profile-template', { containerId }, '模板捕获失败'))
-      void refreshTemplate()
+      const body = apiKey === '' ? { provider } : { provider, apiKey }
+      await mutate('modelConfig', () => rest('PUT', `/api/model-configs/providers/${encodeURIComponent(targetId)}`, body, '提供方保存失败'))
+      void refreshModelConfig()
       return true
     } catch {
       return false
     }
-  }, [mutate, rest, refreshTemplate])
+  }, [mutate, rest, refreshModelConfig])
 
-  const clearTemplate = useCallback(async () => {
+  const deleteProvider = useCallback(async (id: string) => {
     try {
-      await mutate('template', () => rest('DELETE', '/api/profile-template', undefined, '模板清除失败'))
-      void refreshTemplate()
+      await mutate('modelConfig', () => rest('DELETE', `/api/model-configs/providers/${encodeURIComponent(id)}`, undefined, '提供方删除失败'))
+      void refreshModelConfig()
       return true
     } catch {
       return false
     }
-  }, [mutate, rest, refreshTemplate])
+  }, [mutate, rest, refreshModelConfig])
+
+  const setDefaultModel = useCallback(async (provider: string, model: string) => {
+    try {
+      await mutate('modelConfig', () => rest('POST', '/api/model-configs/default', { provider, model }, '默认模型保存失败'))
+      void refreshModelConfig()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshModelConfig])
+
+  const importModelConfig = useCallback(async (containerId: string) => {
+    try {
+      await mutate('modelConfig', () => rest('POST', '/api/model-configs/import', { containerId }, '模型配置导入失败'))
+      void refreshModelConfig()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshModelConfig])
+
+  /** Ask the provider which models it serves; failure comes back as a message string. */
+  const fetchProviderModels = useCallback(async (input: {
+    baseURL: string
+    api: string
+    apiKey: string
+    providerId: string
+  }): Promise<readonly ModelConfigModel[] | string> => {
+    try {
+      const answer = await rest<{ models?: readonly ModelConfigModel[] }>(
+        'POST', '/api/model-configs/fetch-models', input, '获取模型列表失败',
+      )
+      return answer.models ?? []
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error)
+    }
+  }, [rest])
 
 
   const setBaseUrl = useCallback(async (next: string) => {
@@ -386,6 +437,8 @@ export function useDock(call: DockCall): DockStore {
     settingsError,
     template,
     templateError,
+    modelConfig,
+    modelConfigError,
     serviceUp,
     bound: status?.dshdockContainer === true,
     tasks,
@@ -400,8 +453,12 @@ export function useDock(call: DockCall): DockStore {
     refreshVersions,
     refreshSettings,
     refreshTemplate,
-    captureTemplate,
-    clearTemplate,
+    refreshModelConfig,
+    saveProvider,
+    deleteProvider,
+    setDefaultModel,
+    importModelConfig,
+    fetchProviderModels,
     createContainer,
     startContainer,
     stopContainer,
@@ -431,6 +488,8 @@ export interface DockStore {
   readonly settingsError: OpError | undefined
   readonly template: ProfileTemplate | undefined
   readonly templateError: OpError | undefined
+  readonly modelConfig: ModelConfigView | undefined
+  readonly modelConfigError: OpError | undefined
   readonly serviceUp: boolean
   readonly bound: boolean
   readonly tasks: readonly DockTask[]
@@ -443,8 +502,17 @@ export interface DockStore {
   refreshVersions: (refreshCatalog?: boolean) => Promise<void>
   refreshSettings: () => Promise<void>
   refreshTemplate: () => Promise<void>
-  captureTemplate: (containerId: string) => Promise<boolean>
-  clearTemplate: () => Promise<boolean>
+  refreshModelConfig: () => Promise<void>
+  saveProvider: (targetId: string, provider: ModelConfigProvider, apiKey: string) => Promise<boolean>
+  deleteProvider: (id: string) => Promise<boolean>
+  setDefaultModel: (provider: string, model: string) => Promise<boolean>
+  importModelConfig: (containerId: string) => Promise<boolean>
+  fetchProviderModels: (input: {
+    baseURL: string
+    api: string
+    apiKey: string
+    providerId: string
+  }) => Promise<readonly ModelConfigModel[] | string>
   createContainer: (input: { name: string; version: string; profile: string }) => Promise<void>
   startContainer: (id: string, force?: boolean) => Promise<void>
   stopContainer: (id: string, force?: boolean) => Promise<void>
