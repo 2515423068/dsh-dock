@@ -700,9 +700,26 @@
   color: var(--dsw-alias-state-error);
 }
 
-.modelStar {
-  width: 12px;
+.ddStar,
+.ddStarOn {
   flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.ddStar:hover {
+  color: var(--dsw-alias-state-warn);
+}
+
+.ddStarOn {
   color: var(--dsw-alias-state-warn);
 }
 
@@ -777,9 +794,26 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.modelStar {
-  width: 12px;
+.ddStar,
+.ddStarOn {
   flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.ddStar:hover {
+  color: var(--dsw-alias-state-warn);
+}
+
+.ddStarOn {
   color: var(--dsw-alias-state-warn);
 }
 

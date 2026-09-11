@@ -697,7 +697,9 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .dd-item.active { background: color-mix(in srgb, var(--dsw-link) 10%, transparent); }
 .dd-x { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-label-tertiary); font-size: 12px; line-height: 22px; cursor: pointer; }
 .dd-x:hover { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
-.model-star { width: 12px; color: var(--dsw-state-warn); flex: 0 0 auto; }
+.dd-star { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-label-tertiary); font-size: 13px; line-height: 22px; cursor: pointer; }
+.dd-star:hover { background: var(--dsw-chip-hover); color: var(--dsw-state-warn); }
+.dd-star.on { color: var(--dsw-state-warn); }
 .chip-warn { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
 .model-detail-frame { min-height: 316px; }
 </style>
@@ -1610,6 +1612,20 @@ function applyModelTemplate(presetId) {
   }
   renderModelPanel()
 }
+/** 每项最前方的 ★/☆:点一下立刻把该模型设为默认(不关下拉、不重排)。 */
+async function setDefaultRow(uid, event) {
+  if (event) event.stopPropagation()
+  if (uid === modelViewCache.defaultUid) return
+  const row = modelViewCache.models.find((m) => m.uid === uid)
+  try {
+    await api('/api/model-configs/default', { method: 'POST', body: { uid } })
+    modelViewCache = await api('/api/model-configs')
+    if (modelDetail !== null && modelDetail.uid !== 'new') modelDetail.isDefault = modelDetail.uid === uid
+    renderModelPanel()
+    toast(`默认模型 → ${row?.id ?? ''}`)
+  } catch (error) { toast(`设置失败: ${error}`, true) }
+}
+
 /** 下拉项末尾的 ✕:删完保持下拉打开,列表就地刷新。 */
 async function deleteModelRow(uid, event) {
   if (event) event.stopPropagation()
@@ -1641,7 +1657,7 @@ function renderModelPanel() {
     panel.innerHTML = modelViewCache.models.length === 0
       ? '<div class="dd-item" style="cursor:default"><span class="muted">表里还没有模型</span></div>'
       : modelViewCache.models.map((m) => `<div class="dd-item ${modelDetail !== null && modelDetail.uid === m.uid ? 'active' : ''}" onclick="selectModel('${m.uid}')">
-          <span class="model-star">${m.uid === modelViewCache.defaultUid ? '★' : ''}</span>
+          <button type="button" class="dd-star ${m.uid === modelViewCache.defaultUid ? 'on' : ''}" title="${m.uid === modelViewCache.defaultUid ? '当前默认模型' : '设为默认模型'}" onclick="setDefaultRow('${m.uid}', event)">${m.uid === modelViewCache.defaultUid ? '★' : '☆'}</button>
           <b>${escapeHtml(m.id)}</b>
           <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
           <span style="flex:1"></span>
@@ -1675,7 +1691,7 @@ function renderModelDetail() {
     <div class="field"><label>上下文窗口</label><input id="m-ctx" placeholder="256K" style="max-width:120px" value="${escapeHtml(d.ctx)}">
       <label style="width:auto;margin-left:8px">最大输出</label><input id="m-max" placeholder="32K" style="max-width:120px" value="${escapeHtml(d.max)}"></div>
     <div class="row" style="margin-top:8px">
-      <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="m-default" ${d.isDefault ? 'checked' : ''}> 设为默认模型</label>
+      <span class="muted">${d.uid === 'new' ? '' : (d.uid === modelViewCache.defaultUid ? '★ 当前默认模型' : '用下拉里每项最前方的 ☆ 设为默认')}</span>
       <span id="m-err" style="color:var(--dsw-state-error);font-size:12.5px"></span>
       <span style="flex:1"></span>
       <button class="danger" ${d.uid === 'new' ? 'disabled' : ''} onclick="deleteSelectedModel()">删除</button>
@@ -1694,7 +1710,6 @@ function readModelDetail() {
     label: $('#m-label').value.trim(),
     contextWindow: parseCap($('#m-ctx').value),
     maxTokens: parseCap($('#m-max').value),
-    isDefault: $('#m-default').checked,
   }
 }
 async function saveModel() {
@@ -1709,11 +1724,7 @@ async function saveModel() {
     if (d.contextWindow !== undefined) body.model.contextWindow = d.contextWindow
     if (d.maxTokens !== undefined) body.model.maxTokens = d.maxTokens
     if (d.apiKey !== '') body.apiKey = d.apiKey
-    const view = await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'PUT', body })
-    if (d.isDefault) {
-      const saved = view.models.find((m) => m.id === d.id && m.baseURL === d.baseURL)
-      if (saved !== undefined) await api('/api/model-configs/default', { method: 'POST', body: { uid: saved.uid } })
-    }
+    await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'PUT', body })
     toast(`已保存 ${d.id}`)
     modelViewCache = await api('/api/model-configs')
     modelDetail = null

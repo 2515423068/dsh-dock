@@ -129,10 +129,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     const saved = await store.saveModel(draft.uid, model, draft.apiKey)
     if (!saved) { setFailure(t('error.operationFailed')); return }
     setNote(t('settings.modelSaved', { model: draft.id.trim() }))
-    if (draft.isDefault && view.defaultUid !== draft.uid) {
-      const refreshed = store.modelConfig?.models.find(entry => entry.id === draft.id.trim() && entry.baseURL === draft.baseURL.trim())
-      if (refreshed !== undefined) await store.setDefaultModel(refreshed.uid)
-    }
     setDraft(undefined)
   }
 
@@ -186,7 +182,14 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   className={draft?.uid === entry.uid ? css.ddItemActive : css.ddItem}
                   onClick={() => { setFailure(undefined); setDraft(draftOf(entry, view.defaultUid)); setOpen(false) }}
                 >
-                  <span className={css.modelStar}>{entry.uid === view.defaultUid ? '★' : ''}</span>
+                  <button
+                    type="button"
+                    className={entry.uid === view.defaultUid ? css.ddStarOn : css.ddStar}
+                    title={entry.uid === view.defaultUid ? t('settings.modelDefaultCurrent') : t('settings.modelDefault')}
+                    onClick={event => { event.stopPropagation(); void store.setDefaultModel(entry.uid).then(() => { setDraft(undefined) }) }}
+                  >
+                    {entry.uid === view.defaultUid ? '★' : '☆'}
+                  </button>
                   <b>{entry.id}</b>
                   <span className={css.mutedCell}>{entry.providerLabel ?? ''}</span>
                   <span className={css.grow} />
@@ -265,10 +268,11 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                 <Input className={css.capInput} value={draft.max} placeholder="32K" onChange={event => { patch({ max: event.target.value }) }} />
               </div>
               <div className={css.rowLine}>
-                <label className={css.checkLine}>
-                  <input type="checkbox" checked={draft.isDefault} onChange={event => { patch({ isDefault: event.target.checked }) }} />
-                  {t('settings.modelDefault')}
-                </label>
+                <span className={css.mutedCell}>
+                  {draft.uid === 'new'
+                    ? ''
+                    : draft.uid === view.defaultUid ? t('settings.modelDefaultCurrent') : t('settings.modelDefaultHint')}
+                </span>
                 <span className={css.grow} />
                 <Button size="sm" disabled={busy || draft.uid === 'new'} onClick={() => { void removeUid(draft.uid, draft.id) }}>
                   {t('settings.modelDelete')}
