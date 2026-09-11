@@ -3,8 +3,10 @@
  * flat list of MODELS. One row = one model plus its provider connection facts
  * (base URL / protocol / API key / provider name); container creation groups rows
  * that share a connection into one `llm-pi-ai.providers` entry automatically.
- * Clicking a row selects it and refreshes the detail form below. API keys are
- * write-only: the server reports whether one is stored, never the value.
+ * The picker is a custom dropdown whose every row carries a delete "✕", so a row
+ * can be removed without reopening the menu, and the detail form below stays
+ * mounted (only its bound data changes) so deleting never collapses the layout.
+ * API keys are write-only: the server reports whether one is stored, never the value.
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -75,6 +77,7 @@ const BLANK: Draft = {
 export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): ReactNode {
   const view = store.modelConfig
   const [draft, setDraft] = useState<Draft>()
+  const [open, setOpen] = useState(false)
   const [failure, setFailure] = useState<string>()
   const [note, setNote] = useState<string>()
   const [source, setSource] = useState('')
@@ -84,10 +87,11 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     if (source === '' && store.containers.length > 0) setSource(store.containers[0].id)
   }, [source, store.containers])
 
-  // 首次拿到配置表(或删除后重拉)时,自动选中 ★ 模型 / 第一个,详情立即有内容
+  // 详情区永远有内容:选中项被删、表为空、首次加载都自动落到 ★ / 第一个 / 新建草稿
   useEffect(() => {
-    if (view === undefined || view.models.length === 0) return
-    if (draft !== undefined && view.models.some(entry => entry.uid === draft.uid)) return
+    if (view === undefined) return
+    if (draft !== undefined && (draft.uid === 'new' || view.models.some(entry => entry.uid === draft.uid))) return
+    if (view.models.length === 0) { setDraft({ ...BLANK, api: view.protocols[0] ?? '' }); return }
     const first = view.models.find(entry => entry.uid === view.defaultUid) ?? view.models[0]
     setDraft(draftOf(first, view.defaultUid))
   }, [view, draft])
@@ -132,11 +136,10 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     setDraft(undefined)
   }
 
-  const remove = async (): Promise<void> => {
-    if (draft === undefined || draft.uid === 'new') return
-    const ok = await store.deleteModel(draft.uid)
+  const removeUid = async (uid: string, id: string): Promise<void> => {
+    const ok = await store.deleteModel(uid)
     if (!ok) { setFailure(t('error.operationFailed')); return }
-    setNote(t('settings.modelDeleted', { model: draft.id }))
+    setNote(t('settings.modelDeleted', { model: id }))
     setDraft(undefined)
   }
 
@@ -148,6 +151,12 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
     setNote(t('settings.modelImported'))
     setDraft(undefined)
   }
+
+  const currentLabel = draft === undefined
+    ? t('settings.modelPickNone')
+    : draft.uid === 'new'
+      ? t('settings.modelNewDraft')
+      : `${draft.uid === view.defaultUid ? '★ ' : ''}${draft.id}${draft.label !== '' ? ` · ${draft.label}` : ''}`
 
   return (
     <>
@@ -163,11 +172,43 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
       )}
 
       <div className={css.rowLine}>
+        <div className={css.dd}>
+          <button type="button" className={css.ddTrigger} onClick={() => { setOpen(!open) }}>
+            <span className={css.ddLabel}>{currentLabel}</span>
+            <span className={css.ddCaret}>▾</span>
+          </button>
+          {open && (
+            <div className={css.ddPanel}>
+              {view.models.length === 0 && <div className={css.ddItemMuted}>{t('settings.modelEmpty')}</div>}
+              {view.models.map(entry => (
+                <div
+                  key={entry.uid}
+                  className={draft?.uid === entry.uid ? css.ddItemActive : css.ddItem}
+                  onClick={() => { setFailure(undefined); setDraft(draftOf(entry, view.defaultUid)); setOpen(false) }}
+                >
+                  <span className={css.modelStar}>{entry.uid === view.defaultUid ? '★' : ''}</span>
+                  <b>{entry.id}</b>
+                  <span className={css.mutedCell}>{entry.providerLabel ?? ''}</span>
+                  <span className={css.grow} />
+                  {entry.apiKeySet === false && <span className={css.modelWarn}>{t('settings.modelKeyMissing')}</span>}
+                  <button
+                    type="button"
+                    className={css.ddX}
+                    title={t('settings.modelDelete')}
+                    onClick={event => { event.stopPropagation(); void removeUid(entry.uid, entry.id) }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <Button
           size="sm"
           variant="primary"
           disabled={busy}
-          onClick={() => { setFailure(undefined); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
+          onClick={() => { setFailure(undefined); setOpen(false); setDraft({ ...BLANK, api: view.protocols[0] ?? '', isDefault: view.models.length === 0 }) }}
         >
           {t('settings.modelNew')}
         </Button>
@@ -181,83 +222,65 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
         </Button>
       </div>
 
-      <ul className={css.modelList}>
-        {view.models.length === 0 && <li className={css.modelItemMuted}>{t('settings.modelEmpty')}</li>}
-        {view.models.map(entry => (
-          <li key={entry.uid}>
-            <button
-              type="button"
-              className={draft?.uid === entry.uid ? css.modelItemActive : css.modelItem}
-              onClick={() => { setFailure(undefined); setDraft(draftOf(entry, view.defaultUid)) }}
-            >
-              <span className={css.modelStar}>{entry.uid === view.defaultUid ? '★' : ''}</span>
-              <b>{entry.id}</b>
-              <span className={css.mutedCell}>{entry.providerLabel ?? ''}</span>
-              <span className={css.grow} />
-              {entry.apiKeySet === false && <span className={css.modelWarn}>{t('settings.modelKeyMissing')}</span>}
-              <span className={css.mutedCell}>{entry.baseURL !== undefined && entry.baseURL !== '' ? entry.baseURL : t('settings.modelCatalogEndpoint')}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-
-      {draft === undefined
-        ? <p className={css.mutedCell}>{t('settings.modelDetailHint')}</p>
-        : (
-          <>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelIdField')}</span>
-              <Input className={css.grow} value={draft.id} onChange={event => { patch({ id: event.target.value }) }} />
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelNameField')}</span>
-              <Input className={css.grow} value={draft.name} onChange={event => { patch({ name: event.target.value }) }} />
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelBaseUrl')}</span>
-              <Input className={css.grow} value={draft.baseURL} placeholder="https://gateway.example/v1" onChange={event => { patch({ baseURL: event.target.value }) }} />
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelApi')}</span>
-              <select className={css.verSelect} value={draft.api} onChange={event => { patch({ api: event.target.value }) }}>
-                {view.protocols.map(protocol => <option key={protocol} value={protocol}>{protocol}</option>)}
-              </select>
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelKey')}</span>
-              <Input
-                className={css.grow}
-                type="password"
-                value={draft.apiKey}
-                placeholder={draft.apiKeySet ? t('settings.modelKeyStored') : t('settings.modelKeyPlaceholder')}
-                onChange={event => { patch({ apiKey: event.target.value }) }}
-              />
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelProviderLabel')}</span>
-              <Input className={css.grow} value={draft.label} placeholder={t('settings.modelProviderLabelHint')} onChange={event => { patch({ label: event.target.value }) }} />
-            </div>
-            <div className={css.modelField}>
-              <span className={css.labelCol}>{t('settings.modelCapacity')}</span>
-              <Input className={css.capInput} value={draft.ctx} placeholder="256K" onChange={event => { patch({ ctx: event.target.value }) }} />
-              <Input className={css.capInput} value={draft.max} placeholder="32K" onChange={event => { patch({ max: event.target.value }) }} />
-            </div>
-            <div className={css.rowLine}>
-              <label className={css.checkLine}>
-                <input type="checkbox" checked={draft.isDefault} onChange={event => { patch({ isDefault: event.target.checked }) }} />
-                {t('settings.modelDefault')}
-              </label>
-              <span className={css.grow} />
-              <Button size="sm" disabled={busy || draft.uid === 'new'} onClick={() => { void remove() }}>
-                {t('settings.modelDelete')}
-              </Button>
-              <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>
-                {busy ? t('settings.modelSaving') : t('settings.modelSave')}
-              </Button>
-            </div>
-            {failure !== undefined && <p className={css.errorNote}>{failure}</p>}
-          </>
-        )}
+      <div className={css.detailFrame}>
+        {draft === undefined
+          ? <p className={css.mutedCell}>{t('settings.modelDetailHint')}</p>
+          : (
+            <>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelIdField')}</span>
+                <Input className={css.grow} value={draft.id} onChange={event => { patch({ id: event.target.value }) }} />
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelNameField')}</span>
+                <Input className={css.grow} value={draft.name} onChange={event => { patch({ name: event.target.value }) }} />
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelBaseUrl')}</span>
+                <Input className={css.grow} value={draft.baseURL} placeholder="https://gateway.example/v1" onChange={event => { patch({ baseURL: event.target.value }) }} />
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelApi')}</span>
+                <select className={css.verSelect} value={draft.api} onChange={event => { patch({ api: event.target.value }) }}>
+                  {view.protocols.map(protocol => <option key={protocol} value={protocol}>{protocol}</option>)}
+                </select>
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelKey')}</span>
+                <Input
+                  className={css.grow}
+                  type="password"
+                  value={draft.apiKey}
+                  placeholder={draft.apiKeySet ? t('settings.modelKeyStored') : t('settings.modelKeyPlaceholder')}
+                  onChange={event => { patch({ apiKey: event.target.value }) }}
+                />
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelProviderLabel')}</span>
+                <Input className={css.grow} value={draft.label} placeholder={t('settings.modelProviderLabelHint')} onChange={event => { patch({ label: event.target.value }) }} />
+              </div>
+              <div className={css.modelField}>
+                <span className={css.labelCol}>{t('settings.modelCapacity')}</span>
+                <Input className={css.capInput} value={draft.ctx} placeholder="256K" onChange={event => { patch({ ctx: event.target.value }) }} />
+                <Input className={css.capInput} value={draft.max} placeholder="32K" onChange={event => { patch({ max: event.target.value }) }} />
+              </div>
+              <div className={css.rowLine}>
+                <label className={css.checkLine}>
+                  <input type="checkbox" checked={draft.isDefault} onChange={event => { patch({ isDefault: event.target.checked }) }} />
+                  {t('settings.modelDefault')}
+                </label>
+                <span className={css.grow} />
+                <Button size="sm" disabled={busy || draft.uid === 'new'} onClick={() => { void removeUid(draft.uid, draft.id) }}>
+                  {t('settings.modelDelete')}
+                </Button>
+                <Button size="sm" variant="primary" disabled={busy} onClick={() => { void save() }}>
+                  {busy ? t('settings.modelSaving') : t('settings.modelSave')}
+                </Button>
+              </div>
+              {failure !== undefined && <p className={css.errorNote}>{failure}</p>}
+            </>
+          )}
+      </div>
 
       {view.providers.length > 0 && (
         <p className={css.footerNote}>
@@ -265,7 +288,6 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
         </p>
       )}
       {note !== undefined && <p className={css.footerNote}>{note}</p>}
-      {draft === undefined && failure !== undefined && <p className={css.errorNote}>{failure}</p>}
     </>
   )
 }

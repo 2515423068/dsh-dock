@@ -492,7 +492,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_modelStar{width:12px;color:var(--dsw-alias-state-warn);flex:none}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect{border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);width:auto;max-width:210px;height:28px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 6px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{display:inline-block;position:relative}.yFwJXq_ddTrigger{border:.5px solid var(--dsw-alias-border-l4);min-width:300px;max-width:440px;height:32px;color:inherit;font:inherit;cursor:pointer;background:0 0;border-radius:8px;align-items:center;gap:10px;padding:0 10px;font-size:13px;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;min-width:100%;max-height:300px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_modelStar{width:12px;color:var(--dsw-alias-state-warn);flex:none}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -502,82 +502,92 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"saveRow": "yFwJXq_saveRow",
-			"rowTitle": "yFwJXq_rowTitle",
 			"guide": "yFwJXq_guide",
-			"guideTitle": "yFwJXq_guideTitle",
-			"subTitle": "yFwJXq_subTitle",
-			"narrow": "yFwJXq_narrow",
 			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"cardBody": "yFwJXq_cardBody",
+			"modelRow": "yFwJXq_modelRow",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"formLabel": "yFwJXq_formLabel",
+			"mutedCell": "yFwJXq_mutedCell",
+			"rowLine": "yFwJXq_rowLine",
+			"section": "yFwJXq_section",
+			"rangeInput": "yFwJXq_rangeInput",
+			"dd": "yFwJXq_dd",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"ddItem": "yFwJXq_ddItem",
+			"modelItem": "yFwJXq_modelItem",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"verSelect": "yFwJXq_verSelect",
+			"taskInline": "yFwJXq_taskInline",
+			"link": "yFwJXq_link",
+			"cardHead": "yFwJXq_cardHead",
+			"errorNote": "yFwJXq_errorNote",
+			"ddX": "yFwJXq_ddX",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"saveRow": "yFwJXq_saveRow",
+			"providerName": "yFwJXq_providerName",
 			"inlineFormRow": "yFwJXq_inlineFormRow",
 			"capInput": "yFwJXq_capInput",
-			"tabPanel": "yFwJXq_tabPanel",
-			"guideBody": "yFwJXq_guideBody",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"formGrid": "yFwJXq_formGrid",
-			"statusLabel": "yFwJXq_statusLabel",
-			"rangeInput": "yFwJXq_rangeInput",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"selfBadge": "yFwJXq_selfBadge",
-			"modelItem": "yFwJXq_modelItem",
-			"dotOk": "yFwJXq_dotOk",
-			"rowMeta": "yFwJXq_rowMeta",
-			"mutedCell": "yFwJXq_mutedCell",
-			"cardActions": "yFwJXq_cardActions",
-			"rows": "yFwJXq_rows",
-			"dot": "yFwJXq_dot",
-			"link": "yFwJXq_link",
-			"errorNote": "yFwJXq_errorNote",
-			"hintIcon": "yFwJXq_hintIcon",
-			"cardHead": "yFwJXq_cardHead",
-			"rowActions": "yFwJXq_rowActions",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"errorLine": "yFwJXq_errorLine",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"providerRow": "yFwJXq_providerRow",
-			"dotMiss": "yFwJXq_dotMiss",
 			"modelField": "yFwJXq_modelField",
-			"modelStar": "yFwJXq_modelStar",
-			"rowHead": "yFwJXq_rowHead",
-			"taskFailed": "yFwJXq_taskFailed",
-			"modelRow": "yFwJXq_modelRow",
-			"empty": "yFwJXq_empty",
-			"inlineForm": "yFwJXq_inlineForm",
-			"taskLine": "yFwJXq_taskLine",
-			"row": "yFwJXq_row",
-			"taskInline": "yFwJXq_taskInline",
-			"rowUrl": "yFwJXq_rowUrl",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"intro": "yFwJXq_intro",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"chipRow": "yFwJXq_chipRow",
-			"footerNote": "yFwJXq_footerNote",
-			"providerName": "yFwJXq_providerName",
-			"checkLine": "yFwJXq_checkLine",
-			"formRow": "yFwJXq_formRow",
-			"spin": "yFwJXq_spin",
-			"taskHead": "yFwJXq_taskHead",
-			"modelWarn": "yFwJXq_modelWarn",
 			"modelList": "yFwJXq_modelList",
-			"section": "yFwJXq_section",
-			"providerActions": "yFwJXq_providerActions",
-			"card": "yFwJXq_card",
-			"tabs": "yFwJXq_tabs",
-			"cardBody": "yFwJXq_cardBody",
-			"table": "yFwJXq_table",
-			"logPath": "yFwJXq_logPath",
-			"rowLine": "yFwJXq_rowLine",
-			"cardTitle": "yFwJXq_cardTitle",
-			"verSelect": "yFwJXq_verSelect",
-			"grow": "yFwJXq_grow",
-			"title": "yFwJXq_title",
-			"labelCol": "yFwJXq_labelCol",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"formLabel": "yFwJXq_formLabel",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"outputTail": "yFwJXq_outputTail",
+			"taskLine": "yFwJXq_taskLine",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"taskFailed": "yFwJXq_taskFailed",
+			"ddLabel": "yFwJXq_ddLabel",
+			"ddPanel": "yFwJXq_ddPanel",
+			"formRow": "yFwJXq_formRow",
 			"cellAction": "yFwJXq_cellAction",
-			"tab": "yFwJXq_tab"
+			"rowTitle": "yFwJXq_rowTitle",
+			"narrow": "yFwJXq_narrow",
+			"rows": "yFwJXq_rows",
+			"rowUrl": "yFwJXq_rowUrl",
+			"row": "yFwJXq_row",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"hintIcon": "yFwJXq_hintIcon",
+			"dot": "yFwJXq_dot",
+			"subTitle": "yFwJXq_subTitle",
+			"inlineForm": "yFwJXq_inlineForm",
+			"logPath": "yFwJXq_logPath",
+			"labelCol": "yFwJXq_labelCol",
+			"cardTitle": "yFwJXq_cardTitle",
+			"tabPanel": "yFwJXq_tabPanel",
+			"empty": "yFwJXq_empty",
+			"footerNote": "yFwJXq_footerNote",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"modelStar": "yFwJXq_modelStar",
+			"dotOk": "yFwJXq_dotOk",
+			"spin": "yFwJXq_spin",
+			"rowHead": "yFwJXq_rowHead",
+			"rowMeta": "yFwJXq_rowMeta",
+			"outputTail": "yFwJXq_outputTail",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"title": "yFwJXq_title",
+			"grow": "yFwJXq_grow",
+			"chipRow": "yFwJXq_chipRow",
+			"table": "yFwJXq_table",
+			"guideBody": "yFwJXq_guideBody",
+			"taskHead": "yFwJXq_taskHead",
+			"providerRow": "yFwJXq_providerRow",
+			"checkLine": "yFwJXq_checkLine",
+			"intro": "yFwJXq_intro",
+			"card": "yFwJXq_card",
+			"selfBadge": "yFwJXq_selfBadge",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"dotMiss": "yFwJXq_dotMiss",
+			"detailFrame": "yFwJXq_detailFrame",
+			"rowActions": "yFwJXq_rowActions",
+			"guideTitle": "yFwJXq_guideTitle",
+			"ddCaret": "yFwJXq_ddCaret",
+			"tabs": "yFwJXq_tabs",
+			"cardActions": "yFwJXq_cardActions",
+			"tab": "yFwJXq_tab",
+			"formGrid": "yFwJXq_formGrid",
+			"errorLine": "yFwJXq_errorLine",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"providerActions": "yFwJXq_providerActions",
+			"statusLabel": "yFwJXq_statusLabel",
+			"modelWarn": "yFwJXq_modelWarn"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1168,8 +1178,10 @@ window.__ModuleLoader__.load({
 		* flat list of MODELS. One row = one model plus its provider connection facts
 		* (base URL / protocol / API key / provider name); container creation groups rows
 		* that share a connection into one `llm-pi-ai.providers` entry automatically.
-		* Clicking a row selects it and refreshes the detail form below. API keys are
-		* write-only: the server reports whether one is stored, never the value.
+		* The picker is a custom dropdown whose every row carries a delete "✕", so a row
+		* can be removed without reopening the menu, and the detail form below stays
+		* mounted (only its bound data changes) so deleting never collapses the layout.
+		* API keys are write-only: the server reports whether one is stored, never the value.
 		*/
 		/** Whole K/M only, so the text round-trips. */
 		function capText(n) {
@@ -1221,6 +1233,7 @@ window.__ModuleLoader__.load({
 		function ModelConfigGroup({ t, store }) {
 			const view = store.modelConfig;
 			const [draft, setDraft] = (0, react.useState)();
+			const [open, setOpen] = (0, react.useState)(false);
 			const [failure, setFailure] = (0, react.useState)();
 			const [note, setNote] = (0, react.useState)();
 			const [source, setSource] = (0, react.useState)("");
@@ -1229,8 +1242,15 @@ window.__ModuleLoader__.load({
 				if (source === "" && store.containers.length > 0) setSource(store.containers[0].id);
 			}, [source, store.containers]);
 			(0, react.useEffect)(() => {
-				if (view === void 0 || view.models.length === 0) return;
-				if (draft !== void 0 && view.models.some((entry) => entry.uid === draft.uid)) return;
+				if (view === void 0) return;
+				if (draft !== void 0 && (draft.uid === "new" || view.models.some((entry) => entry.uid === draft.uid))) return;
+				if (view.models.length === 0) {
+					setDraft({
+						...BLANK,
+						api: view.protocols[0] ?? ""
+					});
+					return;
+				}
 				const first = view.models.find((entry) => entry.uid === view.defaultUid) ?? view.models[0];
 				setDraft(draftOf(first, view.defaultUid));
 			}, [view, draft]);
@@ -1284,13 +1304,12 @@ window.__ModuleLoader__.load({
 				}
 				setDraft(void 0);
 			};
-			const remove = async () => {
-				if (draft === void 0 || draft.uid === "new") return;
-				if (!await store.deleteModel(draft.uid)) {
+			const removeUid = async (uid, id) => {
+				if (!await store.deleteModel(uid)) {
 					setFailure(t("error.operationFailed"));
 					return;
 				}
-				setNote(t("settings.modelDeleted", { model: draft.id }));
+				setNote(t("settings.modelDeleted", { model: id }));
 				setDraft(void 0);
 			};
 			const importFrom = async () => {
@@ -1303,6 +1322,7 @@ window.__ModuleLoader__.load({
 				setNote(t("settings.modelImported"));
 				setDraft(void 0);
 			};
+			const currentLabel = draft === void 0 ? t("settings.modelPickNone") : draft.uid === "new" ? t("settings.modelNewDraft") : `${draft.uid === view.defaultUid ? "★ " : ""}${draft.id}${draft.label !== "" ? ` · ${draft.label}` : ""}`;
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
 				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
 					className: DockSection_module_css_default.subTitle,
@@ -1323,12 +1343,69 @@ window.__ModuleLoader__.load({
 				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.rowLine,
 					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.dd,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								className: DockSection_module_css_default.ddTrigger,
+								onClick: () => {
+									setOpen(!open);
+								},
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DockSection_module_css_default.ddLabel,
+									children: currentLabel
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DockSection_module_css_default.ddCaret,
+									children: "▾"
+								})]
+							}), open && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: DockSection_module_css_default.ddPanel,
+								children: [view.models.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.ddItemMuted,
+									children: t("settings.modelEmpty")
+								}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: draft?.uid === entry.uid ? DockSection_module_css_default.ddItemActive : DockSection_module_css_default.ddItem,
+									onClick: () => {
+										setFailure(void 0);
+										setDraft(draftOf(entry, view.defaultUid));
+										setOpen(false);
+									},
+									children: [
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.modelStar,
+											children: entry.uid === view.defaultUid ? "★" : ""
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: entry.id }),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.mutedCell,
+											children: entry.providerLabel ?? ""
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+										entry.apiKeySet === false && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+											className: DockSection_module_css_default.modelWarn,
+											children: t("settings.modelKeyMissing")
+										}),
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+											type: "button",
+											className: DockSection_module_css_default.ddX,
+											title: t("settings.modelDelete"),
+											onClick: (event) => {
+												event.stopPropagation();
+												removeUid(entry.uid, entry.id);
+											},
+											children: "✕"
+										})
+									]
+								}, entry.uid))]
+							})]
+						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
 							variant: "primary",
 							disabled: busy,
 							onClick: () => {
 								setFailure(void 0);
+								setOpen(false);
 								setDraft({
 									...BLANK,
 									api: view.protocols[0] ?? "",
@@ -1362,193 +1439,162 @@ window.__ModuleLoader__.load({
 						})
 					]
 				}),
-				/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
-					className: DockSection_module_css_default.modelList,
-					children: [view.models.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
-						className: DockSection_module_css_default.modelItemMuted,
-						children: t("settings.modelEmpty")
-					}), view.models.map((entry) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
-						type: "button",
-						className: draft?.uid === entry.uid ? DockSection_module_css_default.modelItemActive : DockSection_module_css_default.modelItem,
-						onClick: () => {
-							setFailure(void 0);
-							setDraft(draftOf(entry, view.defaultUid));
-						},
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.modelStar,
-								children: entry.uid === view.defaultUid ? "★" : ""
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: entry.id }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.mutedCell,
-								children: entry.providerLabel ?? ""
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
-							entry.apiKeySet === false && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.modelWarn,
-								children: t("settings.modelKeyMissing")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-								className: DockSection_module_css_default.mutedCell,
-								children: entry.baseURL !== void 0 && entry.baseURL !== "" ? entry.baseURL : t("settings.modelCatalogEndpoint")
-							})
-						]
-					}) }, entry.uid))]
-				}),
-				draft === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-					className: DockSection_module_css_default.mutedCell,
-					children: t("settings.modelDetailHint")
-				}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelIdField")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.id,
-							onChange: (event) => {
-								patch({ id: event.target.value });
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelNameField")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.name,
-							onChange: (event) => {
-								patch({ name: event.target.value });
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelBaseUrl")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.baseURL,
-							placeholder: "https://gateway.example/v1",
-							onChange: (event) => {
-								patch({ baseURL: event.target.value });
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelApi")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
-							className: DockSection_module_css_default.verSelect,
-							value: draft.api,
-							onChange: (event) => {
-								patch({ api: event.target.value });
-							},
-							children: view.protocols.map((protocol) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-								value: protocol,
-								children: protocol
-							}, protocol))
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelKey")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							type: "password",
-							value: draft.apiKey,
-							placeholder: draft.apiKeySet ? t("settings.modelKeyStored") : t("settings.modelKeyPlaceholder"),
-							onChange: (event) => {
-								patch({ apiKey: event.target.value });
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
-							className: DockSection_module_css_default.labelCol,
-							children: t("settings.modelProviderLabel")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-							className: DockSection_module_css_default.grow,
-							value: draft.label,
-							placeholder: t("settings.modelProviderLabelHint"),
-							onChange: (event) => {
-								patch({ label: event.target.value });
-							}
-						})]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.modelField,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+				/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+					className: DockSection_module_css_default.detailFrame,
+					children: draft === void 0 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.mutedCell,
+						children: t("settings.modelDetailHint")
+					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: DockSection_module_css_default.labelCol,
-								children: t("settings.modelCapacity")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								className: DockSection_module_css_default.capInput,
-								value: draft.ctx,
-								placeholder: "256K",
+								children: t("settings.modelIdField")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								value: draft.id,
 								onChange: (event) => {
-									patch({ ctx: event.target.value });
+									patch({ id: event.target.value });
 								}
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								className: DockSection_module_css_default.capInput,
-								value: draft.max,
-								placeholder: "32K",
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelNameField")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								value: draft.name,
 								onChange: (event) => {
-									patch({ max: event.target.value });
+									patch({ name: event.target.value });
 								}
-							})
-						]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
-						className: DockSection_module_css_default.rowLine,
-						children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
-								className: DockSection_module_css_default.checkLine,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
-									type: "checkbox",
-									checked: draft.isDefault,
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelBaseUrl")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								value: draft.baseURL,
+								placeholder: "https://gateway.example/v1",
+								onChange: (event) => {
+									patch({ baseURL: event.target.value });
+								}
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelApi")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("select", {
+								className: DockSection_module_css_default.verSelect,
+								value: draft.api,
+								onChange: (event) => {
+									patch({ api: event.target.value });
+								},
+								children: view.protocols.map((protocol) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+									value: protocol,
+									children: protocol
+								}, protocol))
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelKey")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								type: "password",
+								value: draft.apiKey,
+								placeholder: draft.apiKeySet ? t("settings.modelKeyStored") : t("settings.modelKeyPlaceholder"),
+								onChange: (event) => {
+									patch({ apiKey: event.target.value });
+								}
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("settings.modelProviderLabel")
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								value: draft.label,
+								placeholder: t("settings.modelProviderLabelHint"),
+								onChange: (event) => {
+									patch({ label: event.target.value });
+								}
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.modelField,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DockSection_module_css_default.labelCol,
+									children: t("settings.modelCapacity")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+									className: DockSection_module_css_default.capInput,
+									value: draft.ctx,
+									placeholder: "256K",
 									onChange: (event) => {
-										patch({ isDefault: event.target.checked });
+										patch({ ctx: event.target.value });
 									}
-								}), t("settings.modelDefault")]
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								disabled: busy || draft.uid === "new",
-								onClick: () => {
-									remove();
-								},
-								children: t("settings.modelDelete")
-							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-								size: "sm",
-								variant: "primary",
-								disabled: busy,
-								onClick: () => {
-									save();
-								},
-								children: busy ? t("settings.modelSaving") : t("settings.modelSave")
-							})
-						]
-					}),
-					failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-						className: DockSection_module_css_default.errorNote,
-						children: failure
-					})
-				] }),
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+									className: DockSection_module_css_default.capInput,
+									value: draft.max,
+									placeholder: "32K",
+									onChange: (event) => {
+										patch({ max: event.target.value });
+									}
+								})
+							]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.rowLine,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+									className: DockSection_module_css_default.checkLine,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+										type: "checkbox",
+										checked: draft.isDefault,
+										onChange: (event) => {
+											patch({ isDefault: event.target.checked });
+										}
+									}), t("settings.modelDefault")]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.grow }),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									disabled: busy || draft.uid === "new",
+									onClick: () => {
+										removeUid(draft.uid, draft.id);
+									},
+									children: t("settings.modelDelete")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									variant: "primary",
+									disabled: busy,
+									onClick: () => {
+										save();
+									},
+									children: busy ? t("settings.modelSaving") : t("settings.modelSave")
+								})
+							]
+						}),
+						failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: DockSection_module_css_default.errorNote,
+							children: failure
+						})
+					] })
+				}),
 				view.providers.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.footerNote,
 					children: t("settings.modelProvidersNote", {
@@ -1559,10 +1605,6 @@ window.__ModuleLoader__.load({
 				note !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 					className: DockSection_module_css_default.footerNote,
 					children: note
-				}),
-				draft === void 0 && failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
-					className: DockSection_module_css_default.errorNote,
-					children: failure
 				})
 			] });
 		}
@@ -2318,6 +2360,7 @@ window.__ModuleLoader__.load({
 			"settings.modelCatalogEndpoint": "目录默认端点",
 			"settings.modelPick": "选择模型",
 			"settings.modelPickNone": "(未选择模型)",
+			"settings.modelNewDraft": "(新模型,未保存)",
 			"settings.modelNew": "新增",
 			"settings.modelDetailHint": "从上面的下拉列表选一个模型来查看/修改,或点「新增」。",
 			"settings.modelProviderLabel": "提供方名称",
@@ -2480,6 +2523,7 @@ window.__ModuleLoader__.load({
 			"settings.modelCatalogEndpoint": "catalog endpoint",
 			"settings.modelPick": "Choose a model",
 			"settings.modelPickNone": "(no model selected)",
+			"settings.modelNewDraft": "(new model, unsaved)",
 			"settings.modelNew": "New",
 			"settings.modelDetailHint": "Pick a model above to view/edit it, or press New.",
 			"settings.modelProviderLabel": "Provider name",

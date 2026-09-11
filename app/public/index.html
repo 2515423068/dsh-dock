@@ -687,13 +687,19 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .fetch-item { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 13px; }
 .fetch-item code { font-family: var(--dsw-font-code); font-size: 12.5px; }
 .fetch-list { max-height: 320px; overflow: auto; border: 0.5px solid var(--dsw-border-l4); border-radius: 10px; padding: 8px 10px; }
-.model-list { max-height: 260px; overflow: auto; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; margin-bottom: 12px; }
-.model-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 13px; line-height: 20px; cursor: pointer; border-bottom: 0.5px solid var(--dsw-border-l2); }
-.model-item:last-child { border-bottom: none; }
-.model-item:hover { background: var(--dsw-chip-hover); }
-.model-item.active { background: color-mix(in srgb, var(--dsw-link) 10%, transparent); box-shadow: inset 2px 0 0 var(--dsw-link); }
+.dd { position: relative; display: inline-block; }
+.dd-trigger { display: flex; align-items: center; gap: 10px; min-width: 320px; max-width: 460px; height: 32px; padding: 0 10px; border: 0.5px solid var(--dsw-border-l4); border-radius: 8px; background: var(--dsw-bg-module, transparent); color: var(--dsw-label-primary); font-size: 13px; cursor: pointer; }
+.dd-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
+.dd-caret { flex: 0 0 auto; color: var(--dsw-label-tertiary); }
+.dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 100%; max-height: 300px; overflow: auto; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
+.dd-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 20px; cursor: pointer; }
+.dd-item:hover { background: var(--dsw-chip-hover); }
+.dd-item.active { background: color-mix(in srgb, var(--dsw-link) 10%, transparent); }
+.dd-x { flex: 0 0 auto; width: 22px; height: 22px; padding: 0; border: none; border-radius: 6px; background: transparent; color: var(--dsw-label-tertiary); font-size: 12px; line-height: 22px; cursor: pointer; }
+.dd-x:hover { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
 .model-star { width: 12px; color: var(--dsw-state-warn); flex: 0 0 auto; }
 .chip-warn { color: var(--dsw-state-error); background: var(--dsw-state-error-bg); }
+.model-detail-frame { min-height: 316px; }
 </style>
 </head>
 <body>
@@ -1473,17 +1479,22 @@ async function renderSettings() {
       </div>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
     </div>
-    <div class="panel"><h2>模型配置 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">一行一个模型,连它所属提供方的连接信息(API 地址 / 协议 / 密钥 / 提供方名称)一起存。新建容器时,连接信息相同的模型会自动归纳成一个 llm-pi-ai.providers 条目,标 ★ 的那个写进 agent-default-model。API 密钥只存本机 state/model-keys.json(0600),接口只回显「已配置/缺失」。</span></span></h2>
-      <p class="muted" style="margin-bottom:10px">点列表里的模型即选中,下方直接改;同提供方的模型只填一次连接信息(或从容器导入),建容器时自动归纳。</p>
+    <div class="panel"><h2>模型配置 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">一行一个模型,连它所属提供方的连接信息(API 地址 / 协议 / 密钥 / 提供方名称)一起存。新建容器时,连接信息相同的模型自动归纳成一个 llm-pi-ai.providers 条目,标 ★ 的写进 agent-default-model。API 密钥只存本机 state/model-keys.json(0600),接口只回显「已配置/缺失」。</span></span></h2>
+      <p class="muted" style="margin-bottom:10px">下拉里每一项末尾的 ✕ 可直接删除;下方表单始终显示,内容跟着当前选中的模型走。</p>
       ${modelConfigImportedChip(modelView)}
-      <div class="row" style="margin-bottom:10px">
+      <div class="row" style="margin-bottom:12px">
+        <div class="dd" id="model-dd">
+          <button type="button" class="dd-trigger" onclick="toggleModelDropdown()">
+            <span id="model-dd-label" class="dd-label"></span><span class="dd-caret">▾</span>
+          </button>
+          <div class="dd-panel" id="model-dd-panel" hidden></div>
+        </div>
         <button class="primary" onclick="newModel()">+ 新增模型</button>
         <span style="flex:1"></span>
         <select id="s-impsrc" class="ver-select">${(containers ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('') || '<option value="">(无容器)</option>'}</select>
         <button onclick="importModelConfig()">从容器导入</button>
       </div>
-      <div id="model-list" class="model-list"></div>
-      <div id="model-detail"></div>
+      <div id="model-detail" class="model-detail-frame"></div>
       <p class="muted" id="model-providers" style="margin-top:10px"></p>
     </div>`
   // 外观 cube:渲染后绑定点击并同步选中态
@@ -1491,12 +1502,9 @@ async function renderSettings() {
     b.onclick = () => setTheme(b.dataset.theme)
   })
   applyTheme(themePref())
-  // 默认选中 ★ 模型(或第一个),让详情表单一开始就有内容
-  if (modelDetail === null && modelViewCache.models.length > 0) {
-    selectModel(modelViewCache.defaultUid || modelViewCache.models[0].uid)
-  } else {
-    renderModelPanel()
-  }
+  // 详情区固定显示:默认落到 ★ 模型 / 第一个 / 新建草稿
+  ensureModelSelection()
+  renderModelPanel()
 }
 async function saveSettings() {
   try {
@@ -1513,9 +1521,10 @@ async function saveSettings() {
     toast('已保存')
   } catch (error) { toast(`保存失败: ${error}`, true) }
 }
-// ── 模型配置表:列表点选 + 详情编辑 + 从容器导入(一行一个模型) ──
+// ── 模型配置表:自定义下拉(每项带 ✕ 删除)+ 固定详情表单 ──
 let modelViewCache = { models: [], providers: [], presets: [], protocols: [], defaultUid: '' }
 let modelDetail = null
+let modelDropdownOpen = false
 
 /** 容量显示:整 K/M 才缩写。 */
 function capText(n) {
@@ -1541,27 +1550,45 @@ function modelConfigImportedChip(view) {
   return `<div class="row" style="margin-bottom:8px"><span class="chip" title="${escapeHtml(when)}">${label}</span></div>`
 }
 
-/** 重新拉一次配置表并只重绘列表 + 详情(不动整页,免得丢掉导入下拉的选择)。 */
-async function refreshModelView() {
-  modelViewCache = await api('/api/model-configs')
-  renderModelPanel()
-}
-/** 点列表 = 选中:立即刷新下方详情。 */
-function selectModel(uid) {
-  const row = modelViewCache.models.find((m) => m.uid === uid)
-  if (row === undefined) return
-  modelDetail = {
+function draftFrom(row) {
+  return {
     uid: row.uid, mode: 'edit', id: row.id, name: row.name ?? '', api: row.api ?? '', baseURL: row.baseURL ?? '',
     apiKey: '', apiKeySet: row.apiKeySet === true, apiKeyEnv: row.apiKeyEnv ?? '', label: row.label ?? '',
     ctx: capText(row.contextWindow), max: capText(row.maxTokens), isDefault: row.uid === modelViewCache.defaultUid,
   }
-  renderModelPanel()
 }
-function newModel() {
-  modelDetail = {
+function blankDraft() {
+  return {
     uid: 'new', mode: 'new', id: '', name: '', api: modelViewCache.protocols[0] ?? '', baseURL: '', apiKey: '',
     apiKeySet: false, apiKeyEnv: '', label: '', ctx: '', max: '', isDefault: modelViewCache.models.length === 0,
   }
+}
+/** 详情区永远有内容:选中项被删/表空时自动落到 ★ / 第一个 / 新建草稿。 */
+function ensureModelSelection() {
+  const models = modelViewCache.models
+  if (modelDetail !== null && (modelDetail.uid === 'new' || models.some((m) => m.uid === modelDetail.uid))) return
+  if (models.length === 0) { modelDetail = blankDraft(); return }
+  modelDetail = draftFrom(models.find((m) => m.uid === modelViewCache.defaultUid) ?? models[0])
+}
+async function refreshModelView() {
+  modelViewCache = await api('/api/model-configs')
+  ensureModelSelection()
+  renderModelPanel()
+}
+function toggleModelDropdown() {
+  modelDropdownOpen = !modelDropdownOpen
+  renderModelPanel()
+}
+function selectModel(uid) {
+  const row = modelViewCache.models.find((m) => m.uid === uid)
+  if (row === undefined) return
+  modelDetail = draftFrom(row)
+  modelDropdownOpen = false
+  renderModelPanel()
+}
+function newModel() {
+  modelDetail = blankDraft()
+  modelDropdownOpen = false
   renderModelPanel()
   $('#m-id')?.focus()
 }
@@ -1583,20 +1610,45 @@ function applyModelTemplate(presetId) {
   }
   renderModelPanel()
 }
+/** 下拉项末尾的 ✕:删完保持下拉打开,列表就地刷新。 */
+async function deleteModelRow(uid, event) {
+  if (event) event.stopPropagation()
+  const row = modelViewCache.models.find((m) => m.uid === uid)
+  if (row === undefined) return
+  if (!confirm(`删除模型 ${row.id}?`)) return
+  try {
+    await api(`/api/model-configs/models/${encodeURIComponent(uid)}`, { method: 'DELETE' })
+    toast(`已删除 ${row.id}`)
+    if (modelDetail !== null && modelDetail.uid === uid) modelDetail = null
+    modelViewCache = await api('/api/model-configs')
+    ensureModelSelection()
+    renderModelPanel()
+  } catch (error) { toast(`删除失败: ${error}`, true) }
+}
 
 function renderModelPanel() {
-  const list = $('#model-list')
-  if (list === null) return
-  list.innerHTML = modelViewCache.models.length === 0
-    ? '<div class="model-item" style="cursor:default"><span class="muted">表里还没有模型,点「+ 新增模型」或从容器导入</span></div>'
-    : modelViewCache.models.map((m) => `<div class="model-item ${modelDetail !== null && modelDetail.uid === m.uid ? 'active' : ''}" onclick="selectModel('${m.uid}')">
-        <span class="model-star">${m.uid === modelViewCache.defaultUid ? '★' : ''}</span>
-        <b>${escapeHtml(m.id)}</b>
-        <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
-        <span style="flex:1"></span>
-        ${m.apiKeySet === false ? '<span class="chip chip-warn">缺密钥</span>' : ''}
-        <span class="muted">${escapeHtml(m.baseURL || '目录默认端点')}</span>
-      </div>`).join('')
+  const label = $('#model-dd-label')
+  if (label === null) return
+  const current = modelDetail
+  label.textContent = current === null
+    ? '选择模型…'
+    : (current.uid === 'new'
+        ? '（新模型，未保存）'
+        : `${current.uid === modelViewCache.defaultUid ? '★ ' : ''}${current.id}${current.label ? ` · ${current.label}` : ''}`)
+  const panel = $('#model-dd-panel')
+  if (panel !== null) {
+    panel.hidden = !modelDropdownOpen
+    panel.innerHTML = modelViewCache.models.length === 0
+      ? '<div class="dd-item" style="cursor:default"><span class="muted">表里还没有模型</span></div>'
+      : modelViewCache.models.map((m) => `<div class="dd-item ${modelDetail !== null && modelDetail.uid === m.uid ? 'active' : ''}" onclick="selectModel('${m.uid}')">
+          <span class="model-star">${m.uid === modelViewCache.defaultUid ? '★' : ''}</span>
+          <b>${escapeHtml(m.id)}</b>
+          <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
+          <span style="flex:1"></span>
+          ${m.apiKeySet === false ? '<span class="chip chip-warn">缺密钥</span>' : ''}
+          <button type="button" class="dd-x" title="删除这个模型" onclick="deleteModelRow('${m.uid}', event)">✕</button>
+        </div>`).join('')
+  }
   renderModelDetail()
   const note = $('#model-providers')
   if (note !== null) {
@@ -1608,11 +1660,12 @@ function renderModelPanel() {
 function renderModelDetail() {
   const box = $('#model-detail')
   if (box === null) return
-  if (modelDetail === null) { box.innerHTML = '<p class="muted">点上面的列表选一个模型来查看/修改,或点「+ 新增模型」。</p>'; return }
-  const d = modelDetail
+  const d = modelDetail ?? blankDraft()
+  const actionLabel = d.uid === 'new' ? '保存为新模型' : '保存'
   const templates = modelViewCache.presets.map((p) => `<span class="chip" onclick="applyModelTemplate('${p.id}')">${escapeHtml(p.label)}</span>`).join('')
   box.innerHTML = `<div class="prov-row" style="display:block">
-    <div class="row" style="margin-bottom:8px"><span class="muted">快速填充</span>${templates}</div>
+    <div class="row" style="margin-bottom:8px"><span class="muted">快速填充</span>${templates}
+      <span style="flex:1"></span><span class="muted">${d.uid === 'new' ? '新建:填好后保存' : `当前:${escapeHtml(d.id)}`}</span></div>
     <div class="field"><label>模型 ID</label><input id="m-id" placeholder="提供方暴露的模型名" value="${escapeHtml(d.id)}"></div>
     <div class="field"><label>显示名</label><input id="m-name" placeholder="留空用模型 ID" value="${escapeHtml(d.name)}"></div>
     <div class="field"><label>API 地址</label><input id="m-base" placeholder="https://gateway.example/v1" value="${escapeHtml(d.baseURL)}"></div>
@@ -1625,8 +1678,8 @@ function renderModelDetail() {
       <label class="muted" style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="m-default" ${d.isDefault ? 'checked' : ''}> 设为默认模型</label>
       <span id="m-err" style="color:var(--dsw-state-error);font-size:12.5px"></span>
       <span style="flex:1"></span>
-      <button class="danger" ${d.uid === 'new' ? 'disabled' : ''} onclick="deleteModel()">删除</button>
-      <button class="primary" onclick="saveModel()">保存</button>
+      <button class="danger" ${d.uid === 'new' ? 'disabled' : ''} onclick="deleteSelectedModel()">删除</button>
+      <button class="primary" onclick="saveModel()">${actionLabel}</button>
     </div>
   </div>`
 }
@@ -1636,7 +1689,7 @@ function readModelDetail() {
     name: $('#m-name').value.trim(),
     api: $('#m-api').value,
     baseURL: $('#m-base').value.trim(),
-    apiKeyEnv: modelDetail.apiKeyEnv ?? '',
+    apiKeyEnv: modelDetail?.apiKeyEnv ?? '',
     apiKey: $('#m-key').value,
     label: $('#m-label').value.trim(),
     contextWindow: parseCap($('#m-ctx').value),
@@ -1662,19 +1715,23 @@ async function saveModel() {
       if (saved !== undefined) await api('/api/model-configs/default', { method: 'POST', body: { uid: saved.uid } })
     }
     toast(`已保存 ${d.id}`)
+    modelViewCache = await api('/api/model-configs')
     modelDetail = null
-    await refreshModelView()
+    ensureModelSelection()
+    renderModelPanel()
   } catch (error) { fail(String(error)) }
 }
-async function deleteModel() {
+async function deleteSelectedModel() {
   if (modelDetail === null || modelDetail.uid === 'new') return
+  const uid = modelDetail.uid
   if (!confirm(`删除模型 ${modelDetail.id}?`)) return
-  const removed = modelDetail.id
   try {
-    await api(`/api/model-configs/models/${encodeURIComponent(modelDetail.uid)}`, { method: 'DELETE' })
-    toast(`已删除 ${removed}`)
+    await api(`/api/model-configs/models/${encodeURIComponent(uid)}`, { method: 'DELETE' })
+    toast(`已删除 ${modelDetail.id}`)
     modelDetail = null
-    await refreshModelView()
+    modelViewCache = await api('/api/model-configs')
+    ensureModelSelection()
+    renderModelPanel()
   } catch (error) { toast(`删除失败: ${error}`, true) }
 }
 async function importModelConfig() {
@@ -1685,9 +1742,19 @@ async function importModelConfig() {
     const info = r.import ?? {}
     toast(`导入完成:新增 ${(info.added ?? []).length} / 更新 ${(info.updated ?? []).length} 个模型${(info.refKeys ?? []).length ? `,API Key ${info.refKeys.length} 枚` : ''}`)
     modelDetail = null
-    await refreshModelView()
+    modelViewCache = await api('/api/model-configs')
+    ensureModelSelection()
+    renderModelPanel()
   } catch (error) { toast(`导入失败: ${error}`, true) }
 }
+// 点空白处收起下拉
+document.addEventListener('click', (event) => {
+  if (!modelDropdownOpen) return
+  if (event.target.closest('#model-dd') === null) {
+    modelDropdownOpen = false
+    renderModelPanel()
+  }
+})
 
 // ── 弹窗 ──
 function openModal(title, html) {
