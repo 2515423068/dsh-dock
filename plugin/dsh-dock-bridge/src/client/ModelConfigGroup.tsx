@@ -219,9 +219,8 @@ export function ModelConfigGroup({ t, store }: { t: DockT; store: DockStore }): 
                   >
                     {entry.uid === view.defaultUid ? '★' : '☆'}
                   </button>
-                  <b>{entry.id}</b>
-                  <span className={css.ddMeta}>{entry.providerLabel ?? ''}</span>
-                  <span className={css.ddMeta}>{entry.baseURL ?? ''}</span>
+                  <b className={css.ddName}>{entry.name !== undefined && entry.name !== '' ? entry.name : entry.id}</b>
+                  <span className={css.ddProv}>{entry.providerLabel ?? ''}</span>
                   <span className={css.grow} />
                   <button
                     type="button"

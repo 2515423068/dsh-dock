@@ -611,6 +611,19 @@
   max-width: 100%;
 }
 
+.ddName {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ddProv {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary);
+}
+
 .ddTrigger {
   display: flex;
   align-items: center;

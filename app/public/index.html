@@ -687,12 +687,14 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .fetch-item { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 13px; }
 .fetch-item code { font-family: var(--dsw-font-code); font-size: 12.5px; }
 .fetch-list { max-height: 320px; overflow: auto; border: 0.5px solid var(--dsw-border-l4); border-radius: 10px; padding: 8px 10px; }
-.dd { position: relative; display: inline-block; }
-.dd-trigger { display: flex; align-items: center; gap: 10px; min-width: 420px; max-width: 100%; height: 32px; padding: 0 10px; border: 0.5px solid var(--dsw-border-l4); border-radius: 8px; background: var(--dsw-bg-module, transparent); color: var(--dsw-label-primary); font-size: 13px; cursor: pointer; }
+.dd { position: relative; display: block; width: 100%; max-width: 860px; }
+.dd-trigger { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; max-width: 100%; height: 32px; padding: 0 10px; border: 0.5px solid var(--dsw-border-l4); border-radius: 8px; background: var(--dsw-bg-module, transparent); color: var(--dsw-label-primary); font-size: 13px; cursor: pointer; }
 .dd-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
 .dd-caret { flex: 0 0 auto; color: var(--dsw-label-tertiary); }
-.dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: min(860px, 92vw); min-width: 100%; max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
+.dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: 100%; box-sizing: border-box; max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
 .dd-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; font-size: 13px; line-height: 20px; cursor: pointer; }
+.dd-name { flex: 0 0 auto; white-space: nowrap; }
+.dd-prov { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--dsw-label-tertiary); }
 .dd-tag { flex: 0 0 auto; padding: 0 6px; border-radius: 8px; font-size: 11px; line-height: 18px; color: var(--dsw-label-tertiary); background: var(--dsw-state-neutral-bg); }
 .dd-item:hover { background: var(--dsw-chip-hover); }
 .dd-item.active { background: color-mix(in srgb, var(--dsw-link) 10%, transparent); }
@@ -1671,9 +1673,8 @@ function renderModelPanel() {
       ? '<div class="dd-item" style="cursor:default"><span class="muted">表里还没有模型</span></div>'
       : modelViewCache.models.map((m) => `<div class="dd-item ${modelDetail !== null && modelDetail.uid === m.uid ? 'active' : ''}" onclick="selectModel('${m.uid}')">
           <button type="button" class="dd-star ${m.uid === modelViewCache.defaultUid ? 'on' : ''}" title="${m.uid === modelViewCache.defaultUid ? '当前默认模型' : '设为默认模型'}" onclick="setDefaultRow('${m.uid}', event)">${m.uid === modelViewCache.defaultUid ? '★' : '☆'}</button>
-          <b>${escapeHtml(m.id)}</b>
-          <span class="muted">${escapeHtml(m.providerLabel || '')}</span>
-          <span class="muted">${escapeHtml(m.baseURL || '目录默认端点')}</span>
+          <b class="dd-name">${escapeHtml(m.name || m.id)}</b>
+          <span class="dd-prov">${escapeHtml(m.providerLabel || '')}</span>
           <span style="flex:1"></span>
           <button type="button" class="dd-x" title="删除这个模型" onclick="deleteModelRow('${m.uid}', event)">✕</button>
         </div>`).join('') + (modelViewCache.passthrough ?? []).map((p) => `<div class="dd-item">
