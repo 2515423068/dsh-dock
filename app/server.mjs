@@ -698,20 +698,6 @@ function splitYamlTopLevel(text) {
   return sections
 }
 
-// 提取 .credentials.yaml 的 refs 块(原样保留缩进与值;无 refs 或为空返回 null)
-function extractCredentialRefs(text) {
-  const lines = String(text).split('\n')
-  const i = lines.findIndex((line) => /^refs:/.test(line))
-  if (i === -1) return null
-  const out = [lines[i]]
-  for (let j = i + 1; j < lines.length; j++) {
-    if (/^[A-Za-z]/.test(lines[j])) break
-    out.push(lines[j])
-  }
-  const block = out.join('\n').replace(/\n+$/, '')
-  return block.trimEnd().length > 'refs:'.length ? block : null
-}
-
 // 把模板里的 refs 块(flow 或块映射,如 `refs: { K: "v" }` / `refs:\n  K: v`)抽成
 // 扁平 `KEY: value` 行。扁平布局是最老的凭据格式:0.1.0-* 旧版直接可读,
 // 0.1.1+ 新版 loadInitial 检测到扁平布局会自动迁移成 version:1/refs 并落盘,
@@ -726,24 +712,884 @@ function flatRefEntries(refsBlock) {
   return entries
 }
 
-function profileTemplateInfo() {
-  if (!fs.existsSync(tplSettingsPath())) return { exists: false }
-  const meta = readJson(tplMetaPath(), {})
-  const sections = [...splitYamlTopLevel(fs.readFileSync(tplSettingsPath(), 'utf8')).keys()]
-  const refKeys = []
-  if (fs.existsSync(tplRefsPath())) {
-    for (const line of fs.readFileSync(tplRefsPath(), 'utf8').split('\n')) {
-      const m = line.match(/^\s{2,}([A-Za-z0-9_-]+):/)
-      if (m) refKeys.push(m[1])
-    }
-  }
-  return { exists: true, capturedAt: meta.capturedAt ?? null, source: meta.source ?? null, sections, refKeys }
+// ── 模型配置表(新容器初始配置) ─────────────────────────────────────────────
+// 维护一张「提供方(provider)」表,每行 = DSH `llm-pi-ai.providers` 的一个 route:
+// 协议 / 端点 / 密钥引用 / 模型清单。可手工增删改,也可从某个已配置容器一键导入
+// (读它的 profile/settings.yaml + .credentials.yaml)。新建容器时把全表写进
+// settings.yaml、默认模型写进 agent-default-model、密钥写进 .credentials.yaml 的
+// refs —— 首次打开即可直接选模型,不再弹「API Key 录入」。
+//
+// 存储拆成两个文件,避免密钥混进可读配置:
+//   state/model-configs.json  非敏感配置(provider 表 / 默认模型 / 非模型配置段)
+//   state/model-keys.json     API Key 值(0600,接口只回显「已设置」,绝不回显值)
+// 旧版整份捕获的 state/profile-template/ 仍可读:首次加载时自动迁移进本表。
+
+const MODEL_CONFIG_PATH = () => path.join(STATE_DIR, 'model-configs.json')
+const MODEL_KEYS_PATH = () => path.join(STATE_DIR, 'model-keys.json')
+// 测试版公告确认值:与上游 ui-onboarding.welcomeNoticeVersion 对齐,写进去即免弹窗
+const ONBOARDING_NOTICE_VERSION = '2026-08-13.1'
+// pi-ai 的三种线协议(见 harness packages/llm/llm-pi-ai/src/catalog.ts)
+const PROVIDER_API_PROTOCOLS = ['openai-completions', 'openai-responses', 'anthropic-messages']
+// provider 键(route 名):对齐上游「小写字母开头 + 小写字母/数字/短横线分段」——
+// 首字母必须是字母,因为凭据引用由 <ROUTE>_API_KEY 派生,而凭据名是 shell 标识符,
+// 不能以数字开头(见 harness packages/llm/llm-pi-ai/src/auth.ts)。
+const PROVIDER_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+const MODEL_MODALITIES = ['text', 'image']
+
+/** 由 provider id 派生凭据引用:acme-gw → ACME_GW_API_KEY(与上游 deriveKeyRef 同构)。 */
+function deriveKeyRef(id) {
+  return `${String(id).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_API_KEY`
 }
 
-// 注入到新建容器:settings.yaml 整文件拷贝(创建期该文件尚不存在,DSH 首次运行
-// 才生成,加载我们的版本后其余值走 schema 默认);凭据文件同理,已存在时保留
-// 其余顶层段、仅替换 refs 块。
+// 上游 pi-ai 内置目录里的常见 route(只有一条 API Key 就能用,模型清单由目录提供)。
+// 名单随安装的 pi-ai 版本变化,这里只做「添加提供方」的快捷入口,不校验合法性。
+const CATALOG_PROVIDER_PRESETS = [
+  ['openrouter', 'OpenRouter'],
+  ['deepseek', 'DeepSeek(pi-ai 目录)'],
+  ['openai', 'OpenAI'],
+  ['anthropic', 'Anthropic'],
+  ['google', 'Google Gemini'],
+  ['groq', 'Groq'],
+  ['mistral', 'Mistral'],
+  ['xai', 'xAI'],
+  ['nvidia', 'NVIDIA NIM'],
+  ['moonshotai', 'Moonshot'],
+  ['zai', 'Z.ai'],
+  ['together', 'Together'],
+  ['cerebras', 'Cerebras'],
+  ['fireworks', 'Fireworks'],
+  ['huggingface', 'Hugging Face'],
+]
+
+/** 内置预设:「目录提供方」只差一把 Key;「自定义模板」给出端点与模型骨架。 */
+const PROVIDER_PRESETS = [
+  ...CATALOG_PROVIDER_PRESETS.map(([id, displayName]) => ({
+    id,
+    label: displayName,
+    hint: `pi-ai 内置目录路由:只需填 API 密钥,模型清单由 DSH 目录提供(${id})`,
+    kind: 'catalog',
+    provider: { id, displayName, api: '', baseURL: '', apiKeyEnv: deriveKeyRef(id), models: [] },
+  })),
+  {
+    id: 'llama-local',
+    label: '本地 llama.cpp',
+    hint: 'llama-launcher 的 OpenAI 兼容端点;本地服务不校验密钥,占位填 local 即可',
+    kind: 'custom',
+    provider: {
+      id: 'llama-local',
+      displayName: '本地 llama.cpp',
+      api: 'openai-completions',
+      baseURL: 'http://127.0.0.1:8080/v1',
+      apiKeyEnv: deriveKeyRef('llama-local'),
+      models: [
+        { id: 'spark-x2.5-4b-q4-32k', name: '本地模型(模型 ID 需与 llama-server 暴露的一致)', contextWindow: 131072, maxTokens: 8192 },
+      ],
+    },
+    apiKey: 'local',
+  },
+  {
+    id: 'openrouter-free',
+    label: 'OpenRouter 免费模型',
+    hint: '显式列出 :free 模型(不依赖目录);需要 OPENROUTER_API_KEY',
+    kind: 'custom',
+    provider: {
+      id: 'openrouter-free',
+      displayName: 'OpenRouter 免费',
+      api: 'openai-completions',
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKeyEnv: 'OPENROUTER_API_KEY',
+      models: [
+        { id: 'openrouter/free', name: 'Free Models Router', contextWindow: 200000, maxTokens: 4096 },
+        { id: 'openai/gpt-oss-20b:free', name: 'OpenAI: gpt-oss-20b (free)', contextWindow: 131072, maxTokens: 32768 },
+      ],
+    },
+  },
+  {
+    id: 'custom',
+    label: '自定义 OpenAI 兼容端点',
+    hint: '任何 OpenAI 兼容网关(vLLM / Ollama / LM Studio / 中转站),填地址与模型 ID',
+    kind: 'custom',
+    provider: { id: 'my-provider', displayName: '', api: 'openai-completions', baseURL: '', apiKeyEnv: '', models: [] },
+  },
+]
+
+// ── 极简 YAML 子集解析/生成 ────────────────────────────────────────────────
+// 只用 Node 标准库(项目零第三方依赖)。覆盖 DSH settings.yaml / .credentials.yaml
+// 实际出现的结构:块映射、块序列、流式 {} / [],单双引号标量、数字/布尔/null、注释。
+// 不支持锚点/别名、`|`/`>` 块标量、多文档、标签 —— 遇到就按普通标量读,不抛异常。
+
+/** 去掉行尾注释(# 仅在行首或前面是空白时才是注释;引号内的 # 保留)。 */
+function yamlStripComment(line) {
+  let quote = null
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (quote !== null) {
+      if (ch === '\\' && quote === '"') { i++; continue }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue }
+    if (ch === '#' && (i === 0 || line[i - 1] === ' ' || line[i - 1] === '\t')) return line.slice(0, i)
+  }
+  return line
+}
+
+/** 判断以 { / [ 开头的流式片段是否已闭合(考虑引号内的括号)。 */
+function yamlFlowBalanced(text) {
+  let depth = 0
+  let quote = null
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (quote !== null) {
+      if (ch === '\\' && quote === '"') { i++; continue }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue }
+    if (ch === '{' || ch === '[') depth++
+    else if (ch === '}' || ch === ']') depth--
+  }
+  return depth <= 0
+}
+
+/** 跨行收集一段流式集合(js-yaml 会把嵌套流式结构折成多行)。 */
+function yamlFlowText(lines, index, prefix) {
+  let text = prefix
+  let i = index
+  while (!yamlFlowBalanced(text) && i + 1 < lines.length) {
+    i++
+    text += ` ${lines[i].content}`
+  }
+  return { text, next: i + 1 }
+}
+
+/** 解析流式集合 {} / []:递归下降,plain 标量读到 , } ] 为止。 */
+function yamlParseFlow(text) {
+  let i = 0
+  const skip = () => { while (i < text.length && /\s/.test(text[i])) i++ }
+  const parseQuoted = (quote) => {
+    let out = ''
+    i++
+    while (i < text.length) {
+      const ch = text[i]
+      if (quote === '"' && ch === '\\') {
+        const next = text[i + 1]
+        out += next === 'n' ? '\n' : next === 't' ? '\t' : next === 'r' ? '\r' : next
+        i += 2
+        continue
+      }
+      if (ch === quote) {
+        if (quote === "'" && text[i + 1] === "'") { out += "'"; i += 2; continue }
+        i++
+        break
+      }
+      out += ch
+      i++
+    }
+    return out
+  }
+  const parsePlain = () => {
+    const start = i
+    while (i < text.length && !',}]'.includes(text[i])) i++
+    return yamlParseScalar(text.slice(start, i).trim())
+  }
+  const parseValue = () => {
+    skip()
+    const ch = text[i]
+    if (ch === '{') return parseMap()
+    if (ch === '[') return parseSeq()
+    if (ch === '"' || ch === "'") return parseQuoted(ch)
+    return parsePlain()
+  }
+  const parseMap = () => {
+    const obj = {}
+    i++
+    for (;;) {
+      skip()
+      if (i >= text.length) break
+      if (text[i] === '}') { i++; break }
+      let key
+      if (text[i] === '"' || text[i] === "'") key = parseQuoted(text[i])
+      else {
+        const start = i
+        while (i < text.length && text[i] !== ':' && text[i] !== '}') i++
+        key = text.slice(start, i).trim()
+      }
+      skip()
+      if (text[i] === ':') i++
+      obj[key] = parseValue()
+      skip()
+      if (text[i] === ',') { i++; continue }
+      if (text[i] === '}') { i++; break }
+    }
+    return obj
+  }
+  const parseSeq = () => {
+    const arr = []
+    i++
+    for (;;) {
+      skip()
+      if (i >= text.length) break
+      if (text[i] === ']') { i++; break }
+      arr.push(parseValue())
+      skip()
+      if (text[i] === ',') { i++; continue }
+      if (text[i] === ']') { i++; break }
+    }
+    return arr
+  }
+  skip()
+  return parseValue()
+}
+
+/** 标量:引号 / null / 布尔 / 数字 / 普通字符串。 */
+function yamlParseScalar(text) {
+  const t = String(text).trim()
+  if (t === '') return null
+  if (t.startsWith('{') || t.startsWith('[')) return yamlParseFlow(t)
+  if (t.startsWith('"')) {
+    try { return JSON.parse(t) } catch { return t.replace(/^"|"$/g, '') }
+  }
+  if (t.startsWith("'")) return t.slice(1, -1).replace(/''/g, "'")
+  if (t === 'null' || t === '~') return null
+  if (/^(true|false)$/i.test(t)) return t.toLowerCase() === 'true'
+  if (/^-?(\d+|\d*\.\d+)([eE][-+]?\d+)?$/.test(t)) return Number(t)
+  return t
+}
+
+/** 拆 `key:` 与 `key: value`;找不到键分隔符返回 null。 */
+function yamlSplitKey(content) {
+  let quote = null
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i]
+    if (quote !== null) {
+      if (ch === '\\' && quote === '"') { i++; continue }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue }
+    if (ch === ':' && (i + 1 === content.length || content[i + 1] === ' ')) {
+      const rawKey = content.slice(0, i).trim()
+      const key = (rawKey.startsWith('"') || rawKey.startsWith("'")) ? String(yamlParseScalar(rawKey)) : rawKey
+      return { key, rest: content.slice(i + 1).trim() }
+    }
+  }
+  return null
+}
+
+function yamlParseMap(lines, start, indent) {
+  const map = {}
+  let i = start
+  while (i < lines.length && lines[i].indent === indent) {
+    const line = lines[i]
+    if (line.content === '-' || line.content.startsWith('- ')) break
+    const split = yamlSplitKey(line.content)
+    if (split === null) break
+    if (split.rest !== '') {
+      if (split.rest.startsWith('{') || split.rest.startsWith('[')) {
+        const { text, next } = yamlFlowText(lines, i, split.rest)
+        map[split.key] = yamlParseFlow(text)
+        i = next
+      } else {
+        map[split.key] = yamlParseScalar(split.rest)
+        i++
+      }
+      continue
+    }
+    const nextLine = lines[i + 1]
+    if (nextLine !== undefined && nextLine.indent > indent) {
+      const [child, next] = yamlParseBlock(lines, i + 1, nextLine.indent)
+      map[split.key] = child
+      i = next
+    } else if (nextLine !== undefined && nextLine.indent === indent && (nextLine.content === '-' || nextLine.content.startsWith('- '))) {
+      const [child, next] = yamlParseBlock(lines, i + 1, indent)
+      map[split.key] = child
+      i = next
+    } else {
+      map[split.key] = null
+      i++
+    }
+  }
+  return [map, i]
+}
+
+function yamlParseSeq(lines, start, indent) {
+  const arr = []
+  let i = start
+  while (i < lines.length && lines[i].indent === indent && (lines[i].content === '-' || lines[i].content.startsWith('- '))) {
+    const rest = lines[i].content === '-' ? '' : lines[i].content.slice(2).trim()
+    if (rest === '') {
+      const nextLine = lines[i + 1]
+      if (nextLine !== undefined && nextLine.indent > indent) {
+        const [child, next] = yamlParseBlock(lines, i + 1, nextLine.indent)
+        arr.push(child); i = next
+      } else {
+        arr.push(null); i++
+      }
+      continue
+    }
+    const split = yamlSplitKey(rest)
+    if (split !== null) {
+      // `- key: value` 紧凑映射:把本行改写成更深一级的映射行后按映射解析
+      const patched = lines.slice()
+      patched[i] = { indent: indent + 2, content: rest }
+      const [child, next] = yamlParseMap(patched, i, indent + 2)
+      arr.push(child); i = next
+      continue
+    }
+    if (rest.startsWith('{') || rest.startsWith('[')) {
+      const { text, next } = yamlFlowText(lines, i, rest)
+      arr.push(yamlParseFlow(text)); i = next
+      continue
+    }
+    arr.push(yamlParseScalar(rest)); i++
+  }
+  return [arr, i]
+}
+
+function yamlParseBlock(lines, start, indent) {
+  const line = lines[start]
+  if (line.content === '-' || line.content.startsWith('- ')) return yamlParseSeq(lines, start, indent)
+  if (line.content.startsWith('{') || line.content.startsWith('[')) {
+    const { text, next } = yamlFlowText(lines, start, line.content)
+    return [yamlParseFlow(text), next]
+  }
+  return yamlParseMap(lines, start, indent)
+}
+
+/** 解析 YAML 文本为 JS 值(见本节开头的支持范围)。 */
+function parseYamlSubset(text) {
+  const lines = []
+  for (const raw of String(text).replace(/\r\n?/g, '\n').split('\n')) {
+    const stripped = yamlStripComment(raw)
+    if (stripped.trim() === '') continue
+    const content = stripped.trim()
+    if (content === '---' || content === '...') continue
+    lines.push({ indent: stripped.length - stripped.trimStart().length, content })
+  }
+  if (lines.length === 0) return {}
+  const [value] = yamlParseBlock(lines, 0, lines[0].indent)
+  return value
+}
+
+/** 标量输出:能裸写就裸写,否则 JSON 引号(YAML 双引号串兼容 JSON 转义)。 */
+function yamlScalarText(value) {
+  if (value === null || value === undefined) return 'null'
+  if (typeof value === 'boolean' || typeof value === 'number') return String(value)
+  const text = String(value)
+  if (/^[A-Za-z0-9_][A-Za-z0-9_+./-]*$/.test(text) && !/^(true|false|null|yes|no|on|off|~)$/i.test(text)) return text
+  return JSON.stringify(text)
+}
+
+function yamlKeyText(key) {
+  return /^[A-Za-z_][A-Za-z0-9_.-]*$/.test(key) ? key : JSON.stringify(key)
+}
+
+/** 生成块式 YAML(标量数组写成流式 `[a, b]`,对象数组写成 `- key:` 紧凑块)。 */
+function toYamlBlock(value, indent = 0) {
+  const pad = ' '.repeat(indent)
+  if (Array.isArray(value)) {
+    if (value.length === 0) return `${pad}[]`
+    return value.map((item) => {
+      if (item !== null && typeof item === 'object') {
+        const bodyLines = toYamlBlock(item, indent + 2).split('\n')
+        const rest = bodyLines.length > 1 ? `\n${bodyLines.slice(1).join('\n')}` : ''
+        return `${pad}- ${bodyLines[0].slice(indent + 2)}${rest}`
+      }
+      return `${pad}- ${yamlScalarText(item)}`
+    }).join('\n')
+  }
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value).filter(([, v]) => v !== undefined)
+    if (entries.length === 0) return `${pad}{}`
+    return entries.map(([key, item]) => {
+      if (Array.isArray(item)) {
+        if (item.length === 0) return `${pad}${yamlKeyText(key)}: []`
+        if (item.every((x) => x === null || typeof x !== 'object')) {
+          return `${pad}${yamlKeyText(key)}: [${item.map(yamlScalarText).join(', ')}]`
+        }
+        return `${pad}${yamlKeyText(key)}:\n${toYamlBlock(item, indent + 2)}`
+      }
+      if (item !== null && typeof item === 'object') {
+        if (Object.keys(item).length === 0) return `${pad}${yamlKeyText(key)}: {}`
+        return `${pad}${yamlKeyText(key)}:\n${toYamlBlock(item, indent + 2)}`
+      }
+      return `${pad}${yamlKeyText(key)}: ${yamlScalarText(item)}`
+    }).join('\n')
+  }
+  return `${pad}${yamlScalarText(value)}`
+}
+
+// ── 模型配置表的读写与视图 ──────────────────────────────────────────────────
+
+/** 提供方行的规范化:未知字段丢弃,缺失字段补空,数字只留正整数。 */
+function normalizeModelRow(raw) {
+  const row = {}
+  if (typeof raw?.id === 'string') row.id = raw.id.trim()
+  if (typeof raw?.name === 'string') row.name = raw.name.trim()
+  for (const key of ['contextWindow', 'maxTokens']) {
+    const n = Number(raw?.[key])
+    if (Number.isInteger(n) && n > 0) row[key] = n
+  }
+  if (Array.isArray(raw?.input)) {
+    const input = raw.input.filter((m) => MODEL_MODALITIES.includes(m))
+    if (input.length > 0) row.input = [...new Set(input)]
+  }
+  return row
+}
+
+function normalizeStringMap(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const out = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && key.trim() !== '') out[key.trim()] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+function normalizeCompat(raw) {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const out = {}
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'boolean' || typeof value === 'string') out[key] = value
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+function normalizeProviderRow(raw) {
+  const row = {
+    id: typeof raw?.id === 'string' ? raw.id.trim() : '',
+    displayName: typeof raw?.displayName === 'string' ? raw.displayName.trim() : '',
+    api: typeof raw?.api === 'string' ? raw.api.trim() : '',
+    baseURL: typeof raw?.baseURL === 'string' ? raw.baseURL.trim() : '',
+    apiKeyEnv: typeof raw?.apiKeyEnv === 'string' ? raw.apiKeyEnv.trim() : '',
+  }
+  const headers = normalizeStringMap(raw?.headers)
+  if (headers) row.headers = headers
+  const compat = normalizeCompat(raw?.compat)
+  if (compat) row.compat = compat
+  row.models = Array.isArray(raw?.models) ? raw.models.map(normalizeModelRow).filter((m) => m.id) : []
+  return row
+}
+
+function normalizeModelConfig(raw) {
+  const providers = Array.isArray(raw?.providers) ? raw.providers.map(normalizeProviderRow).filter((p) => p.id) : []
+  const cfg = {
+    version: 1,
+    providers,
+    default: {
+      provider: typeof raw?.default?.provider === 'string' ? raw.default.provider.trim() : '',
+      model: typeof raw?.default?.model === 'string' ? raw.default.model.trim() : '',
+    },
+    basics: {
+      rawSections: {},
+    },
+    importedFrom: raw?.importedFrom && typeof raw.importedFrom === 'object' ? raw.importedFrom : null,
+  }
+  const rawSections = raw?.basics?.rawSections
+  if (rawSections !== null && typeof rawSections === 'object' && !Array.isArray(rawSections)) {
+    for (const [key, text] of Object.entries(rawSections)) {
+      if (typeof text === 'string' && text.trim() !== '') cfg.basics.rawSections[key] = text
+    }
+  }
+  reconcileDefaultModel(cfg)
+  return cfg
+}
+
+/** 默认模型必须落在现存 provider 的模型清单里;否则退到第一个可用模型。 */
+function reconcileDefaultModel(cfg) {
+  const provider = cfg.providers.find((p) => p.id === cfg.default.provider)
+  if (provider && provider.models.some((m) => m.id === cfg.default.model)) return
+  const first = cfg.providers.find((p) => p.models.length > 0)
+  cfg.default = first ? { provider: first.id, model: first.models[0].id } : { provider: '', model: '' }
+}
+
+function saveModelConfig(cfg) {
+  fs.mkdirSync(path.dirname(MODEL_CONFIG_PATH()), { recursive: true })
+  fs.writeFileSync(MODEL_CONFIG_PATH(), `${JSON.stringify(cfg, null, 2)}\n`)
+}
+
+function loadModelKeys() {
+  const keys = readJson(MODEL_KEYS_PATH(), {})
+  return (keys !== null && typeof keys === 'object' && !Array.isArray(keys)) ? keys : {}
+}
+
+function saveModelKeys(keys) {
+  fs.mkdirSync(path.dirname(MODEL_KEYS_PATH()), { recursive: true })
+  fs.writeFileSync(MODEL_KEYS_PATH(), `${JSON.stringify(keys, null, 2)}\n`, { mode: 0o600 })
+  fs.chmodSync(MODEL_KEYS_PATH(), 0o600)
+}
+
+/** 顶层配置段中不归模型表管的键(逐段原文保留,导入时不丢用户其他设置)。 */
+const MODEL_MANAGED_SECTIONS = ['llm-pi-ai', 'agent-default-model']
+
+function splitSectionsOutsideManaged(text) {
+  const sections = {}
+  for (const [key, block] of splitYamlTopLevel(text)) {
+    if (MODEL_MANAGED_SECTIONS.includes(key)) continue
+    sections[key] = block.trimEnd()
+  }
+  return sections
+}
+
+/** 从 settings.yaml 解析结果里抽 provider 行(兼容流式/块式两种写法)。 */
+function providersFromParsedSettings(parsed) {
+  const providers = parsed?.['llm-pi-ai']?.providers
+  if (providers === null || typeof providers !== 'object' || Array.isArray(providers)) return []
+  return Object.entries(providers)
+    .map(([id, profile]) => normalizeProviderRow({ id, ...(profile ?? {}) }))
+    .filter((p) => p.id)
+}
+
+function defaultFromParsedSettings(parsed) {
+  const def = parsed?.['agent-default-model']
+  if (def === null || typeof def !== 'object') return null
+  const provider = typeof def.provider === 'string' ? def.provider.trim() : ''
+  const model = typeof def.model === 'string' ? def.model.trim() : ''
+  return provider && model ? { provider, model } : null
+}
+
+/** 从 .credentials.yaml 解析结果里抽「环境变量名 → 值」(新版 refs 映射与旧版扁平布局都吃)。 */
+function credentialRefValues(parsed) {
+  const refs = parsed?.refs
+  if (refs !== null && typeof refs === 'object' && !Array.isArray(refs)) {
+    const out = {}
+    for (const [key, value] of Object.entries(refs)) if (typeof value === 'string') out[key] = value
+    return out
+  }
+  const out = {}
+  for (const [key, value] of Object.entries(parsed ?? {})) {
+    if (/^[A-Z][A-Z0-9_]*$/.test(key) && typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
+/**
+ * 读取模型配置表。首次调用时若只有旧版整份模板(state/profile-template/),
+ * 就地迁移成新表(旧文件保留不动,便于回退)。
+ * @returns 模型配置(始终是规范化结构)。
+ */
+function loadModelConfig() {
+  const raw = readJson(MODEL_CONFIG_PATH(), null)
+  if (raw !== null && typeof raw === 'object') return normalizeModelConfig(raw)
+  const migrated = migrateLegacyProfileTemplate()
+  if (migrated) return migrated
+  return normalizeModelConfig(null)
+}
+
+function migrateLegacyProfileTemplate() {
+  if (!fs.existsSync(tplSettingsPath())) return null
+  let parsed
+  try {
+    parsed = parseYamlSubset(fs.readFileSync(tplSettingsPath(), 'utf8'))
+  } catch (error) {
+    log(`旧模板迁移失败(将退回旧模板注入): ${error}`)
+    return null
+  }
+  const cfg = normalizeModelConfig({
+    providers: providersFromParsedSettings(parsed),
+    default: defaultFromParsedSettings(parsed) ?? { provider: '', model: '' },
+    basics: { rawSections: splitSectionsOutsideManaged(fs.readFileSync(tplSettingsPath(), 'utf8')) },
+    importedFrom: { ...readJson(tplMetaPath(), {}), migratedFromLegacy: true },
+  })
+  saveModelConfig(cfg)
+  let keyCount = 0
+  if (fs.existsSync(tplRefsPath())) {
+    let refs = {}
+    try { refs = credentialRefValues(parseYamlSubset(fs.readFileSync(tplRefsPath(), 'utf8'))) } catch { refs = {} }
+    const keys = loadModelKeys()
+    for (const provider of cfg.providers) {
+      const value = provider.apiKeyEnv ? refs[provider.apiKeyEnv] : undefined
+      if (typeof value === 'string' && value !== '') { keys[provider.id] = value; keyCount++ }
+    }
+    if (keyCount > 0) saveModelKeys(keys)
+  }
+  log(`已把旧初始配置模板迁移为模型配置表:${cfg.providers.length} 个提供方 / ${keyCount} 枚 API Key(旧文件保留)`)
+  return cfg
+}
+
+function modelConfigHasContent(cfg) {
+  return cfg.providers.length > 0 || Object.keys(cfg.basics.rawSections).length > 0
+}
+
+/**
+ * 从某个容器一键导入配置:读它的 profile/settings.yaml(提供方 + 默认模型 +
+ * 非模型配置段)与 .credentials.yaml(refs 密钥值),按提供方 ID 合并进表
+ * —— 同 ID 覆盖、新 ID 追加,密钥值只入 state/model-keys.json(接口不回显)。
+ * @param containerId - 来源容器 id。
+ * @returns 摘要 `{ added, updated, refKeys, defaultSet, default, source, providerCount }`,或 `{ error }`。
+ */
+function importModelConfigFromContainer(containerId) {
+  const cdir = path.join(CONTAINERS_DIR, String(containerId ?? ''))
+  const settingsSrc = path.join(cdir, 'profile', 'settings.yaml')
+  if (!containerId || !fs.existsSync(settingsSrc)) {
+    return { error: '来源容器还没有 profile/settings.yaml(先启动并完成一次模型配置,或换一个已配置的容器)' }
+  }
+  const settingsText = fs.readFileSync(settingsSrc, 'utf8')
+  let parsed
+  try {
+    parsed = parseYamlSubset(settingsText)
+  } catch (error) {
+    return { error: `解析来源容器 settings.yaml 失败: ${error}` }
+  }
+  const imported = providersFromParsedSettings(parsed)
+  if (imported.length === 0) {
+    return { error: '来源容器没有配置任何 llm-pi-ai 提供方' }
+  }
+  const cfg = loadModelConfig()
+  const keys = loadModelKeys()
+  const added = []
+  const updated = []
+  for (const provider of imported) {
+    const index = cfg.providers.findIndex((row) => row.id === provider.id)
+    if (index === -1) {
+      cfg.providers.push(provider)
+      added.push(provider.id)
+    } else {
+      cfg.providers[index] = provider
+      updated.push(provider.id)
+    }
+  }
+  for (const [key, text] of Object.entries(splitSectionsOutsideManaged(settingsText))) {
+    cfg.basics.rawSections[key] = text
+  }
+  const credSrc = path.join(cdir, 'profile', '.credentials.yaml')
+  let refs = {}
+  if (fs.existsSync(credSrc)) {
+    try { refs = credentialRefValues(parseYamlSubset(fs.readFileSync(credSrc, 'utf8'))) } catch { refs = {} }
+  }
+  const refKeys = []
+  for (const provider of imported) {
+    const value = provider.apiKeyEnv ? refs[provider.apiKeyEnv] : undefined
+    if (typeof value === 'string' && value !== '') {
+      keys[provider.id] = value
+      refKeys.push(provider.apiKeyEnv)
+    }
+  }
+  const sourceDefault = defaultFromParsedSettings(parsed)
+  if (sourceDefault || cfg.default.provider === '') cfg.default = sourceDefault ?? cfg.default
+  reconcileDefaultModel(cfg)
+  const meta = readJson(path.join(cdir, 'container.json'), {})
+  const source = meta.name ?? String(containerId)
+  cfg.importedFrom = { containerId: String(containerId), containerName: source, at: nowSeconds() }
+  saveModelKeys(keys)
+  saveModelConfig(cfg)
+  return {
+    added,
+    updated,
+    refKeys,
+    source,
+    providerCount: cfg.providers.length,
+    default: cfg.default,
+    defaultSet: sourceDefault !== null && sourceDefault !== undefined
+      && cfg.default.provider === sourceDefault.provider && cfg.default.model === sourceDefault.model,
+  }
+}
+
+/** 给前端的视图:密钥只回显「是否已设置」,值绝不出库。 */
+function modelConfigView() {
+  const cfg = loadModelConfig()
+  const keys = loadModelKeys()
+  return {
+    providers: cfg.providers.map((provider) => ({
+      ...provider,
+      apiKeySet: typeof keys[provider.id] === 'string' && keys[provider.id] !== '',
+    })),
+    default: cfg.default,
+    rawSectionKeys: Object.keys(cfg.basics.rawSections),
+    importedFrom: cfg.importedFrom,
+    defaultCandidates: cfg.providers.flatMap((p) => p.models.map((m) => ({ provider: p.id, model: m.id, name: m.name || m.id }))),
+    presets: PROVIDER_PRESETS,
+    protocols: PROVIDER_API_PROTOCOLS,
+    modalities: MODEL_MODALITIES,
+  }
+}
+
+/** 局部更新一行:客户端没发的字段保留原值(界面不暴露 headers / compat 等高级字段)。 */
+function mergeProviderRow(base, patch) {
+  const merged = normalizeProviderRow(base)
+  if (patch === null || typeof patch !== 'object') return merged
+  for (const field of ['id', 'displayName', 'api', 'baseURL', 'apiKeyEnv']) {
+    if (Object.hasOwn(patch, field)) merged[field] = typeof patch[field] === 'string' ? patch[field].trim() : ''
+  }
+  if (Object.hasOwn(patch, 'headers')) {
+    const headers = normalizeStringMap(patch.headers)
+    if (headers) merged.headers = headers
+    else delete merged.headers
+  }
+  if (Object.hasOwn(patch, 'compat')) {
+    const compat = normalizeCompat(patch.compat)
+    if (compat) merged.compat = compat
+    else delete merged.compat
+  }
+  if (Object.hasOwn(patch, 'models')) {
+    merged.models = Array.isArray(patch.models) ? patch.models.map(normalizeModelRow).filter((model) => model.id) : []
+  }
+  return merged
+}
+
+/** 校验一行提供方;返回错误文案或 null。 */
+function validateProviderRow(row) {
+  if (!PROVIDER_ID_PATTERN.test(row.id)) return '提供方 ID 需以小写字母开头,之后可用小写字母、数字和短横线(它同时用于派生凭据名)'
+  if (row.api !== '' && !PROVIDER_API_PROTOCOLS.includes(row.api)) return `协议只支持 ${PROVIDER_API_PROTOCOLS.join(' / ')}`
+  if (row.baseURL !== '' && !/^https?:\/\/\S+$/.test(row.baseURL)) return 'API 地址必须是 http(s):// 开头的有效地址'
+  if (row.apiKeyEnv !== '' && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(row.apiKeyEnv)) return '凭证引用(环境变量名)只能包含字母/数字/下划线,且不以数字开头'
+  for (const model of row.models) {
+    if (typeof model.contextWindow === 'number' && model.contextWindow <= 0) return `模型 ${model.id} 的上下文窗口必须是正整数`
+    if (typeof model.maxTokens === 'number' && model.maxTokens <= 0) return `模型 ${model.id} 的最大输出必须是正整数`
+  }
+  // 目录内置 route 可以只填密钥(模型清单由 DSH 目录提供);非目录 route 一旦给了
+  // 端点就必须有模型清单,否则 pi-ai 解析时会报「目录不认识这个 route」。
+  const isCatalogRoute = CATALOG_PROVIDER_PRESETS.some(([id]) => id === row.id)
+  if (!isCatalogRoute && row.models.length === 0 && row.baseURL !== '') {
+    return '填了 API 地址的提供方至少需要一个模型;目录内置提供方只需填密钥'
+  }
+  return null
+}
+
+/**
+ * 询问提供方有哪些模型(`GET {baseURL}/models`),给界面「获取可用模型」用。
+ * 走 curl(项目既有的外部命令通道):回环地址直连,公网地址按设置里的代理走。
+ * @returns `{ models }` 或 `{ error }`。
+ */
+async function discoverProviderModels({ baseURL, api, apiKey }) {
+  const root = String(baseURL ?? '').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\/\S+$/.test(root)) return { error: '请先填写合法的 API 地址(http(s)://...)' }
+  const protocol = String(api ?? '').trim() || 'openai-completions'
+  const args = ['-sS', '--max-time', '20']
+  let url
+  if (protocol === 'anthropic-messages') {
+    url = `${root.replace(/\/v1$/, '')}/v1/models?limit=1000`
+    if (apiKey) args.push('-H', `x-api-key: ${apiKey}`)
+    args.push('-H', 'anthropic-version: 2023-06-01')
+  } else if (protocol === 'openai-completions' || protocol === 'openai-responses') {
+    url = `${root}/models`
+    if (apiKey) args.push('-H', `Authorization: Bearer ${apiKey}`)
+  } else {
+    return { error: `协议 ${protocol} 不支持自动获取模型,请手工填写模型 ID` }
+  }
+  let host
+  try { host = new URL(url).hostname } catch { return { error: 'API 地址无法解析' } }
+  const proxy = readSettings().proxy?.trim()
+  if (proxy && !['127.0.0.1', 'localhost', '::1'].includes(host)) args.push('-x', proxy)
+  args.push(url)
+  let stdout
+  try {
+    ({ stdout } = await execFileAsync('curl', args, { timeout: 25_000 }))
+  } catch (error) {
+    return { error: `请求提供方失败: ${String(error).split('\n')[0]}` }
+  }
+  let parsed
+  try { parsed = JSON.parse(stdout) } catch { return { error: '提供方返回的不是 JSON(检查地址与协议)' } }
+  const list = Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.models) ? parsed.models : [])
+  const models = []
+  for (const item of list) {
+    const id = typeof item?.id === 'string' ? item.id : (typeof item?.name === 'string' ? item.name : '')
+    if (!id) continue
+    const row = { id }
+    const name = typeof item?.display_name === 'string' ? item.display_name : ''
+    if (name && name !== id) row.name = name
+    const context = Number(item?.context_length ?? item?.context_window ?? item?.max_context_length)
+    if (Number.isInteger(context) && context > 0) row.contextWindow = context
+    const maxTokens = Number(item?.top_provider?.max_completion_tokens ?? item?.max_output_tokens)
+    if (Number.isInteger(maxTokens) && maxTokens > 0) row.maxTokens = maxTokens
+    models.push(row)
+  }
+  if (models.length === 0) return { error: '该提供方没有列出任何模型,请手工添加' }
+  models.sort((a, b) => a.id.localeCompare(b.id))
+  return { models }
+}
+
+/** 把模型配置表渲染成新建容器的 settings.yaml。 */
+function buildInitialSettingsYaml(cfg) {
+  const parts = Object.values(cfg.basics.rawSections).map((text) => text.trimEnd())
+  if (cfg.providers.length > 0) {
+    const providers = {}
+    for (const provider of cfg.providers) {
+      const entry = {}
+      if (provider.displayName) entry.displayName = provider.displayName
+      if (provider.api) entry.api = provider.api
+      if (provider.baseURL) entry.baseURL = provider.baseURL
+      if (provider.apiKeyEnv) entry.apiKeyEnv = provider.apiKeyEnv
+      if (provider.headers) entry.headers = provider.headers
+      if (provider.compat) entry.compat = provider.compat
+      if (provider.models.length > 0) entry.models = provider.models
+      providers[provider.id] = entry
+    }
+    parts.push(`llm-pi-ai:\n  providers:\n${toYamlBlock(providers, 4)}`)
+  }
+  if (cfg.default.provider && cfg.default.model) {
+    parts.push(`agent-default-model:\n  provider: ${yamlScalarText(cfg.default.provider)}\n  model: ${yamlScalarText(cfg.default.model)}`)
+  }
+  return parts.length > 0 ? `${parts.join('\n')}\n` : ''
+}
+
+/** 把密钥渲染成 .credentials.yaml 的扁平 refs(见 flatRefEntries 的新旧兼容说明)。 */
+function buildCredentialEntryLines(cfg, keys) {
+  const lines = []
+  for (const provider of cfg.providers) {
+    if (!provider.apiKeyEnv) continue
+    const value = keys[provider.id]
+    if (typeof value === 'string' && value !== '') lines.push(`${provider.apiKeyEnv}: ${yamlScalarText(value)}`)
+  }
+  return lines
+}
+
+// 旧版「整份模板」信息的兼容视图:新表有内容时由模型配置表合成,
+// 让仍在运行的旧插件客户端拿到形状一致的 { exists, capturedAt, source, sections, refKeys }。
+function profileTemplateInfo() {
+  const cfg = loadModelConfig()
+  const keys = loadModelKeys()
+  const sections = Object.keys(cfg.basics.rawSections)
+  if (cfg.providers.length > 0) sections.push('llm-pi-ai')
+  if (cfg.default.provider) sections.push('agent-default-model')
+  const refKeys = cfg.providers.filter((provider) => provider.apiKeyEnv).map((provider) => provider.apiKeyEnv)
+  return {
+    exists: modelConfigHasContent(cfg),
+    capturedAt: cfg.importedFrom?.at ?? cfg.importedFrom?.capturedAt ?? null,
+    source: cfg.importedFrom?.containerName ?? cfg.importedFrom?.source ?? null,
+    sections,
+    refKeys,
+    providerCount: cfg.providers.length,
+    modelCount: cfg.providers.reduce((sum, provider) => sum + provider.models.length, 0),
+    keyCount: cfg.providers.filter((provider) => typeof keys[provider.id] === 'string' && keys[provider.id] !== '').length,
+  }
+}
+
+// 注入到新建容器:由模型配置表生成 settings.yaml(受管段 = llm-pi-ai.providers +
+// agent-default-model,其余顶层段按原文保留)与 .credentials.yaml 的 refs(密钥值)。
+// 创建期 profile 里这两个文件都还不存在,直接写入即可;若已存在则只替换受管部分。
 function applyProfileTemplate(containerPath, line) {
+  const cfg = loadModelConfig()
+  if (!modelConfigHasContent(cfg)) {
+    if (fs.existsSync(tplSettingsPath())) return applyLegacyProfileTemplate(containerPath, line)
+    return
+  }
+  const profileDir = path.join(containerPath, 'profile')
+  const settingsText = buildInitialSettingsYaml(cfg)
+  if (settingsText !== '') {
+    fs.writeFileSync(path.join(profileDir, 'settings.yaml'), settingsText, { mode: 0o600 })
+  }
+  const keys = loadModelKeys()
+  const entryLines = buildCredentialEntryLines(cfg, keys)
+  if (entryLines.length > 0) {
+    const credPath = path.join(profileDir, '.credentials.yaml')
+    if (!fs.existsSync(credPath)) {
+      // 扁平布局新旧通吃(见 flatRefEntries 注释)
+      fs.writeFileSync(credPath, `${entryLines.join('\n')}\n`, { mode: 0o600 })
+    } else {
+      const sections = splitYamlTopLevel(fs.readFileSync(credPath, 'utf8'))
+      sections.delete('refs')
+      const composed = [...sections.values()].join('\n').replace(/\n+$/, '')
+      fs.writeFileSync(credPath, `${composed ? `${composed}\n` : ''}refs: { ${entryLines.join(', ')} }\n`, { mode: 0o600 })
+    }
+  }
+  const modelCount = cfg.providers.reduce((sum, provider) => sum + provider.models.length, 0)
+  line(`已注入模型配置:${cfg.providers.length} 个提供方 / ${modelCount} 个模型${cfg.default.provider ? `;默认模型 ${cfg.default.provider} / ${cfg.default.model}` : ''}${entryLines.length > 0 ? `;API Key(${entryLines.map((entry) => entry.split(':')[0]).join(' / ')})` : ''}`)
+}
+
+// 旧版整份模板注入(仅当模型配置表为空、且旧模板文件仍在时作为兜底)
+function applyLegacyProfileTemplate(containerPath, line) {
   const info = { sections: [], refKeys: [] }
   const profileDir = path.join(containerPath, 'profile')
   fs.copyFileSync(tplSettingsPath(), path.join(profileDir, 'settings.yaml'))
@@ -754,7 +1600,6 @@ function applyProfileTemplate(containerPath, line) {
     const credPath = path.join(profileDir, '.credentials.yaml')
     const entries = flatRefEntries(refsBlock)
     if (entries.length > 0 && !fs.existsSync(credPath)) {
-      // 创建期该文件尚不存在:写扁平布局(见 flatRefEntries 注释)——新旧版本通吃
       fs.writeFileSync(credPath, `${entries.map((entry) => entry.line).join('\n')}\n`, { mode: 0o600 })
     } else {
       const base = fs.existsSync(credPath) ? fs.readFileSync(credPath, 'utf8') : 'version: 1\nrecords: {}\n'
@@ -765,7 +1610,7 @@ function applyProfileTemplate(containerPath, line) {
     }
     for (const entry of entries) info.refKeys.push(entry.key)
   }
-  line(`已注入初始配置: ${info.sections.join(' / ')}${info.refKeys.length ? `;API Key(${info.refKeys.join(' / ')})` : ''}`)
+  line(`已注入初始配置(旧模板): ${info.sections.join(' / ')}${info.refKeys.length ? `;API Key(${info.refKeys.join(' / ')})` : ''}`)
 }
 
 function allocatePort() {
@@ -1166,35 +2011,107 @@ async function handleApi(request, response, url) {
     return send(200, readSettings())
   }
 
-  // ── 新容器初始配置模板 ──
+  // ── 模型配置表(新容器初始配置) ──
+  if (route === 'GET /api/model-configs') {
+    return send(200, modelConfigView())
+  }
+  if (route === 'DELETE /api/model-configs') {
+    saveModelKeys({})
+    saveModelConfig(normalizeModelConfig(null))
+    log('已清空模型配置表')
+    return send(200, modelConfigView())
+  }
+  if (route === 'POST /api/model-configs/import') {
+    const { containerId } = await readJsonBody(request)
+    const result = importModelConfigFromContainer(containerId)
+    if (result.error) return send(400, { error: result.error })
+    log(`从容器 ${result.source} 导入模型配置:新增 ${result.added.length} / 更新 ${result.updated.length} 个提供方${result.refKeys.length > 0 ? `,API Key ${result.refKeys.length} 枚` : ''}`)
+    return send(200, { ...modelConfigView(), import: result })
+  }
+  if (route === 'POST /api/model-configs/default') {
+    const { provider, model } = await readJsonBody(request)
+    const cfg = loadModelConfig()
+    if (!cfg.providers.some((p) => p.id === provider && p.models.some((m) => m.id === model))) {
+      return send(400, { error: '默认模型必须来自已有提供方的模型清单' })
+    }
+    cfg.default = { provider: String(provider), model: String(model) }
+    saveModelConfig(cfg)
+    log(`模型配置表:默认模型 → ${cfg.default.provider} / ${cfg.default.model}`)
+    return send(200, modelConfigView())
+  }
+  if (route === 'POST /api/model-configs/fetch-models') {
+    const { baseURL, api, apiKey, providerId } = await readJsonBody(request)
+    let key = typeof apiKey === 'string' ? apiKey : ''
+    if (key === '' && typeof providerId === 'string' && providerId !== '') key = loadModelKeys()[providerId] ?? ''
+    const result = await discoverProviderModels({ baseURL, api, apiKey: key })
+    if (result.error) return send(400, { error: result.error })
+    return send(200, result)
+  }
+  const providerRowMatch = url.pathname.match(/^\/api\/model-configs\/providers\/([^/]+)$/)
+  if (providerRowMatch && request.method === 'PUT') {
+    const targetId = decodeURIComponent(providerRowMatch[1])
+    const body = await readJsonBody(request)
+    const cfg = loadModelConfig()
+    const index = targetId === 'new' ? -1 : cfg.providers.findIndex((p) => p.id === targetId)
+    if (targetId !== 'new' && index === -1) return send(404, { error: `提供方不存在: ${targetId}` })
+    const row = index === -1
+      ? normalizeProviderRow(body.provider ?? {})
+      : mergeProviderRow(cfg.providers[index], body.provider ?? {})
+    // 界面只填密钥字面量:引用留空时按 <ROUTE>_API_KEY 派生(与上游 deriveKeyRef 同构)
+    if (typeof body.apiKey === 'string' && body.apiKey !== '' && row.apiKeyEnv === '') row.apiKeyEnv = deriveKeyRef(row.id)
+    const invalid = validateProviderRow(row)
+    if (invalid) return send(400, { error: invalid })
+    const duplicate = cfg.providers.findIndex((p) => p.id === row.id)
+    if (duplicate !== -1 && duplicate !== index) return send(400, { error: `提供方 ID 已存在: ${row.id}` })
+    if (index === -1) cfg.providers.push(row)
+    else cfg.providers[index] = row
+    const keys = loadModelKeys()
+    if (index !== -1 && targetId !== row.id && typeof keys[targetId] === 'string') {
+      keys[row.id] = keys[targetId]
+      delete keys[targetId]
+      if (cfg.default.provider === targetId) cfg.default.provider = row.id
+    }
+    if (typeof body.apiKey === 'string') {
+      if (body.apiKey === '') delete keys[row.id]
+      else keys[row.id] = body.apiKey
+    }
+    reconcileDefaultModel(cfg)
+    saveModelKeys(keys)
+    saveModelConfig(cfg)
+    log(`模型配置表:保存提供方 ${row.id}(${row.models.length} 个模型)`)
+    return send(200, modelConfigView())
+  }
+  if (providerRowMatch && request.method === 'DELETE') {
+    const targetId = decodeURIComponent(providerRowMatch[1])
+    const cfg = loadModelConfig()
+    const index = cfg.providers.findIndex((p) => p.id === targetId)
+    if (index === -1) return send(404, { error: `提供方不存在: ${targetId}` })
+    cfg.providers.splice(index, 1)
+    const keys = loadModelKeys()
+    delete keys[targetId]
+    reconcileDefaultModel(cfg)
+    saveModelKeys(keys)
+    saveModelConfig(cfg)
+    log(`模型配置表:删除提供方 ${targetId}`)
+    return send(200, modelConfigView())
+  }
+
+  // ── 旧接口兼容(仍在运行的旧插件客户端):读写都代理到模型配置表 ──
   if (route === 'GET /api/profile-template') {
     return send(200, profileTemplateInfo())
   }
   if (route === 'POST /api/profile-template') {
     const { containerId } = await readJsonBody(request)
-    const cdir = path.join(CONTAINERS_DIR, String(containerId ?? ''))
-    const settingsSrc = path.join(cdir, 'profile', 'settings.yaml')
-    if (!containerId || !fs.existsSync(settingsSrc)) {
-      return send(400, { error: '来源容器还没有 profile/settings.yaml(先启动并完成一次模型配置,或换一个已配置的容器)' })
-    }
-    const credSrc = path.join(cdir, 'profile', '.credentials.yaml')
-    fs.mkdirSync(PROFILE_TEMPLATE_DIR(), { recursive: true })
-    fs.copyFileSync(settingsSrc, tplSettingsPath())
-    fs.chmodSync(tplSettingsPath(), 0o600)
-    const refsBlock = fs.existsSync(credSrc) ? extractCredentialRefs(fs.readFileSync(credSrc, 'utf8')) : null
-    if (refsBlock) {
-      fs.writeFileSync(tplRefsPath(), `${refsBlock}\n`, { mode: 0o600 })
-    } else {
-      fs.rmSync(tplRefsPath(), { force: true })
-    }
-    const source = readJson(path.join(cdir, 'container.json'), {}).name ?? containerId
-    writeJson(tplMetaPath(), { capturedAt: nowSeconds(), source })
-    log(`捕获新容器初始配置模板: 来源 ${source}, 配置段 ${profileTemplateInfo().sections.length} 个${refsBlock ? ',API Key refs 已提取(值不回显)' : ',无 refs'}`)
+    const result = importModelConfigFromContainer(containerId)
+    if (result.error) return send(400, { error: result.error })
+    log(`旧接口导入初始配置: 来源 ${result.source} → 模型配置表(新增 ${result.added.length} / 更新 ${result.updated.length})`)
     return send(200, profileTemplateInfo())
   }
   if (route === 'DELETE /api/profile-template') {
+    saveModelKeys({})
+    saveModelConfig(normalizeModelConfig(null))
     fs.rmSync(PROFILE_TEMPLATE_DIR(), { recursive: true, force: true })
-    log('已清除新容器初始配置模板')
+    log('已清空模型配置表(含旧模板文件)')
     return send(200, { ok: true })
   }
 
@@ -1308,9 +2225,9 @@ async function handleApi(request, response, url) {
       allowAllBuilds(path.join(containerPath, 'harness'))
       line('生成 profile 骨架...')
       createProfileSkeleton(containerPath, profile)
-      // 新容器初始配置:模板存在时注入(settings.yaml + 凭据 refs),首次打开无弹窗
-      if (fs.existsSync(tplSettingsPath())) {
-        line('注入新容器初始配置(模板)...')
+      // 新容器初始配置:模型配置表有内容就注入(settings.yaml + 凭据 refs),首次打开无弹窗
+      if (modelConfigHasContent(loadModelConfig()) || fs.existsSync(tplSettingsPath())) {
+        line('注入新容器初始配置(模型配置表)...')
         applyProfileTemplate(containerPath, line)
       }
       line('创建默认工作区(随容器删除,首次打开免选工作区)...')
