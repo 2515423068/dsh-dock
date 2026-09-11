@@ -712,6 +712,20 @@ function extractCredentialRefs(text) {
   return block.trimEnd().length > 'refs:'.length ? block : null
 }
 
+// 把模板里的 refs 块(flow 或块映射,如 `refs: { K: "v" }` / `refs:\n  K: v`)抽成
+// 扁平 `KEY: value` 行。扁平布局是最老的凭据格式:0.1.0-* 旧版直接可读,
+// 0.1.1+ 新版 loadInitial 检测到扁平布局会自动迁移成 version:1/refs 并落盘,
+// 因此一种写法同时兼容新旧两端。(2026-09-11:此前注入的是新版 version/refs 结构,
+// 旧版会把 version 当凭据键、要求值是字符串,导致 boot 失败。)
+function flatRefEntries(refsBlock) {
+  const body = String(refsBlock).replace(/^[ \t]*refs:[ \t]*/m, '')
+  const entries = []
+  for (const m of body.matchAll(/([A-Za-z_][A-Za-z0-9_-]*)[ \t]*:[ \t]*("[^"]*"|'[^']*'|[^,}\n]+)/g)) {
+    entries.push({ key: m[1], line: `${m[1]}: ${m[2].trim()}` })
+  }
+  return entries
+}
+
 function profileTemplateInfo() {
   if (!fs.existsSync(tplSettingsPath())) return { exists: false }
   const meta = readJson(tplMetaPath(), {})
@@ -738,15 +752,18 @@ function applyProfileTemplate(containerPath, line) {
   if (fs.existsSync(tplRefsPath())) {
     const refsBlock = fs.readFileSync(tplRefsPath(), 'utf8').trimEnd()
     const credPath = path.join(profileDir, '.credentials.yaml')
-    const base = fs.existsSync(credPath) ? fs.readFileSync(credPath, 'utf8') : 'version: 1\nrecords: {}\n'
-    const sections = splitYamlTopLevel(base)
-    sections.delete('refs')
-    const composed = [...sections.values()].join('\n').replace(/\n+$/, '')
-    fs.writeFileSync(credPath, (composed ? `${composed}\n` : '') + `${refsBlock}\n`, { mode: 0o600 })
-    for (const l of refsBlock.split('\n')) {
-      const m = l.match(/^\s{2,}([A-Za-z0-9_-]+):/)
-      if (m) info.refKeys.push(m[1])
+    const entries = flatRefEntries(refsBlock)
+    if (entries.length > 0 && !fs.existsSync(credPath)) {
+      // 创建期该文件尚不存在:写扁平布局(见 flatRefEntries 注释)——新旧版本通吃
+      fs.writeFileSync(credPath, `${entries.map((entry) => entry.line).join('\n')}\n`, { mode: 0o600 })
+    } else {
+      const base = fs.existsSync(credPath) ? fs.readFileSync(credPath, 'utf8') : 'version: 1\nrecords: {}\n'
+      const sections = splitYamlTopLevel(base)
+      sections.delete('refs')
+      const composed = [...sections.values()].join('\n').replace(/\n+$/, '')
+      fs.writeFileSync(credPath, (composed ? `${composed}\n` : '') + `${refsBlock}\n`, { mode: 0o600 })
     }
+    for (const entry of entries) info.refKeys.push(entry.key)
   }
   line(`已注入初始配置: ${info.sections.join(' / ')}${info.refKeys.length ? `;API Key(${info.refKeys.join(' / ')})` : ''}`)
 }
