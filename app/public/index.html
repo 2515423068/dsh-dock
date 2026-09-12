@@ -564,7 +564,20 @@ pre.log {
 }
 
 /* ── 容器卡片内:版本选择框 / 日志路径 ── */
-.ver-select { width: auto; max-width: 210px; height: 28px; padding: 0 6px; font-size: 12.5px; line-height: 18px; vertical-align: middle; }
+/* ── 统一下拉外观:native select 与自定义下拉共用同一套度量 ── */
+select, .ver-select, .dd-trigger {
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-border-l4);
+  border-radius: 8px;
+  background: var(--dsw-bg-module, transparent);
+  color: var(--dsw-label-primary);
+  font-size: 12.5px;
+  line-height: 18px;
+  vertical-align: middle;
+}
+.ver-select { width: auto; max-width: 210px; }
 .logpath { font-size: 11.5px; line-height: 16px; color: var(--dsw-label-tertiary); font-family: var(--dsw-font-code); margin-bottom: 8px; word-break: break-all; }
 
 /* ── 开发保护开关 ── */
@@ -688,7 +701,7 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
 .fetch-item code { font-family: var(--dsw-font-code); font-size: 12.5px; }
 .fetch-list { max-height: 320px; overflow: auto; border: 0.5px solid var(--dsw-border-l4); border-radius: 10px; padding: 8px 10px; }
 .dd { position: relative; display: block; width: 100%; max-width: 860px; }
-.dd-trigger { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; max-width: 100%; height: 32px; padding: 0 10px; border: 0.5px solid var(--dsw-border-l4); border-radius: 8px; background: var(--dsw-bg-module, transparent); color: var(--dsw-label-primary); font-size: 13px; cursor: pointer; }
+.dd-trigger { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 100%; cursor: pointer; }
 .dd-label { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; }
 .dd-caret { flex: 0 0 auto; color: var(--dsw-label-tertiary); }
 .dd-panel { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: 100%; box-sizing: border-box; max-height: 340px; overflow-y: auto; overflow-x: hidden; padding: 4px; border: 0.5px solid var(--dsw-border-l4); border-radius: 12px; background: var(--dsw-bg-elevated, var(--dsw-state-neutral-bg)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
@@ -1246,7 +1259,7 @@ async function renderContainers() {
     <div class="panel"><h2>创建容器</h2>
       <div class="row">
         <input id="c-name" placeholder="容器名称(字母数字-_)" style="width:220px">
-        <select id="c-version" style="width:180px"><option value="">加载中...</option></select>
+        <select id="c-version" class="ver-select" style="width:180px"><option value="">加载中...</option></select>
         <button class="primary" onclick="createContainer()">创建</button>
         <span class="muted">首次创建某版本需构建一次(约 1 分钟),之后同版本容器约 10 秒;进度见底部终端</span>
       </div>
@@ -1708,7 +1721,7 @@ function renderModelDetail() {
     <div class="field"><label>模型 ID</label><input id="m-id" placeholder="提供方暴露的模型名" value="${escapeHtml(d.id)}"></div>
     <div class="field"><label>显示名</label><input id="m-name" placeholder="留空用模型 ID" value="${escapeHtml(d.name)}"></div>
     <div class="field"><label>API 地址</label><input id="m-base" placeholder="https://gateway.example/v1" value="${escapeHtml(d.baseURL)}"></div>
-    <div class="field"><label>API 协议</label><select id="m-api">${modelViewCache.protocols.map((x) => `<option value="${x}" ${d.api === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label>API 协议</label><select id="m-api" class="ver-select" style="max-width:none">${modelViewCache.protocols.map((x) => `<option value="${x}" ${d.api === x ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
     <div class="field"><label>API 密钥</label><input type="password" id="m-key" autocomplete="off" placeholder="${d.apiKeySet ? '已配置——输入新值可替换,留空保持不变' : '输入 API 密钥(本地服务可填占位,如 local)'}" value="${escapeHtml(d.apiKey)}"></div>
     <div class="field"><label>提供方名称</label><input id="m-label" placeholder="同名的模型会归到同一个提供方(留空按地址主机名)" value="${escapeHtml(d.label)}"></div>
     <div class="field"><label>上下文窗口</label><input id="m-ctx" placeholder="256K" style="max-width:120px" value="${escapeHtml(d.ctx)}">
