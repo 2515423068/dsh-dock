@@ -106,7 +106,7 @@ function writeJson(file, value) {
 }
 
 function readSettings() {
-  return { containerPortRange: '41800-41899', autoOpenUiOnStart: true, proxy: '', githubMirror: '', npmRegistry: '', ...readJson(SETTINGS_PATH, {}) }
+  return { containerPortRange: '41800-41899', autoOpenUiOnStart: true, skipFirstOpenPrompts: true, proxy: '', githubMirror: '', npmRegistry: '', ...readJson(SETTINGS_PATH, {}) }
 }
 
 function writeSettings(settings) {
@@ -1368,8 +1368,9 @@ function hasAuthHeaderProfile(profile) {
 }
 
 /**
- * 兜底:每一行都必须能给出一个密钥 —— 没有 Authorization 头时,空引用按名称派生,
- * 空值填占位 key(PLACEHOLDER_KEY)。这样本地服务能正常调用,云端则是明确的鉴权失败。
+ * 兜底:没有 Authorization 头的行必须有一个凭据引用 —— 引用留空就按「提供方名称 / 端点主机」派生,
+ * 这样同一提供方的模型才会归到同一组。**占位值不落库** —— 值是否补占位由注入开关
+ * (skipFirstOpenPrompts)在生成 .credentials.yaml 时决定,保证 model-keys.json 里只有用户真填的 key。
  */
 function ensurePlaceholderKeys(cfg, keys) {
   let changed = false
@@ -1379,19 +1380,11 @@ function ensurePlaceholderKeys(cfg, keys) {
       entry.apiKeyEnv = deriveKeyRef(entry.label || hostLabelOf(entry.baseURL) || entry.id)
       changed = true
     }
-    if (typeof keys[entry.apiKeyEnv] !== 'string' || keys[entry.apiKeyEnv] === '') {
-      keys[entry.apiKeyEnv] = PLACEHOLDER_KEY
-      changed = true
-    }
   }
   for (const [route, profile] of Object.entries(cfg.passthrough)) {
     if (hasAuthHeaderProfile(profile)) continue
     if (typeof profile.apiKeyEnv !== 'string' || profile.apiKeyEnv === '') {
       profile.apiKeyEnv = deriveKeyRef(route)
-      changed = true
-    }
-    if (typeof keys[profile.apiKeyEnv] !== 'string' || keys[profile.apiKeyEnv] === '') {
-      keys[profile.apiKeyEnv] = PLACEHOLDER_KEY
       changed = true
     }
   }
@@ -1516,8 +1509,14 @@ function validateModelEntry(entry) {
 }
 
 /** 把模型配置表归纳成新建容器的 settings.yaml。 */
-function buildInitialSettingsYaml(cfg) {
-  const parts = Object.values(cfg.basics.rawSections).map((text) => text.trimEnd())
+function buildInitialSettingsYaml(cfg, { confirmNotice = true } = {}) {
+  // ui-onboarding 归本功能管:开关开 -> 写上游确认值(首开不弹测试版公告);关 -> 不写(保留弹窗)
+  const parts = Object.entries(cfg.basics.rawSections)
+    .filter(([key]) => key !== 'ui-onboarding')
+    .map(([, text]) => text.trimEnd())
+  if (confirmNotice) {
+    parts.unshift(`ui-onboarding:\n  welcomeNoticeVersion: ${yamlScalarText(ONBOARDING_NOTICE_VERSION)}`)
+  }
   const groups = groupModelEntries(cfg.models)
   const providers = {}
   for (const group of groups) {
@@ -1547,7 +1546,7 @@ function buildInitialSettingsYaml(cfg) {
 }
 
 /** 把密钥渲染成 .credentials.yaml 的扁平 refs(见 flatRefEntries 的新旧兼容说明)。 */
-function buildCredentialEntryLines(cfg, keys) {
+function buildCredentialEntryLines(cfg, keys, { fillPlaceholder = true } = {}) {
   const lines = []
   const seen = new Set()
   const refs = groupModelEntries(cfg.models).map((group) => group.apiKeyEnv)
@@ -1560,6 +1559,10 @@ function buildCredentialEntryLines(cfg, keys) {
     if (typeof value === 'string' && value !== '') {
       seen.add(ref)
       lines.push(`${ref}: ${yamlScalarText(value)}`)
+    } else if (fillPlaceholder) {
+      // 开关打开且用户没配 key:补占位值,让 pi-ai 有 key 可用(本地不校验;云端会是明确的 401)
+      seen.add(ref)
+      lines.push(`${ref}: ${yamlScalarText(PLACEHOLDER_KEY)}`)
     }
   }
   return lines
@@ -1712,12 +1715,13 @@ function applyProfileTemplate(containerPath, line) {
     return
   }
   const profileDir = path.join(containerPath, 'profile')
-  const settingsText = buildInitialSettingsYaml(cfg)
+  const skipPrompts = readSettings().skipFirstOpenPrompts !== false
+  const settingsText = buildInitialSettingsYaml(cfg, { confirmNotice: skipPrompts })
   if (settingsText !== '') {
     fs.writeFileSync(path.join(profileDir, 'settings.yaml'), settingsText, { mode: 0o600 })
   }
   const keys = loadModelKeys()
-  const entryLines = buildCredentialEntryLines(cfg, keys)
+  const entryLines = buildCredentialEntryLines(cfg, keys, { fillPlaceholder: skipPrompts })
   if (entryLines.length > 0) {
     const credPath = path.join(profileDir, '.credentials.yaml')
     if (!fs.existsSync(credPath)) {
@@ -2155,6 +2159,7 @@ async function handleApi(request, response, url) {
       containerPortRange: String(body.containerPortRange ?? '').trim(),
       // 未传字段时保留现值(避免仅改其他设置的调用把开关悄悄关掉)
       autoOpenUiOnStart: body.autoOpenUiOnStart === undefined ? readSettings().autoOpenUiOnStart : !!body.autoOpenUiOnStart,
+      skipFirstOpenPrompts: body.skipFirstOpenPrompts === undefined ? readSettings().skipFirstOpenPrompts : !!body.skipFirstOpenPrompts,
     })
     return send(200, readSettings())
   }
@@ -2210,8 +2215,13 @@ async function handleApi(request, response, url) {
     if (index === -1) cfg.models.push(entry)
     else cfg.models[index] = entry
     const keys = loadModelKeys()
-    if (typeof body.apiKey === 'string' && body.apiKey !== '' && entry.apiKeyEnv !== '') keys[entry.apiKeyEnv] = body.apiKey
+    // 先补引用(ensurePlaceholderKeys 会按名称派生 apiKeyEnv),再存用户填的密钥 ——
+    // 顺序反了会把用户刚填的 key 静默丢掉(实测踩到过)
     ensurePlaceholderKeys(cfg, keys)
+    if (typeof body.apiKey === 'string' && entry.apiKeyEnv !== '') {
+      if (body.apiKey === '') delete keys[entry.apiKeyEnv]
+      else keys[entry.apiKeyEnv] = body.apiKey
+    }
     if (!cfg.models.some((row) => row.uid === cfg.defaultUid)) cfg.defaultUid = entry.uid
     saveModelKeys(keys)
     saveModelConfig(cfg)

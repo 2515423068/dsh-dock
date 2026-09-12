@@ -78,6 +78,8 @@ export interface DockSettings {
   readonly npmRegistry: string
   readonly containerPortRange: string
   readonly autoOpenUiOnStart: boolean
+  /** Suppress the container's first-open prompts (beta notice + API-key entry). */
+  readonly skipFirstOpenPrompts: boolean
 }
 
 /** New-container initial-config template (`GET/POST/DELETE /api/profile-template`). */

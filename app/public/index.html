@@ -1497,6 +1497,10 @@ async function renderSettings() {
         <span style="width:120px" class="muted">启动后打开 UI <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">点击「启动」后就绪时自动打开该容器的 DSH WebUI(由 DSH 上游弹出,带 token);关闭则不弹,自行点卡片上的链接</span></span></span>
         <label class="switch" style="margin-top:5px"><input type="checkbox" id="s-autoopen" ${settings.autoOpenUiOnStart === false ? '' : 'checked'}><span class="slider"></span></label>
       </div>
+      <div class="row" style="margin-bottom:6px">
+        <span style="width:120px" class="muted">首开跳过弹窗 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">打开:新建容器时注入 ui-onboarding.welcomeNoticeVersion(首次打开不再弹「测试版公告」),并给没有密钥的提供方补占位密钥 local(不再弹「API Key 录入」);关闭:两者都保留,让使用者首次打开自己确认/填写。</span></span></span>
+        <label class="switch" style="margin-top:5px"><input type="checkbox" id="s-skipprompts" ${settings.skipFirstOpenPrompts === false ? '' : 'checked'}><span class="slider"></span></label>
+      </div>
       <div class="row" style="margin-top:10px"><button class="primary" onclick="saveSettings()">保存</button></div>
     </div>
     <div class="panel"><h2>模型配置 <span class="tip" tabindex="0">ⓘ<span class="tip-bubble">一行一个模型,连它所属提供方的连接信息(API 地址 / 协议 / 密钥 / 提供方名称)一起存。新建容器时,连接信息相同的模型自动归纳成一个 llm-pi-ai.providers 条目,标 ★ 的写进 agent-default-model。API 密钥只存本机 state/model-keys.json(0600),接口只回显「已配置/缺失」。</span></span></h2>
@@ -1535,6 +1539,7 @@ async function saveSettings() {
         npmRegistry: $('#s-registry').value.trim(),
         containerPortRange: joinPortRange($('#s-portrange-start').value, $('#s-portrange-end').value),
         autoOpenUiOnStart: $('#s-autoopen').checked,
+        skipFirstOpenPrompts: $('#s-skipprompts').checked,
       },
     })
     toast('已保存')

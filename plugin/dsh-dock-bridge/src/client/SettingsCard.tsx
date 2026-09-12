@@ -23,6 +23,7 @@ const EMPTY: DockSettings = {
   npmRegistry: '',
   containerPortRange: '',
   autoOpenUiOnStart: true,
+  skipFirstOpenPrompts: true,
 }
 
 /** Same shortcut chips the WebUI offers under the mirror fields. */
@@ -200,6 +201,17 @@ export function SettingsCard({ t, store }: {
                 type="checkbox"
                 checked={draft.autoOpenUiOnStart}
                 onChange={event => { setDraft({ ...draft, autoOpenUiOnStart: event.target.checked }) }}
+              />
+            </label>
+          </div>
+
+          <div className={css.rowLine}>
+            <span className={css.labelCol}>{t('settings.skipPrompts')} <Hint text={t('settings.skipPromptsHint')} /></span>
+            <label className={css.switchLine}>
+              <input
+                type="checkbox"
+                checked={draft.skipFirstOpenPrompts}
+                onChange={event => { setDraft({ ...draft, skipFirstOpenPrompts: event.target.checked }) }}
               />
             </label>
           </div>
