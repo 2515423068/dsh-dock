@@ -1510,11 +1510,10 @@ function validateModelEntry(entry) {
 
 /** 把模型配置表归纳成新建容器的 settings.yaml。 */
 function buildInitialSettingsYaml(cfg, { confirmNotice = true } = {}) {
-  // ui-onboarding 归本功能管:开关开 -> 写上游确认值(首开不弹测试版公告);关 -> 不写(保留弹窗)
-  const parts = Object.entries(cfg.basics.rawSections)
-    .filter(([key]) => key !== 'ui-onboarding')
-    .map(([, text]) => text.trimEnd())
-  if (confirmNotice) {
+  // 开关开:导入/迁移没带 ui-onboarding 时补一段上游确认值(首开不弹测试版公告);
+  // 开关关:**不做任何额外处理** —— 不添加,也不删掉已有的(没人会故意去开弹窗)
+  const parts = Object.entries(cfg.basics.rawSections).map(([, text]) => text.trimEnd())
+  if (confirmNotice && !Object.hasOwn(cfg.basics.rawSections, 'ui-onboarding')) {
     parts.unshift(`ui-onboarding:\n  welcomeNoticeVersion: ${yamlScalarText(ONBOARDING_NOTICE_VERSION)}`)
   }
   const groups = groupModelEntries(cfg.models)
