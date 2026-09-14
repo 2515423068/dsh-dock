@@ -1494,13 +1494,12 @@ async function renderConfigPanel() {
       </div>
       <div class="row" style="margin-top:8px">
         <span class="muted">配置目录</span>
-        <input id="cfg-dir" style="width:320px" placeholder="${escapeHtml(data.dir)}" value="">
-        <span class="muted">保留份数</span>
-        <input id="cfg-keep" style="width:70px" value="${data.keep}">
+        <input id="cfg-dir" style="width:360px" placeholder="${escapeHtml(data.dir)}" value="${escapeHtml(data.dir)}">
+        <button onclick="pickConfigDir(this)">选择文件夹…</button>
         <button onclick="saveConfigSettings()">保存设置</button>
         <label class="switch-wrap" style="gap:6px">上传配置文件<input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" style="max-width:260px" onchange="uploadConfig(this)"></label>
       </div>
-      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,并带一份 <code>README.md</code> 说明(含不用 DSHBox 直接用 <code>DSH_HOME=&lt;解出的 home&gt;</code> 启动的步骤)。凭据为明文,请妥善保管。</div>
+      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,里面有一份 <code>手动恢复指南.md</code>(讲清配置文件怎么解压、怎么在不用 DSHBox 的情况下用 <code>DSH_HOME=&lt;解出的 home&gt;</code> 启动)。凭据为明文,请妥善保管。</div>
       <table style="margin-top:12px"><thead><tr><th>配置文件</th><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="8"><div class="empty">还没有配置文件,点「保存配置」生成第一个</div></td></tr>'}</tbody></table>
     </div>`
@@ -1555,12 +1554,28 @@ async function toggleConfigAutoSave(enabled) {
 
 async function saveConfigSettings() {
   const dir = $('#cfg-dir').value.trim()
-  const keep = Number($('#cfg-keep').value)
   try {
-    await api('/api/settings', { method: 'POST', body: { ...(dir ? { configDir: dir } : {}), ...(Number.isInteger(keep) ? { configKeep: keep } : {}) } })
-    toast('配置设置已保存')
+    await api('/api/settings', { method: 'POST', body: { configDir: dir } })
+    toast(dir.length > 0 ? `配置目录已设为 ${dir}` : '已恢复默认配置目录')
     renderConfigPanel()
   } catch (error) { toast(`保存失败: ${error}`, true) }
+}
+
+/** 打开系统目录选择器;选好后自动填进地址栏并立即生效。 */
+async function pickConfigDir(button) {
+  if (button) { button.disabled = true; button.textContent = '选择中…' }
+  try {
+    const result = await api('/api/pick-directory', { method: 'POST' })
+    if (!result?.path) return toast('已取消选择')
+    $('#cfg-dir').value = result.path
+    await api('/api/settings', { method: 'POST', body: { configDir: result.path } })
+    toast(`配置目录已设为 ${result.path}`)
+    renderConfigPanel()
+  } catch (error) {
+    toast(`选择目录失败: ${error}`, true)
+  } finally {
+    if (button) { button.disabled = false; button.textContent = '选择文件夹…' }
+  }
 }
 
 async function saveConfigNow() {

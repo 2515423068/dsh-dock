@@ -127,10 +127,9 @@ function readSettings() {
     proxy: '',
     githubMirror: '',
     npmRegistry: '',
-    // 配置服务:自动保存开关(默认关)、配置目录(空 = DATA_ROOT/configs)、每容器保留份数
+    // 配置服务:自动保存开关(默认关)、配置目录(空 = DATA_ROOT/configs)
     configAutoSave: false,
     configDir: '',
-    configKeep: 10,
     ...readJson(SETTINGS_PATH, {}),
   }
 }
@@ -800,27 +799,10 @@ function extractConfigHome(file, profileDir) {
   }
 }
 
-/** 按容器保留最近 N 份配置文件(configKeep,默认 10;0 表示不清理)。 */
-function pruneConfigs() {
-  const keep = Number(readSettings().configKeep ?? 10)
-  if (!Number.isInteger(keep) || keep <= 0) return
-  const groups = new Map()
-  for (const file of listConfigFiles()) {
-    const item = configItem(file)
-    const key = item.containerId ?? item.name ?? file
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push({ file, createdAt: item.createdAt ?? 0 })
-  }
-  for (const entries of groups.values()) {
-    entries.sort((a, b) => b.createdAt - a.createdAt)
-    for (const stale of entries.slice(keep)) {
-      fs.rmSync(configFilePath(stale.file), { force: true })
-      log(`配置超过保留份数(${keep}),已清理 ${stale.file}`)
-    }
-  }
-}
-
-/** 生成/更新配置目录里的使用说明(与 DSHBox 解耦:卸载后仍看得懂、能恢复)。 */
+/**
+ * 在配置目录里写一份**手动恢复指南**(纯文本,和 DSH Dock 本体解耦):
+ * 用户即使卸载了 DSH Dock、甚至在另一台机器上,照着它就能把配置文件用起来。
+ */
 function writeConfigGuide() {
   const dir = CONFIG_STORE()
   fs.mkdirSync(dir, { recursive: true })
@@ -829,61 +811,106 @@ function writeConfigGuide() {
     const when = item.createdAt ? new Date(item.createdAt * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-'
     return `| \`${item.file}\` | ${item.name} | ${item.version ?? '-'} | ${item.sessions} | ${(item.bytes / 1048576).toFixed(1)} MB | ${when} |`
   })
+  const sample = items[0]?.file ?? '<配置文件>.dshcfg'
   const lines = [
-    '# DSH Dock 配置文件说明',
+    '# 手动恢复指南(DSH Dock 配置文件)',
     '',
-    '本目录里每一个 `*.dshcfg` 都是一个**自包含的配置文件**:它就是一个 tar.gz,',
-    '里面装着 `meta.json`(来源容器、版本、时间等)和 `home/`(该实例的完整 `DSH_HOME`:',
-    '`settings.yaml`、`.credentials.yaml`、`sessions/`、`storages/`、`plugins/`、`skills/`)。',
-    '',
-    '本目录与 DSH Dock 本体**相互独立**:即使卸载了 DSH Dock,这些配置文件与这份说明仍然可用。',
+    '这份文件放在配置目录里,是给「**不依赖 DSH Dock**」的场景准备的:',
+    '即使你卸载了 DSH Dock、换了电脑,只要有这里的 `*.dshcfg` 文件和这份指南,就能把配置用起来。',
     '',
     `- 配置目录: \`${dir}\``,
     `- 配置文件数: ${items.length}`,
-    `- 生成时间: ${new Date().toISOString().replace('T', ' ').slice(0, 19)}`,
+    `- 本指南生成时间: ${new Date().toISOString().replace('T', ' ').slice(0, 19)}`,
     '',
-    '## 现有配置文件',
+    '---',
     '',
-    '| 文件 | 来源 | 版本 | 会话 | 大小 | 保存时间 |',
-    '| --- | --- | --- | --- | --- | --- |',
-    ...(rows.length > 0 ? rows : ['| (暂无) | | | | | |']),
+    '## 一、配置文件是什么',
     '',
-    '## 怎么用配置文件恢复',
+    '每个 `*.dshcfg` 就是一个 **tar.gz 压缩包**(只是换了个扩展名),里面有两个东西:',
     '',
-    '### 方式一:在 DSH Dock 里(推荐)',
+    '```',
+    '<配置文件>.dshcfg',
+    '├── meta.json    # 元信息:来自哪个容器、DSH 版本、端口、会话数、保存时间',
+    '└── home/        # 该实例的完整 DSH_HOME',
+    '    ├── settings.yaml        # 设置(模型、界面等)',
+    '    ├── .credentials.yaml    # 明文凭据(API Key)',
+    '    ├── sessions/            # 会话历史',
+    '    ├── storages/            # 存储单元(工作区注册等)',
+    '    ├── plugins/ skills/ attachments/',
+    '    └── ...',
+    '```',
     '',
-    '「外部 DSH 与配置」页 → 选中配置文件 →「**从配置创建**」,填容器名并选一个已安装版本即可。',
-    '也可以把别处拿到的配置文件用「上传配置文件」放进来,再从列表里创建。',
+    '## 二、要用它,先解压(是的,要解压)',
     '',
-    '### 方式二:不用 DSH Dock(只要这个文件)',
+    '`*.dshcfg` 没有双击打开的图形界面,**必须用 `tar` 解压**(Linux / macOS / Windows 10 1803+ 都自带 `tar`)。',
+    '',
+    '### Linux / macOS / WSL',
     '',
     '```bash',
-    '# 1) 解出配置(任何有 tar 的机器都可以:Linux/macOS/Windows 10+)',
-    `mkdir -p /tmp/restore && tar -xzf "${dir}/<配置文件>.dshcfg" -C /tmp/restore`,
+    '# 解到临时目录(路径随意)',
+    `mkdir -p ~/dsh-restore && tar -xzf "${dir}/${sample}" -C ~/dsh-restore`,
     '',
-    '# 2) 装一个 DSH 并指向解出来的 home',
-    'chmod 600 /tmp/restore/home/.credentials.yaml      # DSH 要求凭据仅 owner 可读',
-    'DSH_HOME=/tmp/restore/home npx @deepseek-ai/dsh web',
+    '# 目录结构会变成:~/dsh-restore/home/... —— 这就是一份完整的 DSH_HOME',
+    'ls ~/dsh-restore/home',
     '```',
     '',
-    'Windows PowerShell:',
+    '### Windows(PowerShell / cmd)',
     '',
     '```powershell',
-    'mkdir $env:TEMP\restore -Force',
-    `tar -xzf "${dir}\\<配置文件>.dshcfg" -C $env:TEMP\restore`,
-    '$env:DSH_HOME="$env:TEMP\restore\home"; npx @deepseek-ai/dsh web',
+    'mkdir $env:USERPROFILE\\dsh-restore -Force',
+    `tar -xzf "${dir}\\${sample}" -C $env:USERPROFILE\\dsh-restore`,
+    'dir $env:USERPROFILE\\dsh-restore\\home',
     '```',
     '',
-    '## 注意事项',
+    '> 如果 `tar` 报「无法识别格式」:把文件改名为 `xxx.tar.gz` 再解压(有些解压软件只认扩展名)。',
     '',
-    '- `.credentials.yaml` 是**明文凭据**:配置文件请当敏感数据保管,不要提交到公开仓库、不要随手分享。',
-    '- 恢复出来的实例与配置文件、与源容器各自独立:在哪一处改动都不影响其它副本。',
+    '## 三、解压之后怎么启动',
+    '',
+    '### 方式 A:直接当独立 DSH 用(完全不需要 DSH Dock)',
+    '',
+    '```bash',
+    '# 1) 准备一个 DSH(任选一种;需要 Node ≥ 22)',
+    'npx @deepseek-ai/dsh web',
+    '#  或源码方式:git clone https://github.com/deepseek-ai/deepseek-harness',
+    '#             cd deepseek-harness && pnpm install && pnpm run build',
+    '',
+    '# 2) 把解出来的 home 指给它',
+    'chmod 600 ~/dsh-restore/home/.credentials.yaml   # 必须:DSH 拒绝「owner 之外可读」的凭据',
+    `DSH_HOME=~/dsh-restore/home npx @deepseek-ai/dsh web`,
+    '```',
+    '',
+    'Windows PowerShell 同上,只是换环境变量写法:',
+    '',
+    '```powershell',
+    '$env:DSH_HOME="$env:USERPROFILE\\dsh-restore\\home"; npx @deepseek-ai/dsh web',
+    '```',
+    '',
+    '> 想让它变成「默认」配置,也可以把 `home/` 里的内容拷进 `~/.dsh`(Windows 是 `%USERPROFILE%\\.dsh`),',
+    '> 然后直接 `npx @deepseek-ai/dsh web`。**建议先备份原来的 `~/.dsh`。**',
+    '',
+    '### 方式 B:回到 DSH Dock 里用(装了 DSH Dock 的话)',
+    '',
+    '把 `*.dshcfg` 放到这台机器的配置目录(`DSH Dock → 外部/配置 → 配置目录`),',
+    '或在页面里「上传配置文件」,然后在列表里点「**从配置创建**」,填容器名并选一个已安装版本。',
+    '',
+    '## 四、现有配置文件',
+    '',
+    '| 文件 | 来源容器 | DSH 版本 | 会话 | 大小 | 保存时间 |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...(rows.length > 0 ? rows : ['| (暂无,先在 DSH Dock 里点「保存配置」) | | | | | |']),
+    '',
+    '## 五、注意事项',
+    '',
+    '- `.credentials.yaml` 是**明文 API Key**:配置文件和解压出来的目录都请当敏感数据保管,别提交到公开仓库、别随手分享。',
+    '- 恢复出来的实例与配置文件、与原来的容器**各自独立**:在哪一处改动都不影响其它副本。',
     '- 配置文件是**时间点快照**:恢复得到的是保存那一刻的会话与配置。',
-    '- 自动保存开关打开后,会在创建容器后 / 更新版本前 / 删除容器前各保存一份;保留份数可在设置里调。',
-    '- 全部操作都在本机进行,不会上传到任何地方。',
+    '- 自动保存开关打开后,DSH Dock 会在创建容器后 / 更新版本前 / 删除容器前各保存一份。',
+    '- 全部操作都在本机进行;DSH Dock 不会把你的配置上传到任何地方。',
     '',
   ]
-  fs.writeFileSync(path.join(dir, 'README.md'), lines.join('\n'))
+  fs.writeFileSync(path.join(dir, '手动恢复指南.md'), lines.join('\n'))
+  // 旧版本写过 README.md:清掉,避免同一个目录里两份说明
+  fs.rmSync(path.join(dir, 'README.md'), { force: true })
 }
 
 /** 某个 home 是否正被运行中的 DSH 使用(Linux 可精确探测;其它平台返回 known:false)。 */
@@ -2533,7 +2560,6 @@ async function handleApi(request, response, url) {
       skipFirstOpenPrompts: body.skipFirstOpenPrompts === undefined ? readSettings().skipFirstOpenPrompts : !!body.skipFirstOpenPrompts,
       configAutoSave: body.configAutoSave === undefined ? readSettings().configAutoSave : !!body.configAutoSave,
       configDir: body.configDir === undefined ? readSettings().configDir : String(body.configDir).trim(),
-      configKeep: body.configKeep === undefined ? readSettings().configKeep : Math.max(0, Number(body.configKeep) || 0),
     })
     return send(200, readSettings())
   }
@@ -2764,7 +2790,6 @@ async function handleApi(request, response, url) {
     return send(200, {
       dir,
       autoSave: readSettings().configAutoSave === true,
-      keep: readSettings().configKeep ?? 10,
       items,
     })
   }
@@ -2792,7 +2817,6 @@ async function handleApi(request, response, url) {
           reason: 'import',
           note: `来自 ${sourcePath}`,
         })
-        pruneConfigs()
         return send(200, { ok: true, file: entry.file, item: configItem(entry.file), risks: plan.risks })
       } catch (error) {
         return send(500, { error: String(error?.message ?? error) })
@@ -2813,7 +2837,6 @@ async function handleApi(request, response, url) {
         return send(500, { error: `保存 ${id} 失败: ${String(error?.message ?? error)}` })
       }
     }
-    pruneConfigs()
     return send(200, { ok: true, created, items: listConfigFiles().map(configItem) })
   }
 
@@ -3044,8 +3067,7 @@ async function handleApi(request, response, url) {
       const profileDir = path.join(containerDir(id), 'profile')
       if (isSymlink(fs, profileDir)) removeEntrySafely(fs, profileDir)
       fs.rmSync(containerDir(id), { recursive: true, force: true })
-      pruneConfigs()
-      return send(200, { ok: true })
+        return send(200, { ok: true })
     }
 
     if (route === `POST /api/containers/${id}/update`) {
