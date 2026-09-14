@@ -2824,15 +2824,27 @@ async function handleApi(request, response, url) {
     const base = safe.length > 0 ? safe : `config-${Date.now()}`
     const target = configFilePath(base.endsWith(CONFIG_EXT) ? base : `${base}${CONFIG_EXT}`)
     fs.mkdirSync(CONFIG_STORE(), { recursive: true })
-    const chunks = []
+    // 边收边写盘:配置里可能带上百 MB 的会话/附件,不能整包堆在内存里
+    const out = fs.createWriteStream(target)
     let total = 0
+    let tooBig = false
     for await (const chunk of request) {
       total += chunk.length
-      if (total > 2 * 1024 * 1024 * 1024) return send(413, { error: '配置文件过大(>2GB)' })
-      chunks.push(chunk)
+      if (total > 2 * 1024 * 1024 * 1024) {
+        tooBig = true
+        break
+      }
+      if (!out.write(chunk)) await new Promise((resolve) => out.once('drain', resolve))
     }
-    if (total === 0) return send(400, { error: '上传内容为空' })
-    fs.writeFileSync(target, Buffer.concat(chunks))
+    await new Promise((resolve) => out.end(resolve))
+    if (tooBig) {
+      fs.rmSync(target, { force: true })
+      return send(413, { error: '配置文件过大(>2GB)' })
+    }
+    if (total === 0) {
+      fs.rmSync(target, { force: true })
+      return send(400, { error: '上传内容为空' })
+    }
     try {
       const meta = readConfigMeta(target)
       writeConfigGuide()
