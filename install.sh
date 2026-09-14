@@ -2,7 +2,7 @@
 # ============================================================================
 # DSH Dock 一键安装(Linux / macOS / WSL)
 #
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/dsh-dock/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.sh | sh
 #
 # 安装做什么:
 #   1) 取源码:已在仓库目录内就地安装;否则 git clone 到 --dir
@@ -25,7 +25,7 @@
 # ============================================================================
 set -eu
 
-REPO_URL_DEFAULT="https://github.com/OWNER/dsh-dock.git"
+REPO_URL_DEFAULT="https://github.com/2515423068/dsh-dock.git"
 NODE_MANIFEST_PATH="runtime/linux-x64/runtime-manifest.json"
 
 DIR=""
@@ -140,33 +140,40 @@ install_runtime_download() {
   need_cmd tar "用于解压运行时"
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/dshdock-rt.XXXXXX")"
   trap 'rm -rf "$TMP"' EXIT INT TERM
-  NODE_TARBALL="node-${NODE_VERSION}-${PLATFORM}.tar.gz"
 
+  # 优先 .tar.xz:体积小,且 runtime-manifest.json 的 nodeSha256 就是针对它
+  NODE_TARBALL="node-${NODE_VERSION}-${PLATFORM}.tar.xz"
   log "▸ 下载 Node ${NODE_VERSION} (${PLATFORM})"
   NODE_HTTP=""
   for base in "${NODE_DIST_MIRROR:-https://npmmirror.com/mirrors/node}" "https://nodejs.org/dist"; do
-    if fetch "$base/$NODE_VERSION/$NODE_TARBALL" "$TMP/node.tar.gz"; then NODE_HTTP="$base"; break; fi
+    if fetch "$base/$NODE_VERSION/$NODE_TARBALL" "$TMP/node.tar.xz"; then NODE_HTTP="$base"; break; fi
     log "  镜像不可用,换下一个: $base"
   done
   [ -n "$NODE_HTTP" ] || die "Node 下载失败(可设 NODE_DIST_MIRROR 指定镜像)"
 
+  # 校验:优先官方 SHASUMS256.txt(全平台通用),拿不到则用清单里的 linux-x64 固定值
   EXPECT_SHA=""
-  EXPECT_SHA="$(sed -n 's/.*"nodeSha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" 2>/dev/null || true)"
-  if [ "$PLATFORM" = "linux-x64" ] && [ -n "$EXPECT_SHA" ]; then
-    verify_sha256 "$TMP/node.tar.gz" "$EXPECT_SHA"
-  else
-    # 非清单平台:用官方 SHASUMS256.txt 校验
-    if fetch "$NODE_HTTP/$NODE_VERSION/SHASUMS256.txt" "$TMP/SHASUMS256.txt" 2>/dev/null; then
-      verify_sha256 "$TMP/node.tar.gz" "$(awk -v f="$NODE_TARBALL" '$2==f {print $1}' "$TMP/SHASUMS256.txt")"
-    else
-      warn "拿不到 SHASUMS256.txt,跳过 Node 校验"
-    fi
+  if fetch "$NODE_HTTP/$NODE_VERSION/SHASUMS256.txt" "$TMP/SHASUMS256.txt" 2>/dev/null; then
+    EXPECT_SHA="$(awk -v f="$NODE_TARBALL" '$2 == f { print $1 }' "$TMP/SHASUMS256.txt")"
   fi
+  if [ -z "$EXPECT_SHA" ] && [ "$PLATFORM" = "linux-x64" ]; then
+    EXPECT_SHA="$(sed -n 's/.*"nodeSha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST" 2>/dev/null || true)"
+  fi
+  [ -n "$EXPECT_SHA" ] || warn "没有可用的 Node 校验和,跳过校验"
+  verify_sha256 "$TMP/node.tar.xz" "$EXPECT_SHA"
 
   rm -rf "$RUNTIME_DIR/node"
   mkdir -p "$RUNTIME_DIR"
-  tar -xzf "$TMP/node.tar.gz" -C "$RUNTIME_DIR"
-  mv "$RUNTIME_DIR/node-${NODE_VERSION}-${PLATFORM}" "$RUNTIME_DIR/node"
+  NODE_SRC="$RUNTIME_DIR/node-${NODE_VERSION}-${PLATFORM}"
+  if ! tar -xf "$TMP/node.tar.xz" -C "$RUNTIME_DIR" 2>/dev/null; then
+    # 个别 tar 不带 xz 支持:退回 .tar.gz(校验和同样取 SHASUMS256.txt)
+    log "  tar 不支持 xz,改用 .tar.gz"
+    NODE_TARBALL="node-${NODE_VERSION}-${PLATFORM}.tar.gz"
+    fetch "$NODE_HTTP/$NODE_VERSION/$NODE_TARBALL" "$TMP/node.tar.gz" || die "Node(.tar.gz)下载失败"
+    verify_sha256 "$TMP/node.tar.gz" "$(awk -v f="$NODE_TARBALL" '$2 == f { print $1 }' "$TMP/SHASUMS256.txt" 2>/dev/null || true)"
+    tar -xzf "$TMP/node.tar.gz" -C "$RUNTIME_DIR"
+  fi
+  mv "$NODE_SRC" "$RUNTIME_DIR/node"
   [ -x "$NODE_BIN" ] || die "Node 解压后不可用: $NODE_BIN"
   log "  ✓ Node $("$NODE_BIN" -v)"
 
