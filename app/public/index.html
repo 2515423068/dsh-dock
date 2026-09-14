@@ -1485,21 +1485,22 @@ async function renderConfigPanel() {
   panel.innerHTML = `
     <div class="panel"><h2>配置</h2>
       <div class="row">
-        <span class="switch-wrap" title="开启后:创建容器后、更新版本前、删除容器前会自动各保存一份配置">
-          自动保存<label class="switch"><input type="checkbox" id="cfg-auto" ${data.autoSave ? 'checked' : ''} onchange="toggleConfigAutoSave(this.checked)"><span class="slider"></span></label>
-        </span>
-        <select id="cfg-target" class="ver-select" style="width:200px"><option value="">全部容器</option>${options}</select>
-        <button class="primary" onclick="saveConfigNow()">保存配置</button>
-        <button onclick="createFromPickedFile()">从配置文件创建…</button>
-        <span class="muted">恢复时只需要一个配置文件</span>
+        <button onclick="pickConfigDir(this)" title="选择配置文件的存放目录">选择文件夹…</button>
+        <span class="logpath" id="cfg-dir" title="${escapeHtml(data.dir)}">${escapeHtml(data.dir)}</span>
       </div>
       <div class="row" style="margin-top:8px">
-        <span class="muted">配置目录</span>
-        <input id="cfg-dir" style="width:360px" placeholder="${escapeHtml(data.dir)}" value="${escapeHtml(data.dir)}" onchange="saveConfigSettings()">
-        <button onclick="pickConfigDir(this)">选择文件夹…</button>
-        <label class="switch-wrap" style="gap:6px">或上传配置文件<input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" style="max-width:240px" onchange="uploadConfig(this)"></label>
+        <span class="switch-wrap" title="创建容器后、更新版本前、删除容器前自动保存一份配置">
+          自动保存<label class="switch"><input type="checkbox" id="cfg-auto" ${data.autoSave ? 'checked' : ''} onchange="toggleConfigAutoSave(this.checked)"><span class="slider"></span></label>
+        </span>
+        <select id="cfg-target" class="ver-select" style="width:180px" title="选择要保存哪个容器的配置"><option value="">全部容器</option>${options}</select>
+        <button class="primary" onclick="saveConfigNow()" title="把所选容器的配置保存成一个 .dshcfg 文件">保存配置</button>
+        <button onclick="createFromPickedFile()" title="选择一个 .dshcfg 文件,用它创建一个新容器">从配置文件创建…</button>
       </div>
-      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 改地址栏(回车)或用「选择文件夹…」都会立即生效,并在该目录写一份 <code>手动恢复指南.md</code>(含**大白话三步恢复**与详细步骤)。该目录不在「卸载数据」的删除范围内。选择配置文件有两种方式:<b>「从配置文件创建…」</b>用系统对话框直接选本机文件(与「选择文件夹」是同一个对话框);<b>「上传配置文件」</b>用浏览器选择文件,适合 DSH Dock 跑在另一台机器上时。凭据为明文,请妥善保管。</div>
+      <div class="row" style="margin-top:8px">
+        <span class="muted">上传配置文件</span>
+        <input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" onchange="uploadConfig(this)" title="DSH Dock 不在本机时,用浏览器上传配置文件">
+      </div>
+      <div class="muted" style="margin-top:10px">恢复只需要一个配置文件;目录里另有《手动恢复指南.md》。</div>
       <table style="margin-top:12px"><thead><tr><th>配置文件</th><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="8"><div class="empty">还没有配置文件,点「保存配置」生成第一个</div></td></tr>'}</tbody></table>
     </div>`
@@ -1530,18 +1531,17 @@ async function renderExternalPanel() {
   ].join('')
   const runningRows = (data.running ?? []).map((item) => `<li>pid ${item.pid}${item.port ? ` · 端口 ${item.port}` : ''} · <span class="muted">${escapeHtml((item.cmdline || '').slice(0, 120))}</span></li>`).join('')
   panel.innerHTML = `
-    <div class="panel"><h2>检测到的外部 DSH</h2>
-      <div class="muted">**只读检测**:DSHBox 不接管这些实例、也不与它们建立任何链接(不修改、不删除、不改动启动方式)。想把某份外部配置留在 DSHBox 里,点「保存为配置」——那是**复制**成一个配置文件,源目录保持原样。DSHBox 自己管理的 ${managedCount} 个容器不在此列(它们在「容器管理」页)。</div>
-      <table style="margin-top:12px"><thead><tr><th>DSH 配置目录(home)</th><th>会话</th><th>凭据</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
-      <tbody>${homeRows || `<tr><td colspan="6"><div class="empty">没有检测到外部 DSH 配置目录(官方路径 ${escapeHtml(data.officialHome ?? '~/.dsh')} 不存在)</div></td></tr>`}</tbody></table>
-      ${installedRows ? `<div class="muted" style="margin-top:12px">检测到的 dsh 安装 / 源码检出(仅供参考,DSHBox 不会使用或改动它们):</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${installedRows}</ul>` : ''}
-      ${runningRows ? `<div class="muted" style="margin-top:12px">检测到正在运行的外部 DSH 进程:</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${runningRows}</ul>` : ''}
+    <div class="panel"><h2>外部 DSH</h2>
+      <div class="muted" title="只读检测:不会修改或接管外部实例。DSHBox 自己管理的 ${managedCount} 个容器不在此列">只读检测,不会修改或接管它们。</div>
+      <table style="margin-top:12px"><thead><tr><th>配置目录</th><th>会话</th><th>凭据</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>${homeRows || '<tr><td colspan="6"><div class="empty">未检测到外部 DSH</div></td></tr>'}</tbody></table>
+      ${installedRows ? `<div class="muted" style="margin-top:12px">已安装的 dsh / 源码检出</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${installedRows}</ul>` : ''}
+      ${runningRows ? `<div class="muted" style="margin-top:12px">运行中的实例</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${runningRows}</ul>` : ''}
       <div class="row" style="margin-top:12px">
-        <input id="ext-path" style="width:360px" placeholder="手动检测一个路径,例如 ~/.dsh 或 /srv/dsh">
-        <button onclick="checkExternalPath()">检测该路径</button>
+        <input id="ext-path" style="width:360px" placeholder="路径,例如 ~/.dsh" title="检测一个指定的 DSH 配置目录">
+        <button onclick="checkExternalPath()">检测</button>
         <span class="muted" id="ext-check-note"></span>
       </div>
-      <div class="muted" style="margin-top:6px">检测到路径后可直接「保存为配置」(只复制)。${data.canDetectUsage === false ? '⚠️ 当前平台无法自动判断配置是否正在被使用,保存前请自行确认目标 DSH 已停止。' : ''}</div>
     </div>`
 }
 
@@ -1552,24 +1552,14 @@ async function toggleConfigAutoSave(enabled) {
   } catch (error) { toast(`操作失败: ${error}`, true) }
 }
 
-async function saveConfigSettings() {
-  const dir = $('#cfg-dir').value.trim()
-  try {
-    await api('/api/settings', { method: 'POST', body: { configDir: dir } })
-    toast(dir.length > 0 ? `配置目录已设为 ${dir},并已写入《手动恢复指南.md》` : '已恢复默认配置目录')
-    renderConfigPanel()
-  } catch (error) { toast(`保存失败: ${error}`, true) }
-}
-
 /** 打开系统目录选择器;选好后自动填进地址栏并立即生效。 */
 async function pickConfigDir(button) {
   if (button) { button.disabled = true; button.textContent = '选择中…' }
   try {
     const result = await api('/api/pick-directory', { method: 'POST' })
     if (!result?.path) return toast('已取消选择')
-    $('#cfg-dir').value = result.path
     await api('/api/settings', { method: 'POST', body: { configDir: result.path } })
-    toast(`配置目录已设为 ${result.path},并已写入《手动恢复指南.md》`)
+    toast(`配置目录已设为 ${result.path}`)
     renderConfigPanel()
   } catch (error) {
     toast(`选择目录失败: ${error}`, true)
