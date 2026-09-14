@@ -4,19 +4,18 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.sh | sh
 #
-# 安装做什么:
-#   1) 取源码:已在仓库目录内就地安装;否则 git clone 到 --dir
-#   2) 准备自带运行时 runtime/<platform>/(固定版本 node + pnpm,sha256/sha512 校验)
-#   3) 生成 `dshdock` 命令(默认 ~/.local/bin/dshdock)
-#   4) 写部署目录配置(默认 = 安装目录),后台启动服务并打印访问地址
+#   Windows 原生请用:install.ps1(见 README「平台支持」)
+#
+# 本脚本只做「取源码 + 准备 Node」,其余(自带 pnpm、部署目录配置、dshdock 命令、
+# 启动服务)统一交给 app/setup.mjs —— 那份实现跨平台只有一份,且可被单元测试覆盖。
 #
 # 参数:
 #   --dir <path>        安装目录(默认 ~/dsh-dock;在仓库内运行时默认就地)
 #   --data-root <path>  部署目录(容器/版本/日志;默认 = 安装目录)
 #   --bin-dir <path>    命令安装位置(默认 ~/.local/bin)
 #   --repo <url>        源码仓库(默认本仓库;也可用环境变量 DSH_DOCK_REPO)
-#   --runtime <mode>    download=下载固定运行时(默认)| system=用系统 node/pnpm 建软链
-#   --port <n>          服务端口(默认 7940;写进 dshdock 命令的环境)
+#   --runtime <mode>    download=下载固定运行时(默认)| system=用系统 node/pnpm
+#   --port <n>          服务端口(默认 7940)
 #   --no-start          只安装,不启动服务
 #   --yes               非交互(agent/CI)
 #   --skip-verify       跳过运行时校验和(不推荐)
@@ -30,10 +29,10 @@ NODE_MANIFEST_PATH="runtime/linux-x64/runtime-manifest.json"
 
 DIR=""
 DATA_ROOT_OPT=""
-BIN_DIR="${HOME}/.local/bin"
+BIN_DIR=""
 REPO_URL="${DSH_DOCK_REPO:-$REPO_URL_DEFAULT}"
 RUNTIME_MODE="download"
-PORT="${DSHWEB_PORT:-7940}"
+PORT=""
 DO_START=1
 ASSUME_YES=0
 SKIP_VERIFY=0
@@ -64,7 +63,7 @@ done
 case "$(uname -s)" in
   Linux)  OS=linux ;;
   Darwin) OS=darwin ;;
-  *)      die "不支持的系统: $(uname -s)(Windows 请在 WSL2 里运行本脚本)" ;;
+  *)      die "不支持的系统: $(uname -s)(Windows 请用 install.ps1,或 WSL2 里跑本脚本)" ;;
 esac
 case "$(uname -m)" in
   x86_64|amd64)  ARCH=x64 ;;
@@ -83,7 +82,6 @@ case "$SCRIPT_PATH" in
   *)   SCRIPT_DIR="$(pwd)" ;;
 esac
 
-APP_DIR=""
 if [ -f "$SCRIPT_DIR/app/server.mjs" ]; then
   APP_DIR="$SCRIPT_DIR"
   log "▸ 在仓库目录内就地安装: $APP_DIR"
@@ -94,7 +92,9 @@ else
     log "▸ 复用已有安装: $APP_DIR"
   else
     need_cmd git "用于克隆源码"
-    [ -e "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null || true)" ] && die "目录非空且不是 DSH Dock: $APP_DIR"
+    if [ -e "$APP_DIR" ] && [ -n "$(ls -A "$APP_DIR" 2>/dev/null || true)" ]; then
+      die "目录非空且不是 DSH Dock: $APP_DIR"
+    fi
     log "▸ 克隆源码 → $APP_DIR"
     mkdir -p "$(dirname -- "$APP_DIR")"
     git clone --depth 1 "$REPO_URL" "$APP_DIR"
@@ -102,23 +102,17 @@ else
 fi
 APP_DIR="$(CDPATH= cd -- "$APP_DIR" && pwd)"
 [ -f "$APP_DIR/app/server.mjs" ] || die "源码不完整: 缺少 $APP_DIR/app/server.mjs"
+[ -f "$APP_DIR/app/setup.mjs" ] || die "源码不完整: 缺少 $APP_DIR/app/setup.mjs"
 [ -n "$DATA_ROOT_OPT" ] || DATA_ROOT_OPT="$APP_DIR"
 
 MANIFEST="$APP_DIR/$NODE_MANIFEST_PATH"
 NODE_VERSION=""
 [ -f "$MANIFEST" ] && NODE_VERSION="$(sed -n 's/.*"nodeVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST")"
 [ -n "$NODE_VERSION" ] || NODE_VERSION="v24.11.1"
-PNPM_VERSION=""
-[ -f "$MANIFEST" ] && PNPM_VERSION="$(sed -n 's/.*"pnpmVersion"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MANIFEST")"
-[ -n "$PNPM_VERSION" ] || PNPM_VERSION="11.7.0"
 
 # 服务端 runtimeDir() 按 <平台>-<架构> 找运行时,回退兼容历史的 linux-x64 固定目录
 RUNTIME_DIR="$APP_DIR/runtime/${PLATFORM}"
 NODE_BIN="$RUNTIME_DIR/node/bin/node"
-PNPM_BIN="$RUNTIME_DIR/pnpm/pnpm"
-
-# ── 2. 运行时 ───────────────────────────────────────────────────────────────
-runtime_ready() { [ -x "$NODE_BIN" ] && [ -x "$PNPM_BIN" ]; }
 
 fetch() { # fetch <url> <out>
   if command -v curl >/dev/null 2>&1; then curl -fsSL --max-time 900 -o "$2" "$1"
@@ -136,7 +130,8 @@ verify_sha256() { # verify_sha256 <file> <expected>
   log "  ✓ sha256 校验通过"
 }
 
-install_runtime_download() {
+# ── 2. Node(自带运行时;pnpm/配置/命令由 setup.mjs 收尾) ─────────────────────
+install_node() {
   need_cmd tar "用于解压运行时"
   TMP="$(mktemp -d "${TMPDIR:-/tmp}/dshdock-rt.XXXXXX")"
   trap 'rm -rf "$TMP"' EXIT INT TERM
@@ -176,110 +171,34 @@ install_runtime_download() {
   mv "$NODE_SRC" "$RUNTIME_DIR/node"
   [ -x "$NODE_BIN" ] || die "Node 解压后不可用: $NODE_BIN"
   log "  ✓ Node $("$NODE_BIN" -v)"
-
-  log "▸ 下载 pnpm ${PNPM_VERSION}"
-  PNPM_TGZ="pnpm-${PNPM_VERSION}.tgz"
-  PNPM_HTTP=""
-  for base in "${NPM_REGISTRY_MIRROR:-https://registry.npmmirror.com}" "https://registry.npmjs.org"; do
-    if fetch "$base/pnpm/-/$PNPM_TGZ" "$TMP/pnpm.tgz"; then PNPM_HTTP="$base"; break; fi
-    log "  镜像不可用,换下一个: $base"
-  done
-  [ -n "$PNPM_HTTP" ] || die "pnpm 下载失败(可设 NPM_REGISTRY_MIRROR 指定镜像)"
-
-  EXPECT_INTEGRITY=""
-  EXPECT_INTEGRITY="$(sed -n 's/.*"pnpmIntegrity"[[:space:]]*:[[:space:]]*"sha512-\([^"]*\)".*/\1/p' "$MANIFEST" 2>/dev/null || true)"
-  if [ "$PNPM_VERSION" = "11.7.0" ] && [ -n "$EXPECT_INTEGRITY" ] && [ "$SKIP_VERIFY" != 1 ] && command -v openssl >/dev/null 2>&1; then
-    got="$(openssl dgst -sha512 -binary "$TMP/pnpm.tgz" | base64 | tr -d '\n')"
-    [ "$got" = "$EXPECT_INTEGRITY" ] || die "pnpm sha512 校验失败"
-    log "  ✓ sha512 校验通过"
-  fi
-
-  rm -rf "$RUNTIME_DIR/pnpm/node_modules/pnpm"
-  mkdir -p "$RUNTIME_DIR/pnpm/node_modules"
-  tar -xzf "$TMP/pnpm.tgz" -C "$TMP"
-  mv "$TMP/package" "$RUNTIME_DIR/pnpm/node_modules/pnpm"
-  write_pnpm_shim
 }
 
-# 与服务端自带运行时同构的 pnpm 启动器(server 只认 <runtime>/pnpm/pnpm)
-write_pnpm_shim() {
-  mkdir -p "$RUNTIME_DIR/pnpm/bin"
-  cat > "$PNPM_BIN" <<'SHIM'
-#!/bin/sh
-exec "$(dirname "$0")/../node/bin/node" "$(dirname "$0")/node_modules/pnpm/bin/pnpm.cjs" "$@"
-SHIM
-  cp "$PNPM_BIN" "$RUNTIME_DIR/pnpm/bin/pnpm"
-  chmod +x "$PNPM_BIN" "$RUNTIME_DIR/pnpm/bin/pnpm"
-  log "  ✓ pnpm $("$PNPM_BIN" -v)"
-}
-
-install_runtime_system() {
-  need_cmd node "(--runtime system 需要系统已装 Node ≥ 22)"
-  SYS_NODE="$(command -v node)"
-  SYS_MAJOR="$("$SYS_NODE" -p 'process.versions.node.split(".")[0]')"
-  [ "$SYS_MAJOR" -ge 22 ] || warn "系统 Node $("$SYS_NODE" -v) 偏旧,建议 ≥ 22 或改用 --runtime download"
-  rm -rf "$RUNTIME_DIR/node" "$RUNTIME_DIR/pnpm"
-  mkdir -p "$RUNTIME_DIR/node/bin" "$RUNTIME_DIR/pnpm"
-  ln -sf "$SYS_NODE" "$RUNTIME_DIR/node/bin/node"
-  if command -v pnpm >/dev/null 2>&1; then
-    SYS_PNPM="$(command -v pnpm)"
-    printf '#!/bin/sh\nexec "%s" "$@"\n' "$SYS_PNPM" > "$PNPM_BIN"
-    chmod +x "$PNPM_BIN"
-    cp "$PNPM_BIN" "$RUNTIME_DIR/pnpm/bin/pnpm"
-    log "  ✓ 复用系统 pnpm: $SYS_PNPM"
-  else
-    die "系统没有 pnpm;请先安装 pnpm,或改用 --runtime download"
-  fi
-  log "  ✓ 复用系统 Node: $SYS_NODE"
-}
-
-if runtime_ready; then
-  log "▸ 运行时已就绪:$("$NODE_BIN" -v) + pnpm $("$PNPM_BIN" -v)"
+if [ -x "$NODE_BIN" ]; then
+  log "▸ 自带 Node 已就绪:$("$NODE_BIN" -v)"
+elif [ "$RUNTIME_MODE" = "system" ]; then
+  log "▸ --runtime system:不下载 Node,由 setup.mjs 复用系统 node/pnpm"
 else
   if [ "$ASSUME_YES" != 1 ] && [ -t 0 ]; then
-    printf '将准备自带运行时(Node %s + pnpm %s,约 60MB 下载)到 %s,继续? [Y/n] ' "$NODE_VERSION" "$PNPM_VERSION" "$RUNTIME_DIR"
+    printf '将准备自带运行时(Node %s,约 30MB 下载)到 %s,继续? [Y/n] ' "$NODE_VERSION" "$RUNTIME_DIR"
     read -r ans || ans=""
     case "$ans" in n|N|no|NO) die "已取消" ;; esac
   fi
-  case "$RUNTIME_MODE" in
-    download) install_runtime_download ;;
-    system)   install_runtime_system ;;
-  esac
+  install_node
 fi
-runtime_ready || die "运行时准备失败:$NODE_BIN / $PNPM_BIN"
 
-# ── 3. dshdock 命令 ─────────────────────────────────────────────────────────
-mkdir -p "$BIN_DIR"
-chmod +x "$APP_DIR/app/run.sh"
-ln -sf "$APP_DIR/app/run.sh" "$BIN_DIR/dshdock"
-log "▸ 命令已就绪: $BIN_DIR/dshdock → $APP_DIR/app/run.sh"
-case ":${PATH}:" in
-  *":$BIN_DIR:"*) ;;
-  *) warn "$BIN_DIR 不在 PATH 里;把它加进 shell 配置(或直接用 $BIN_DIR/dshdock 全路径)" ;;
-esac
-
-# ── 4. 部署目录配置 ─────────────────────────────────────────────────────────
-CONFIG_DIR="${DSHDOCK_CONFIG_DIR:-$HOME/.config/dshdock}"
-CONFIG_FILE="$CONFIG_DIR/config.json"
-if [ -f "$CONFIG_FILE" ]; then
-  log "▸ 已有部署目录配置,保持不变: $CONFIG_FILE"
+# ── 3. 收尾(共用实现:pnpm / 配置 / dshdock 命令 / 启动) ─────────────────────
+if [ -x "$NODE_BIN" ]; then
+  SETUP_NODE="$NODE_BIN"
 else
-  mkdir -p "$CONFIG_DIR"
-  printf '{\n  "dataRoot": "%s"\n}\n' "$DATA_ROOT_OPT" > "$CONFIG_FILE"
-  log "▸ 部署目录: $DATA_ROOT_OPT(配置写入 $CONFIG_FILE)"
+  need_cmd node "(--runtime system 需要系统已装 Node ≥ 22)"
+  SETUP_NODE="$(command -v node)"
 fi
 
-# ── 5. 启动 ─────────────────────────────────────────────────────────────────
-if [ "$DO_START" = 1 ]; then
-  log "▸ 启动 DSH Dock 服务(端口 $PORT)"
-  DSHWEB_PORT="$PORT" "$BIN_DIR/dshdock" bg || die "服务启动失败,日志见 $DATA_ROOT_OPT/logs/stdout.log"
-else
-  log "▸ 已跳过启动;稍后执行: dshdock bg"
-fi
-
-log ""
-log "完成。"
-log "  服务地址: http://127.0.0.1:$PORT/(首次打开即容器管理界面)"
-log "  常用命令: dshdock status | dshdock stop | dshdock devrestart"
-log "  部署数据: $DATA_ROOT_OPT(containers/ versions/ logs/)"
-log "  下一步:  在 WebUI 安装一个 DSH 版本 → 新建容器 → 启动 → 打开该容器的 DSH UI"
+set -- "$SETUP_NODE" "$APP_DIR/app/setup.mjs"
+[ -n "$DATA_ROOT_OPT" ] && set -- "$@" --data-root "$DATA_ROOT_OPT"
+[ -n "$BIN_DIR" ] && set -- "$@" --bin-dir "$BIN_DIR"
+[ -n "$PORT" ] && set -- "$@" --port "$PORT"
+[ "$RUNTIME_MODE" != "download" ] && set -- "$@" --runtime "$RUNTIME_MODE"
+[ "$DO_START" = 0 ] && set -- "$@" --no-start
+[ "$SKIP_VERIFY" = 1 ] && set -- "$@" --skip-verify
+exec "$@"

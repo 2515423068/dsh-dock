@@ -10,15 +10,19 @@ import { spawn, execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
+import {
+  aliveProbeTarget, defaultConfigDir, killTree, nodeEntry, pnpmLaunch, runtimeTarget, withRuntimePath,
+} from './platform.mjs'
 
 // ── 常量 ────────────────────────────────────────────────────────────────────
 
 // DATA_ROOT(部署目录)解析优先级:
 //   1. 环境变量 DSHBOX_DATA_ROOT
-//   2. 配置文件 ~/.config/dshdock/config.json 的 dataRoot(首次启动引导页写入)
+//   2. 配置文件(config.json)的 dataRoot(首次启动引导页写入)
 //   3. 默认 = 项目根(app/ 的上一级),整个项目树自包含
 const APP_DIR = path.dirname(fileURLToPath(import.meta.url))
-const DOCK_CONFIG_DIR = process.env.DSHDOCK_CONFIG_DIR || path.join(os.homedir(), '.config', 'dshdock')
+// 配置目录:Windows 用 %APPDATA%\dshdock,POSIX 用 ~/.config/dshdock(可用 DSHDOCK_CONFIG_DIR 覆盖)
+const DOCK_CONFIG_DIR = process.env.DSHDOCK_CONFIG_DIR || defaultConfigDir({ homedir: os.homedir() })
 const DOCK_CONFIG_PATH = path.join(DOCK_CONFIG_DIR, 'config.json')
 const PUBLIC_DIR = path.join(APP_DIR, 'public')
 
@@ -29,8 +33,8 @@ let onboardingNeeded = false
 
 // 运行时(node/pnpm)解析:部署目录优先,应用自带(项目根/runtime)回退。
 // 运行时属于应用,部署目录只放用户数据 —— 二者解耦,新机器部署无需拷贝运行时。
-// 运行时目录名 = <平台>-<架构>(install.sh 按同一规则落盘);回退兼容历史的 linux-x64 固定目录
-const RUNTIME_TARGET = `${process.platform === 'win32' ? 'win' : process.platform}-${process.arch === 'arm64' ? 'arm64' : 'x64'}`
+// 目录名 = <平台>-<架构>(install/setup 按同一规则落盘);回退兼容历史的 linux-x64 固定目录。
+const RUNTIME_TARGET = runtimeTarget()
 
 function runtimeDir() {
   const candidates = [
@@ -40,12 +44,13 @@ function runtimeDir() {
     path.join(APP_DIR, '..', 'runtime', 'linux-x64'),
   ]
   for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, 'node', 'bin', 'node'))) return candidate
+    if (fs.existsSync(nodeEntry(candidate))) return candidate
   }
   return candidates[0]
 }
-const nodeBin = () => path.join(runtimeDir(), 'node', 'bin', 'node')
-const pnpmBin = () => path.join(runtimeDir(), 'pnpm', 'pnpm')
+const nodeBin = () => nodeEntry(runtimeDir())
+// pnpm 启动方式(POSIX 用自带 shim;Windows 用自带 node 跑 pnpm.cjs,绕开 .cmd 需要 shell 的限制)
+const pnpmCommand = () => pnpmLaunch(runtimeDir())
 
 function resolveDataRoot() {
   if (process.env.DSHBOX_DATA_ROOT) return { root: process.env.DSHBOX_DATA_ROOT, source: 'env' }
@@ -493,8 +498,7 @@ function pipeTaskOutput(task, stream) {
 
 // pnpm 子进程环境:harness 的构建脚本会递归调用 pnpm,必须让它上 PATH
 function pnpmEnv(extraProxy = true) {
-  const env = { ...process.env }
-  env.PATH = `${path.join(runtimeDir(), 'node', 'bin')}:${runtimeDir()}/pnpm:${env.PATH ?? ''}`
+  const env = withRuntimePath({ ...process.env }, runtimeDir())
   if (extraProxy) {
     const proxy = readSettings().proxy?.trim()
     if (proxy) {
@@ -507,7 +511,8 @@ function pnpmEnv(extraProxy = true) {
 
 async function pnpmInstall(harnessDir, task) {
   const storeDir = path.join(DATA_ROOT, 'pnpm-store')
-  const base = [pnpmBin(), '--dir', harnessDir, 'install', '--store-dir', storeDir]
+  const launch = pnpmCommand()
+  const base = [...launch.prefixArgs, '--dir', harnessDir, 'install', '--store-dir', storeDir]
   const env = pnpmEnv()
   // npm 镜像源(如 https://registry.npmmirror.com),在线安装时生效
   const registry = readSettings().npmRegistry?.trim()
@@ -515,10 +520,11 @@ async function pnpmInstall(harnessDir, task) {
 
   task.line('尝试离线安装依赖(共享 store)...')
   const offline = await new Promise((resolve) => {
-    const child = spawn(base[0], [...base.slice(1), '--offline', '--frozen-lockfile'], {
+    const child = spawn(launch.command, [...base, '--offline', '--frozen-lockfile'], {
       cwd: harnessDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     pipeTaskOutput(task, child.stdout)
     pipeTaskOutput(task, child.stderr)
@@ -529,10 +535,11 @@ async function pnpmInstall(harnessDir, task) {
 
   task.line('离线安装失败,回退在线安装(经配置的代理)...')
   await new Promise((resolve, reject) => {
-    const online = spawn(base[0], [...base.slice(1), '--frozen-lockfile', '--no-verify-store-integrity'], {
+    const online = spawn(launch.command, [...base, '--frozen-lockfile', '--no-verify-store-integrity'], {
       cwd: harnessDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     pipeTaskOutput(task, online.stdout)
     pipeTaskOutput(task, online.stderr)
@@ -550,11 +557,13 @@ function emitTaskOutput(task, chunk) {
 
 async function pnpmBuild(harnessDir, task) {
   const env = pnpmEnv()
+  const launch = pnpmCommand()
   await new Promise((resolve, reject) => {
-    const build = spawn(pnpmBin(), ['--dir', harnessDir, 'run', 'build'], {
+    const build = spawn(launch.command, [...launch.prefixArgs, '--dir', harnessDir, 'run', 'build'], {
       cwd: harnessDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     pipeTaskOutput(task, build.stdout)
     pipeTaskOutput(task, build.stderr)
@@ -1852,14 +1861,13 @@ function isPortFree(port) {
 //   宿主机 ~/.dsh,凭据/会话/设置互相污染、且混入用户旧 DSH 残留
 //   (2026-09-05 修复的隔离缺陷,需求 F4 的 DSH_HOME 环境策略)
 function dshHostEnv(profileHome) {
-  const env = { ...process.env }
+  const env = withRuntimePath({ ...process.env }, runtimeDir())
   for (const key of ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy', 'ALL_PROXY', 'all_proxy', 'NO_PROXY', 'no_proxy']) {
     delete env[key]
   }
   env.DSH_HOME = profileHome
   env.NODE_PATH = PLUGINS_NM
   env.CHOKIDAR_USEPOLLING = 'true'
-  env.PATH = `${path.join(runtimeDir(), 'node', 'bin')}:${runtimeDir()}/pnpm:${env.PATH ?? ''}`
   return env
 }
 
@@ -1910,13 +1918,11 @@ function probeTcp(port) {
 async function startContainer(id) {
   const container = getContainer(id)
   if (runningHosts.has(id)) throw '容器已在运行'
-  // 清理上次失败遗留的 host 进程组(超时保留现场的进程)
+  // 清理上次失败遗留的 host 进程(超时保留现场的进程):POSIX 按进程组,Windows 按进程树
   const stale = readHostRecord(id)
-  if (stale?.pgid && groupAlive(stale.pgid)) {
-    try {
-      process.kill(-stale.pgid, 'SIGKILL')
-      await sleep(300)
-    } catch {}
+  if (stale && recordAlive(stale)) {
+    await killTree(Math.abs(Number(stale.pid ?? stale.pgid)), { force: true })
+    await sleep(300)
   }
   const harnessDir = path.join(containerDir(id), 'harness')
   const entryFile = path.join(harnessDir, 'apps', 'cli', 'src', 'bin.ts')
@@ -1955,6 +1961,7 @@ async function startContainer(id) {
     detached: true,
     stdio: ['ignore', logFd, logFd],
     env: dshHostEnv(path.join(dir, 'profile')),
+    windowsHide: true,
   })
   fs.closeSync(logFd)
 
@@ -2014,10 +2021,14 @@ async function startContainer(id) {
   throw `启动探测超时(${START_TIMEOUT_MS / 1000}s)。host 进程保留运行(现场未破坏),可在日志中查看详情。${announcedUrl ? ` 已公告 URL: ${announcedUrl}` : ''}`
 }
 
-// 进程组是否存活(kill(-pgid,0) 探测整个组)
-function groupAlive(pgid) {
+// 该容器的 host 进程是否还活着:
+// POSIX 探测整个进程组(kill(-pgid,0),组内主进程死了子进程可能还在);
+// Windows 没有进程组语义,只能按 pid 探测(终止时用 taskkill /T 处理整棵树)。
+function recordAlive(record) {
+  const target = aliveProbeTarget(record)
+  if (target === undefined) return false
   try {
-    process.kill(-pgid, 0)
+    process.kill(target, 0)
     return true
   } catch {
     return false
@@ -2027,19 +2038,16 @@ function groupAlive(pgid) {
 async function stopContainer(id) {
   const running = runningHosts.get(id)
   const record = readHostRecord(id) ?? {}
-  const pgid = running?.pgid ?? record.pgid
-  if (pgid && groupAlive(pgid)) {
-    try {
-      process.kill(-pgid, 'SIGTERM')
-    } catch {}
+  const live = running ?? record
+  const pid = Math.abs(Number(live.pid ?? record.pid ?? 0))
+  if (pid > 0 && recordAlive(live)) {
+    await killTree(pid, { force: false })
     const deadline = Date.now() + STOP_GRACE_MS
-    while (Date.now() < deadline && groupAlive(pgid)) {
+    while (Date.now() < deadline && recordAlive(live)) {
       await sleep(100)
     }
-    if (groupAlive(pgid)) {
-      try {
-        process.kill(-pgid, 'SIGKILL')
-      } catch {}
+    if (recordAlive(live)) {
+      await killTree(pid, { force: true })
       await sleep(200)
     }
   }

@@ -16,18 +16,35 @@
 
 ## 一键安装
 
+**Linux / macOS / WSL2**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.sh | sh
 ```
 
+**原生 Windows**(PowerShell;不落地直接跑)
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.ps1))) -Yes
+```
+
+或者先下载再跑(便于保留参数与重试):
+
+```powershell
+irm https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Yes
+```
+
 安装脚本会:
 
-1. 取源码(已在仓库目录内则就地安装,否则 `git clone` 到 `~/dsh-dock`);
+1. 取源码(已在仓库目录内则就地安装,否则 `git clone` 到 `~/dsh-dock` / `%USERPROFILE%\dsh-dock`);
 2. 准备自带运行时 `runtime/<平台>-<架构>/`(固定 **Node v24.11.1 + pnpm 11.7.0**,sha256 / sha512 与 `runtime/linux-x64/runtime-manifest.json` 对齐)——新机器无需预装 Node;
-3. 生成 `dshdock` 命令(`~/.local/bin/dshdock`);
+3. 生成 `dshdock` 命令(POSIX `~/.local/bin/dshdock`;Windows `<安装目录>\bin\dshdock.cmd` 并加入用户 PATH);
 4. 写部署目录配置(默认 = 安装目录)并后台启动服务,打印访问地址。
 
 装完打开 **http://127.0.0.1:7940/** 即是管理界面。
+
+> Windows 前置条件:Windows 10 1803+(自带的 `tar.exe` 用于解压 pnpm)、已安装 [Git for Windows](https://git-scm.com/download/win)(安装 DSH 版本时需要)。建议安装目录短一些(如 `C:\dsh-dock`),或开启系统长路径支持——容器内的 `node_modules` 层级较深。
 
 ### 安装参数
 
@@ -35,12 +52,14 @@ curl -fsSL https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.sh
 | --- | --- |
 | `--dir <path>` | 安装目录(默认 `~/dsh-dock`;在仓库内运行时默认就地安装) |
 | `--data-root <path>` | 部署目录:容器 / 版本 / 日志放这里(默认 = 安装目录) |
-| `--bin-dir <path>` | `dshdock` 命令位置(默认 `~/.local/bin`) |
+| `--bin-dir <path>` | `dshdock` 命令位置(POSIX 默认 `~/.local/bin`) |
 | `--runtime download\|system` | `download` 下载固定运行时(默认);`system` 用系统 node/pnpm 建软链 |
 | `--port <n>` | 服务端口(默认 7940) |
 | `--no-start` | 只安装不启动 |
 | `--yes` | 非交互(agent / CI) |
 | `--skip-verify` | 跳过运行时校验和(不推荐) |
+
+Windows 的 `install.ps1` 参数同名、写法为 PowerShell 风格,另有 `-NoStart`、`-NoPath`(不修改用户 PATH)。
 
 可用环境变量指定下载镜像(中国大陆网络推荐):`NODE_DIST_MIRROR`、`NPM_REGISTRY_MIRROR`、`DSH_DOCK_REPO`。
 
@@ -67,10 +86,14 @@ sh install.sh --yes            # 或用 --runtime system 复用系统 node/pnpm
 
 把下面整段交给 agent 即可(它会自己判断系统并按需处理失败):
 
-> 在本机安装并启动 DSH Dock:
+> 在本机安装并启动 DSH Dock(Linux/macOS/WSL 用第一条,原生 Windows 用第二条):
 >
 > ```bash
 > curl -fsSL https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.sh | sh -s -- --yes
+> ```
+>
+> ```powershell
+> & ([scriptblock]::Create((irm https://raw.githubusercontent.com/2515423068/dsh-dock/main/install.ps1))) -Yes
 > ```
 >
 > 完成后验证:
@@ -78,9 +101,10 @@ sh install.sh --yes            # 或用 --runtime system 复用系统 node/pnpm
 > ```bash
 > dshdock status          # 期望: 服务: 运行中 (http://127.0.0.1:7940)
 > curl -sf http://127.0.0.1:7940/api/settings >/dev/null && echo OK
+> dshdock selftest        # 失败时先跑这个,把输出贴出来
 > ```
 >
-> 要求:Linux x64 / macOS / WSL2,已装 `git` 与 `curl`(Windows 原生暂不支持,见「平台支持」)。
+> 要求:Linux x64 / macOS / WSL2 / Windows 10 1803+;已装 `git`(Windows 还需自带的 `tar.exe`),POSIX 还需 `curl` 或 `wget`。
 > 若启动失败,把 `<安装目录>/logs/stdout.log` 末尾 30 行贴出来。
 > 装完不要停服务:`dshdock stop` 会先停掉所有容器。
 
@@ -143,22 +167,25 @@ DSH_HOME=<容器>/profile node --import tsx/esm apps/cli/src/bin.ts plugin --pro
 | 平台 | 状态 | 说明 |
 | --- | --- | --- |
 | Linux x64 | ✅ 已验证 | 开发与日常使用环境;`install.sh` 一键装 |
-| Linux arm64 | ✅ 预期可用 | `install.sh` 按平台下载对应 Node(未在 arm64 机器实测) |
-| macOS(x64 / arm64) | ⚠️ 预期可用 | `install.sh` 会取 darwin 版 Node;容器隔离依赖的 `DSH_HOME` 机制与应用本体不依赖 Linux 特性;未实机验证 |
-| WSL2 | ✅ 建议的 Windows 方案 | 在 WSL2 发行版里执行 `install.sh`,与 Linux 等价 |
-| 原生 Windows | ❌ 暂不支持 | 见下 |
+| Linux arm64 | ⚠️ 预期可用 | 安装脚本按平台下载对应 Node;未在 arm64 机器实测 |
+| macOS(x64 / arm64) | ⚠️ 预期可用 | 安装脚本取 darwin 版 Node;启动器已去掉 `readlink -f` 等 GNU 依赖;未实机验证 |
+| WSL2 | ✅ 可用 | 在 WSL 里跑 `install.sh`,与 Linux 等价 |
+| **原生 Windows** | 🧪 已实现,待实机验证 | `install.ps1` + `app\dshdock.cmd`;平台逻辑有单元测试覆盖,但本机无 Windows 可跑端到端 |
 
-**原生 Windows 尚未支持的阻塞点**(已在代码中逐条确认,均为 DSHBox 自身代码,DSH 本体支持 Windows):
+### Windows 是怎么做的
 
-1. **管理命令是 POSIX 脚本** —— `app/run.sh` 用了 `setsid` / `nohup` / `pgrep` / `kill -0` / `kill -9` / `readlink -f` / `python3`,Windows 无对应物;需要一套 `install.ps1` + `dshdock.ps1`/`.cmd` 启动器。
-2. **进程组语义** —— `app/server.mjs` 的 `stopContainer()` / `groupAlive()` 用 `process.kill(-pgid, …)` 杀整个进程组,而 Node 在 Windows 上不支持负 pid / 进程组([nodejs/node#3617](https://github.com/nodejs/node/issues/3617));需要改为 `taskkill /PID <pid> /T /F`,并重做「保留现场 / 优雅停止」的等待逻辑。这是最硬的一块:不改它,容器起得来但停不掉。
-3. **运行时路径与 PATH** —— `nodeBin()` / `pnpmBin()` 返回 `…/node/bin/node`、`…/pnpm/pnpm`,Windows 需要 `node.exe` 与 `pnpm.cmd`(或 `node pnpm.cjs`);`pnpmEnv()` / `dshHostEnv()` 用 `:` 拼 `PATH`,Windows 需 `;` 与对应可执行名。
-4. **`dshdock cleanup`** 读 `/proc/net/tcp` 与 `/proc/<pid>/cmdline`,仅 Linux 可用。
-5. 次要项:`fs.chmod(0o600)` 在 Windows 上不生效(凭据文件不会报错但没有权限保护);配置目录用 `~/.config/dshdock` 而非 `%APPDATA%`。
+原生 Windows 支持不是"加个脚本",而是把三处平台差异抽成一层可测试的代码(`app/platform.mjs`):
 
-`runtime` 目录解析已按平台处理(`win-x64` / `darwin-arm64` …),`install.sh` 也已按平台落盘,所以上表第 3 条的**路径**部分已就位,剩下的是**可执行文件名与进程管理**。
+1. **管理命令跨平台** —— 原来 `app/run.sh` 里的逻辑(`setsid`/`nohup`/`pgrep`/`kill`/`python3`/`/proc`)全部重写为 Node 实现 `app/cli.mjs`,`run.sh` 变成薄壳、Windows 走 `app\dshdock.cmd`。后台启动用 `detached + unref`(等价 setsid),不再需要 `nohup`。
+2. **进程终止** —— Windows 没有负 pid / 进程组([nodejs/node#3617](https://github.com/nodejs/node/issues/3617)),终止整棵进程树改用 `taskkill /PID <pid> /T`(宽限期后 `/F`);存活探测在 Windows 退化为按 pid。
+3. **运行时与 PATH** —— Windows 用 `<rt>\node\node.exe` 与 `<rt>\pnpm\node_modules\pnpm\bin\pnpm.cjs`(直接用 node 跑,绕开 `.cmd` 需要 shell 的限制),PATH 用 `;` 分隔并**大小写不敏感地合并**(否则子进程环境块里会同时出现 `Path` 与 `PATH`);配置目录改用 `%APPDATA%\dshdock`。
+4. **孤儿清理** —— 命令行核对在 Windows 用 PowerShell CIM,监听端口用 `netstat -ano`(Linux 仍读 `/proc`)。
 
-> 想在 Windows 上先用起来:装 WSL2 + Ubuntu,然后在 WSL 里跑一键安装。DSH Dock 与容器都跑在 WSL 内,浏览器在 Windows 侧访问 `http://127.0.0.1:7940/` 正常(WSL2 自带 localhost 转发)。
+平台逻辑的 Windows 分支由 `node --test app/platform.test.mjs` 在 Linux 上覆盖(23 个用例);**Windows 真机端到端仍需你这边实测**。排障第一步:
+
+```powershell
+dshdock selftest     # 打印平台/Node/运行时/配置/PID/日志等全部关键路径
+```
 
 ---
 
@@ -171,9 +198,12 @@ DSH_HOME=<容器>/profile node --import tsx/esm apps/cli/src/bin.ts plugin --pro
 | `dshdock status` | 查看服务与各容器状态 |
 | `dshdock stop` | 优雅关闭:先停所有运行中的容器再退出服务 |
 | `dshdock restart` | 优雅重启(同样先停容器) |
-| `dshdock devrestart` | **改完代码用这个**:SIGKILL 服务进程、容器进程保留、新服务自动接管(不假成功) |
+| `dshdock devrestart` | **改完代码用这个**:硬杀服务进程、容器进程保留、新服务自动接管(不假成功) |
 | `dshdock cleanup [-port N]` | 服务停止态清理孤儿容器进程(三重核对,受开发保护的容器跳过) |
-| `dshdock uninstall-data` | 只删除应用生成的数据(容器/版本/日志/配置),保留源码 |
+| `dshdock selftest` | 打印平台 / Node / 运行时 / 配置 / PID / 日志等关键路径(排障第一步) |
+| `dshdock uninstall-data --yes` | 只删除应用生成的数据(容器/版本/日志/配置),保留源码 |
+
+命令实现在 `app/cli.mjs`(跨平台同一份):POSIX 由 `app/run.sh` 薄壳进入,Windows 由 `app\dshdock.cmd` 进入。
 
 ---
 
@@ -184,9 +214,14 @@ DSH_HOME=<容器>/profile node --import tsx/esm apps/cli/src/bin.ts plugin --pro
 ```
 app/
   server.mjs            # 后端全部逻辑(零依赖单文件)
+  platform.mjs          # 平台差异层(Windows/POSIX;纯函数,可单测)
+  cli.mjs               # dshdock 命令实现(跨平台:启动/停止/重启/清理/自检)
+  setup.mjs             # 安装收尾(pnpm/配置/命令/启动),跨平台共用
   public/index.html     # 管理界面(无构建原生单页)
-  run.sh                # dshdock 命令的实现
-install.sh              # 一键安装
+  run.sh                # POSIX 入口(POSIX 薄壳 → cli.mjs)
+  dshdock.cmd           # Windows 入口(→ cli.mjs)
+install.sh              # 一键安装(Linux/macOS/WSL)
+install.ps1             # 一键安装(原生 Windows)
 plugin/dsh-dock-bridge/ # DSH 插件源码 + 已构建的客户端 bundle
 runtime/                # 自带 node + pnpm(不入库,安装脚本按清单下载)
 ```
@@ -232,8 +267,9 @@ POST /api/shutdown                                                       # 优�
 ## 开发
 
 ```bash
-node --check app/server.mjs        # 语法检查
-dshdock devrestart                 # 改完代码重启服务(容器进程保留,不假成功)
+node --check app/server.mjs          # 语法检查
+node --test app/platform.test.mjs    # 平台差异层单测(Windows 分支也在 Linux 上跑)
+dshdock devrestart                   # 改完代码重启服务(容器进程保留,不假成功)
 ```
 
 改动 `plugin/dsh-dock-bridge/src/client/**` 后必须重建客户端 bundle:
@@ -256,14 +292,17 @@ curl -s localhost:7999/api/containers
 
 | 现象 | 处理 |
 | --- | --- |
-| 服务起不来 | 看 `<部署目录>/logs/stdout.log`;端口被占则 `--port` 换一个 |
+| 服务起不来 | 先 `dshdock selftest`,再看 `<部署目录>/logs/stdout.log`;端口被占则 `--port` 换一个 |
 | 界面提示「服务未运行」 | `dshdock status`;必要时 `dshdock bg` |
 | 容器端口被占用 | 容器端口是固定的(设计如此):先释放该端口,或在界面改成别的端口(仅停止态) |
 | 容器 host 起不来 | 看 `containers/<id>/logs/host.log`;常见原因:harness 缺失(更新或重建容器) |
 | 服务被误杀,容器还在跑 | `dshdock bg` 会自动接管(URL 与 token 不变);顽固孤儿用 `dshdock cleanup` |
 | 版本目录刷新失败 | 设置页配代理 / GitHub 镜像;服务端会自动回退到 `git ls-remote` |
+| Windows: 找不到 `tar` | 需要 Windows 10 1803+(自带 `tar.exe`,用于解压 pnpm) |
+| Windows: 路径过长报错 | 把安装目录换成短路径(如 `C:\dsh-dock`),或启用系统长路径支持后重试创建容器 |
+| Windows: `dshdock` 不是内部或外部命令 | 新开一个终端(PATH 刚写入),或用全路径 `<安装目录>\app\dshdock.cmd` |
 
-**重要**:容器 host 是 detached 进程组,服务退出不影响它们,下次启动自动接管。带补丁重启服务**必须**用 `dshdock devrestart`(直接 `SIGTERM` 会触发优雅关闭、把所有容器停掉)。
+**重要**:容器 host 是独立进程(POSIX 为 detached 进程组),服务退出不影响它们,下次启动自动接管。带补丁重启服务**必须**用 `dshdock devrestart`(直接 `SIGTERM` 会触发优雅关闭、把所有容器停掉)。
 
 ---
 
