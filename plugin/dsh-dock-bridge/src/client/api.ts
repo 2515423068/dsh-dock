@@ -291,13 +291,44 @@ export interface ConfigCatalog {
 }
 
 /**
- * `POST /api/pick-directory` answer: the host's native folder chooser. The
- * call blocks until the user picks a directory or cancels; a cancelled or
- * failed chooser carries `path: null`, and a platform failure adds `error`.
+ * `POST /api/pick-directory` answer: the host's native chooser. The call
+ * blocks until the user picks a directory or cancels; a cancelled or failed
+ * chooser carries `path: null`, and a platform failure adds `error`.
  */
 export interface DirectoryPick {
   readonly path: string | null
   readonly error?: string
+}
+
+/**
+ * `POST /api/pick-file` answer: the host's native file chooser, the very same
+ * dialog family as the folder chooser (identical body shape).
+ */
+export type FilePick = DirectoryPick
+
+/**
+ * One configuration file read by `POST /api/configs/inspect`. `file` is the
+ * basename in the config directory, `path` the absolute location on disk:
+ * restoring accepts either addressing form.
+ */
+export interface ConfigInspectItem {
+  /** Configuration file name (basename). */
+  readonly file: string
+  /** Absolute path of the file on disk. */
+  readonly path: string
+  readonly name: string
+  readonly version: string | null
+  readonly profile: string
+  readonly sessions: number
+  readonly bytes: number
+  readonly createdAt: number | null
+  readonly hasCredentials: boolean
+}
+
+/** `POST /api/configs/inspect` answer (400 + `error` when the file is not a config). */
+export interface ConfigInspect {
+  readonly ok: boolean
+  readonly item: ConfigInspectItem
 }
 
 /** `POST /api/configs` answer for container targets (no `containerId` = save every container). */

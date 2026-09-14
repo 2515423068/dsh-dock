@@ -531,6 +531,29 @@ window.__ModuleLoader__.load({
 					return;
 				}
 			}, [mutate, rest]);
+			/**
+			* 打开宿主机的系统文件选择对话框(POST /api/pick-file;与目录选择器同一个对话框,
+			* 同样阻塞到用户选择或取消)。取消回 `path: null`,平台失败回 `{path: null, error}`。
+			*/
+			const pickFile = (0, react.useCallback)(async () => {
+				try {
+					const answer = await mutate("configFilePick", () => rest("POST", "/api/pick-file", void 0, "打开文件选择器失败"));
+					return {
+						path: typeof answer?.path === "string" && answer.path.length > 0 ? answer.path : null,
+						...typeof answer?.error === "string" && answer.error.length > 0 ? { error: answer.error } : {}
+					};
+				} catch {
+					return;
+				}
+			}, [mutate, rest]);
+			/** 读一个配置文件的元信息(不复制、不落地);文件无效或路径不存在时返回 undefined。 */
+			const inspectConfig = (0, react.useCallback)(async (target) => {
+				try {
+					return (await mutate("configInspect", () => rest("POST", "/api/configs/inspect", target, "读取配置文件失败")))?.item;
+				} catch {
+					return;
+				}
+			}, [mutate, rest]);
 			/** 保存配置:省略 containerId = 保存全部容器(服务端语义)。 */
 			const saveConfigNow = (0, react.useCallback)(async (containerId) => {
 				const body = containerId !== void 0 && containerId.length > 0 ? { containerId } : {};
@@ -546,10 +569,11 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshConfigs
 			]);
-			const createFromConfig = (0, react.useCallback)(async (file, input) => {
+			const createFromConfig = (0, react.useCallback)(async (target, input) => {
+				const key = target.file ?? target.path ?? "";
 				try {
-					const answer = await mutate(`configRestore:${file}`, () => rest("POST", "/api/configs/restore", {
-						file,
+					const answer = await mutate(`configRestore:${key}`, () => rest("POST", "/api/configs/restore", {
+						...target,
 						...input
 					}, "从配置创建容器失败"));
 					watch("container-create", answer.id);
@@ -643,6 +667,8 @@ window.__ModuleLoader__.load({
 				checkExternal,
 				saveConfigSettings,
 				pickDirectory,
+				pickFile,
+				inspectConfig,
 				saveConfigNow,
 				createFromConfig,
 				deleteConfig,
@@ -681,102 +707,102 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"ddProv": "yFwJXq_ddProv",
-			"verSelect": "yFwJXq_verSelect",
-			"taskLine": "yFwJXq_taskLine",
-			"cardHead": "yFwJXq_cardHead",
-			"cardTitle": "yFwJXq_cardTitle",
-			"narrow": "yFwJXq_narrow",
-			"hintIcon": "yFwJXq_hintIcon",
-			"inlineForm": "yFwJXq_inlineForm",
-			"rowMeta": "yFwJXq_rowMeta",
-			"footerNote": "yFwJXq_footerNote",
-			"empty": "yFwJXq_empty",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"providerRow": "yFwJXq_providerRow",
-			"providerActions": "yFwJXq_providerActions",
-			"dotOk": "yFwJXq_dotOk",
-			"tabPanel": "yFwJXq_tabPanel",
-			"cardBody": "yFwJXq_cardBody",
-			"mutedCell": "yFwJXq_mutedCell",
-			"taskHead": "yFwJXq_taskHead",
-			"rowUrl": "yFwJXq_rowUrl",
-			"formGrid": "yFwJXq_formGrid",
-			"ddName": "yFwJXq_ddName",
-			"errorNote": "yFwJXq_errorNote",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"modelList": "yFwJXq_modelList",
-			"rangeInput": "yFwJXq_rangeInput",
-			"card": "yFwJXq_card",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"ddLabel": "yFwJXq_ddLabel",
-			"switchLine": "yFwJXq_switchLine",
-			"section": "yFwJXq_section",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"intro": "yFwJXq_intro",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"rowLine": "yFwJXq_rowLine",
-			"chipRow": "yFwJXq_chipRow",
-			"detailFrame": "yFwJXq_detailFrame",
-			"errorLine": "yFwJXq_errorLine",
-			"cardActions": "yFwJXq_cardActions",
-			"table": "yFwJXq_table",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
 			"mono": "yFwJXq_mono",
-			"rowActions": "yFwJXq_rowActions",
-			"saveRow": "yFwJXq_saveRow",
-			"riskList": "yFwJXq_riskList",
-			"row": "yFwJXq_row",
-			"formLabel": "yFwJXq_formLabel",
-			"spin": "yFwJXq_spin",
-			"modelRow": "yFwJXq_modelRow",
-			"labelCol": "yFwJXq_labelCol",
-			"checkLine": "yFwJXq_checkLine",
-			"title": "yFwJXq_title",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"guide": "yFwJXq_guide",
-			"link": "yFwJXq_link",
-			"rows": "yFwJXq_rows",
+			"cardActions": "yFwJXq_cardActions",
+			"switchLine": "yFwJXq_switchLine",
 			"outputTail": "yFwJXq_outputTail",
-			"subTitle": "yFwJXq_subTitle",
-			"dd": "yFwJXq_dd",
-			"cellAction": "yFwJXq_cellAction",
-			"taskInline": "yFwJXq_taskInline",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"rowTitle": "yFwJXq_rowTitle",
-			"selfBadge": "yFwJXq_selfBadge",
-			"taskFailed": "yFwJXq_taskFailed",
-			"ddMeta": "yFwJXq_ddMeta",
 			"tab": "yFwJXq_tab",
-			"logPath": "yFwJXq_logPath",
-			"guideTitle": "yFwJXq_guideTitle",
-			"ddPanel": "yFwJXq_ddPanel",
-			"ddStar": "yFwJXq_ddStar",
+			"modelRow": "yFwJXq_modelRow",
+			"rowUrl": "yFwJXq_rowUrl",
+			"errorLine": "yFwJXq_errorLine",
+			"taskHead": "yFwJXq_taskHead",
+			"ddItem": "yFwJXq_ddItem",
+			"rowActions": "yFwJXq_rowActions",
+			"ddCaret": "yFwJXq_ddCaret",
+			"ddX": "yFwJXq_ddX",
+			"empty": "yFwJXq_empty",
 			"grow": "yFwJXq_grow",
-			"tabs": "yFwJXq_tabs",
-			"capInput": "yFwJXq_capInput",
-			"riskItem": "yFwJXq_riskItem",
-			"rowHead": "yFwJXq_rowHead",
-			"modelField": "yFwJXq_modelField",
+			"card": "yFwJXq_card",
 			"stoppedDot": "yFwJXq_stoppedDot",
 			"warnNote": "yFwJXq_warnNote",
+			"subTitle": "yFwJXq_subTitle",
+			"formLabel": "yFwJXq_formLabel",
 			"guideBody": "yFwJXq_guideBody",
-			"providerName": "yFwJXq_providerName",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"dotMiss": "yFwJXq_dotMiss",
-			"ddCaret": "yFwJXq_ddCaret",
-			"ddItem": "yFwJXq_ddItem",
-			"ddX": "yFwJXq_ddX",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"statusLabel": "yFwJXq_statusLabel",
-			"ddTag": "yFwJXq_ddTag",
+			"ddName": "yFwJXq_ddName",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"chipRow": "yFwJXq_chipRow",
+			"cardTitle": "yFwJXq_cardTitle",
+			"modelField": "yFwJXq_modelField",
+			"modelList": "yFwJXq_modelList",
+			"rowTitle": "yFwJXq_rowTitle",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"ddItemActive": "yFwJXq_ddItemActive",
 			"modelWarn": "yFwJXq_modelWarn",
-			"modelItem": "yFwJXq_modelItem",
-			"formRow": "yFwJXq_formRow",
+			"capInput": "yFwJXq_capInput",
+			"verSelect": "yFwJXq_verSelect",
+			"tabs": "yFwJXq_tabs",
+			"saveRow": "yFwJXq_saveRow",
+			"rows": "yFwJXq_rows",
+			"ddStar": "yFwJXq_ddStar",
+			"ddTag": "yFwJXq_ddTag",
 			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"dot": "yFwJXq_dot"
+			"formGrid": "yFwJXq_formGrid",
+			"footerNote": "yFwJXq_footerNote",
+			"guideTitle": "yFwJXq_guideTitle",
+			"ddMeta": "yFwJXq_ddMeta",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"cellAction": "yFwJXq_cellAction",
+			"dotMiss": "yFwJXq_dotMiss",
+			"inlineForm": "yFwJXq_inlineForm",
+			"spin": "yFwJXq_spin",
+			"errorNote": "yFwJXq_errorNote",
+			"riskList": "yFwJXq_riskList",
+			"riskItem": "yFwJXq_riskItem",
+			"ddLabel": "yFwJXq_ddLabel",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"mutedCell": "yFwJXq_mutedCell",
+			"row": "yFwJXq_row",
+			"taskFailed": "yFwJXq_taskFailed",
+			"section": "yFwJXq_section",
+			"title": "yFwJXq_title",
+			"taskInline": "yFwJXq_taskInline",
+			"rowLine": "yFwJXq_rowLine",
+			"labelCol": "yFwJXq_labelCol",
+			"table": "yFwJXq_table",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"logPath": "yFwJXq_logPath",
+			"selfBadge": "yFwJXq_selfBadge",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"ddPanel": "yFwJXq_ddPanel",
+			"hintIcon": "yFwJXq_hintIcon",
+			"formRow": "yFwJXq_formRow",
+			"rowHead": "yFwJXq_rowHead",
+			"rangeInput": "yFwJXq_rangeInput",
+			"tabPanel": "yFwJXq_tabPanel",
+			"detailFrame": "yFwJXq_detailFrame",
+			"dot": "yFwJXq_dot",
+			"taskLine": "yFwJXq_taskLine",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"guide": "yFwJXq_guide",
+			"link": "yFwJXq_link",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"modelItem": "yFwJXq_modelItem",
+			"statusLabel": "yFwJXq_statusLabel",
+			"intro": "yFwJXq_intro",
+			"rowMeta": "yFwJXq_rowMeta",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"providerName": "yFwJXq_providerName",
+			"providerActions": "yFwJXq_providerActions",
+			"dotOk": "yFwJXq_dotOk",
+			"dd": "yFwJXq_dd",
+			"ddProv": "yFwJXq_ddProv",
+			"checkLine": "yFwJXq_checkLine",
+			"providerRow": "yFwJXq_providerRow",
+			"cardBody": "yFwJXq_cardBody",
+			"narrow": "yFwJXq_narrow",
+			"cardHead": "yFwJXq_cardHead"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1417,6 +1443,16 @@ window.__ModuleLoader__.load({
 			const sanitized = name.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "");
 			return `${(sanitized.length > 0 ? sanitized : "restored").slice(0, 56)}-new`;
 		}
+		/** 恢复目标的 busy key 后缀:file / path 二选一,缺失时用空串兜底。 */
+		function restoreKey(target) {
+			if (target === void 0) return "";
+			return target.file ?? target.path ?? "";
+		}
+		/** 已安装版本里挑默认项:优先配置自己的版本,不在列表里就回退第一个已安装版本。 */
+		function defaultVersion(configured, installed) {
+			const value = configured ?? "";
+			return value.length > 0 && installed.includes(value) ? value : installed[0] ?? "";
+		}
 		/** 该容器 tab 的卡片主体:外部检测 + 配置两张卡。 */
 		function ExternalCard({ t, store }) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalDetectCard, {
@@ -1769,7 +1805,7 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		/** 配置卡:开关 / 目录(含文件夹选择器)+ 保存配置(全部或某个容器)+ 配置文件列表。 */
+		/** 配置卡:开关 / 目录(含文件夹选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
 		function ConfigCard({ t, store }) {
 			const [enabled, setEnabled] = (0, react.useState)(false);
 			const [dir, setDir] = (0, react.useState)("");
@@ -1779,6 +1815,7 @@ window.__ModuleLoader__.load({
 			const [restoreName, setRestoreName] = (0, react.useState)("");
 			const [restoreVersion, setRestoreVersion] = (0, react.useState)("");
 			const [deleteFor, setDeleteFor] = (0, react.useState)();
+			const dirSaved = (0, react.useRef)("");
 			const opError = store.opErrorFor(["config"]);
 			const items = store.configs?.items ?? [];
 			const installedVersions = (store.versions?.versions ?? []).filter((entry) => entry.installed).map((entry) => entry.tag);
@@ -1786,16 +1823,33 @@ window.__ModuleLoader__.load({
 				if (store.settings !== void 0) {
 					setEnabled(store.settings.configAutoSave === true);
 					setDir(store.settings.configDir ?? "");
+					dirSaved.current = store.settings.configDir ?? "";
 				}
 			}, [store.settings]);
-			const dirty = store.settings !== void 0 && (enabled !== (store.settings.configAutoSave === true) || dir.trim() !== (store.settings.configDir ?? ""));
-			const saveSettings = async () => {
+			/** 自动保存开关:勾选/取消后立即保存(没有「保存设置」按钮)。 */
+			const toggleAutoSave = async (next) => {
+				setEnabled(next);
 				setNote(void 0);
-				const saved = await store.saveConfigSettings({
-					configAutoSave: enabled,
-					configDir: dir.trim()
-				});
-				setNote(saved ? t("settings.saved") : t("error.operationFailed"));
+				const saved = await store.saveConfigSettings({ configAutoSave: next });
+				setNote(saved ? next ? t("config.autoSaveOn") : t("config.autoSaveOff") : t("error.operationFailed"));
+			};
+			/**
+			* 配置目录立即保存(回车或失焦触发):保存时沿用 saveConfigSettings 的合并写法,
+			* 只改 configDir,不会把 proxy 等字段覆盖成空。值没变就直接跳过,并在发起请求前
+			* **同步**记账,挡住「失焦后又按回车」把同一次修改提交两遍。服务端会在新目录里立刻
+			* 写一份《手动恢复指南.md》。
+			*/
+			const commitDir = async () => {
+				const next = dir.trim();
+				if (next === dirSaved.current) return;
+				dirSaved.current = next;
+				setNote(void 0);
+				if (await store.saveConfigSettings({ configDir: next })) {
+					setNote(next.length > 0 ? t("config.dirSet", { path: next }) : t("config.dirReset"));
+					return;
+				}
+				dirSaved.current = store.settings?.configDir ?? "";
+				setNote(t("error.operationFailed"));
 			};
 			/** 打开宿主机的文件夹选择器:选中后填入输入框并立即保存;取消/失败给出提示。 */
 			const pickDir = async () => {
@@ -1810,30 +1864,68 @@ window.__ModuleLoader__.load({
 					return;
 				}
 				setDir(picked.path);
-				const saved = await store.saveConfigSettings({ configDir: picked.path });
-				setNote(saved ? t("config.dirPicked", { path: picked.path }) : t("error.operationFailed"));
+				if (!await store.saveConfigSettings({ configDir: picked.path })) {
+					setNote(t("error.operationFailed"));
+					return;
+				}
+				dirSaved.current = picked.path;
+				setNote(t("config.dirSet", { path: picked.path }));
+			};
+			/** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
+			const pickConfigFile = async () => {
+				setNote(void 0);
+				const picked = await store.pickFile();
+				if (picked === void 0) {
+					setNote(t("error.operationFailed"));
+					return;
+				}
+				if (picked.path === null) {
+					setNote(picked.error !== void 0 ? picked.error : t("config.createFromFileCancelled"));
+					return;
+				}
+				const item = await store.inspectConfig({ path: picked.path });
+				if (item === void 0) {
+					setNote(t("error.operationFailed"));
+					return;
+				}
+				openPicked(item);
 			};
 			const saveNow = async () => {
 				setNote(void 0);
 				const done = await store.saveConfigNow(saveFor);
 				setNote(done ? t("config.saveNowDone") : t("error.operationFailed"));
 			};
+			/** 列表行的「从配置创建」:目标指向配置目录里的文件名。 */
 			const openRestore = (row) => {
 				setNote(void 0);
-				setRestoreFor(row);
+				setRestoreFor({
+					file: row.file,
+					label: row.name,
+					profile: row.profile
+				});
 				setRestoreName(defaultContainerName(row.name));
-				const rowVersion = row.version ?? "";
-				setRestoreVersion(rowVersion.length > 0 && installedVersions.includes(rowVersion) ? rowVersion : installedVersions[0] ?? "");
+				setRestoreVersion(defaultVersion(row.version, installedVersions));
+			};
+			/** 系统对话框选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
+			const openPicked = (item) => {
+				setNote(void 0);
+				setRestoreFor({
+					path: item.path,
+					label: `${item.name}(${item.file})`,
+					profile: item.profile
+				});
+				setRestoreName(defaultContainerName(item.name));
+				setRestoreVersion(defaultVersion(item.version, installedVersions));
 			};
 			const submitRestore = async () => {
-				const row = restoreFor;
-				if (row === void 0) return;
+				const target = restoreFor;
+				if (target === void 0) return;
 				const name = restoreName.trim();
 				if (name.length === 0 || restoreVersion.length === 0) return;
-				if (await store.createFromConfig(row.file, {
+				if (await store.createFromConfig(target.file !== void 0 ? { file: target.file } : { path: target.path }, {
 					name,
 					version: restoreVersion,
-					profile: row.profile
+					profile: target.profile
 				})) {
 					setRestoreFor(void 0);
 					setNote(t("config.createStarted", { name }));
@@ -1843,28 +1935,39 @@ window.__ModuleLoader__.load({
 				title: t("config.cardTitle"),
 				actions: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 					className: DockSection_module_css_default.inlineFormRow,
-					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
-						className: DockSection_module_css_default.narrow,
-						value: saveFor,
-						onChange: (event) => {
-							setSaveFor(event.target.value);
-						},
-						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: "",
-							children: t("config.saveTargetAll")
-						}), store.containers.map((row) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
-							value: row.id,
-							children: row.name
-						}, row.id))]
-					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-						size: "sm",
-						variant: "primary",
-						disabled: store.isBusy("configSave"),
-						onClick: () => {
-							saveNow();
-						},
-						children: store.isBusy("configSave") ? t("config.saveNowRunning") : t("config.saveNow")
-					})]
+					children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+							className: DockSection_module_css_default.narrow,
+							value: saveFor,
+							onChange: (event) => {
+								setSaveFor(event.target.value);
+							},
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: "",
+								children: t("config.saveTargetAll")
+							}), store.containers.map((row) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+								value: row.id,
+								children: row.name
+							}, row.id))]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							variant: "primary",
+							disabled: store.isBusy("configSave"),
+							onClick: () => {
+								saveNow();
+							},
+							children: store.isBusy("configSave") ? t("config.saveNowRunning") : t("config.saveNow")
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							disabled: store.isBusy("configFilePick") || store.isBusy("configInspect"),
+							onClick: () => {
+								pickConfigFile();
+							},
+							children: store.isBusy("configFilePick") || store.isBusy("configInspect") ? t("config.createFromFilePicking") : t("config.createFromFile")
+						})
+					]
 				}),
 				children: [
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
@@ -1899,7 +2002,7 @@ window.__ModuleLoader__.load({
 								type: "checkbox",
 								checked: enabled,
 								onChange: (event) => {
-									setEnabled(event.target.checked);
+									toggleAutoSave(event.target.checked);
 								}
 							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("config.enableHint") })]
 						})]
@@ -1917,6 +2020,15 @@ window.__ModuleLoader__.load({
 								placeholder: store.configs?.dir ?? "",
 								onChange: (event) => {
 									setDir(event.target.value);
+								},
+								onKeyDown: (event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										commitDir();
+									}
+								},
+								onBlur: () => {
+									commitDir();
 								}
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
@@ -1928,18 +2040,6 @@ window.__ModuleLoader__.load({
 								children: store.isBusy("configPick") ? t("config.dirPicking") : t("config.dirPick")
 							})
 						]
-					}),
-					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-						className: DockSection_module_css_default.saveRow,
-						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-							size: "sm",
-							variant: "primary",
-							disabled: !dirty || store.isBusy("configSettings"),
-							onClick: () => {
-								saveSettings();
-							},
-							children: store.isBusy("configSettings") ? t("settings.saving") : t("settings.save")
-						})
 					}),
 					items.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.empty,
@@ -2020,7 +2120,7 @@ window.__ModuleLoader__.load({
 									children: [
 										t("config.create"),
 										" · ",
-										restoreFor.name
+										restoreFor.label
 									]
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
@@ -2048,7 +2148,7 @@ window.__ModuleLoader__.load({
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
 									variant: "primary",
-									disabled: restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreFor.file}`),
+									disabled: restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreKey(restoreFor)}`),
 									onClick: () => {
 										submitRestore();
 									},
@@ -3319,14 +3419,17 @@ window.__ModuleLoader__.load({
 			"external.savingConfig": "保存中…",
 			"external.savedConfig": "已保存为配置文件:{name}",
 			"config.cardTitle": "配置",
-			"config.intro": "一次「保存配置」= 生成一个自包含的配置文件(<名字>-<版本>-<时间>.dshcfg,tar.gz,内含 meta.json 与 home/);恢复时只需要这个文件。配置文件是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照配置目录内的《手动恢复指南.md》手动恢复:它讲清了怎么解压配置文件,以及怎么在不用 DSH Dock 的情况下用 `DSH_HOME=<解出的 home> npx @deepseek-ai/dsh web` 启动。",
+			"config.intro": "一次「保存配置」= 生成一个自包含的配置文件(<名字>-<版本>-<时间>.dshcfg,tar.gz,内含 meta.json 与 home/);恢复时只需要这个文件。配置文件是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照配置目录内的《手动恢复指南.md》手动恢复:它讲清了怎么解压配置文件,以及怎么在不用 DSH Dock 的情况下用 `DSH_HOME=<解出的 home> npx @deepseek-ai/dsh web` 启动。改配置目录:在地址栏改完按回车,或用「选择文件夹…」,两者都会立即生效,并由服务端在该目录写一份《手动恢复指南.md》。",
 			"config.enable": "自动保存",
 			"config.enableHint": "开启后:创建容器、更新版本、删除容器前自动保存一份配置",
 			"config.dir": "配置目录",
 			"config.dirPick": "选择文件夹…",
 			"config.dirPicking": "选择中…",
-			"config.dirPicked": "配置目录已设为 {path}",
+			"config.dirSet": "配置目录已设为 {path},并已写入《手动恢复指南.md》",
+			"config.dirReset": "已恢复默认配置目录",
 			"config.dirPickCancelled": "已取消选择",
+			"config.autoSaveOn": "已开启自动保存(创建后 / 更新前 / 删除前各存一份)",
+			"config.autoSaveOff": "已关闭自动保存",
 			"config.saveNow": "保存配置",
 			"config.saveNowRunning": "保存中…",
 			"config.saveNowDone": "已保存配置",
@@ -3342,6 +3445,9 @@ window.__ModuleLoader__.load({
 			"config.action": "操作",
 			"config.invalid": "文件不可读",
 			"config.create": "从配置创建",
+			"config.createFromFile": "从配置文件创建…",
+			"config.createFromFilePicking": "读取中…",
+			"config.createFromFileCancelled": "已取消选择",
 			"config.delete": "删除",
 			"config.deleteConfirm": "删除配置文件 {name}?文件会被移除,不可恢复(源容器不受影响)。",
 			"config.createHint": "新建容器会复制这份配置(恢复 = 复制,不动配置文件本身);版本下拉复用「版本」分区的已安装版本。",
@@ -3570,14 +3676,17 @@ window.__ModuleLoader__.load({
 			"external.savingConfig": "Saving…",
 			"external.savedConfig": "Saved as a configuration file: {name}",
 			"config.cardTitle": "Configurations",
-			"config.intro": "One \"Save config\" creates one self-contained configuration file (<name>-<version>-<time>.dshcfg, a tar.gz holding meta.json and home/); restoring needs nothing but that file. Every configuration file is an independent copy (copy only, never a link), so it can still be restored by hand from 手动恢复指南.md in the config directory even after DSH Dock is uninstalled: it explains how to unpack a configuration file and how to start without DSH Dock via `DSH_HOME=<unpacked home> npx @deepseek-ai/dsh web`.",
+			"config.intro": "One \"Save config\" creates one self-contained configuration file (<name>-<version>-<time>.dshcfg, a tar.gz holding meta.json and home/); restoring needs nothing but that file. Every configuration file is an independent copy (copy only, never a link), so it can still be restored by hand from 手动恢复指南.md in the config directory even after DSH Dock is uninstalled: it explains how to unpack a configuration file and how to start without DSH Dock via `DSH_HOME=<unpacked home> npx @deepseek-ai/dsh web`. To change the config directory, edit the field and press Enter, or use \"Choose folder…\": both take effect immediately and the server writes a 手动恢复指南.md into that directory.",
 			"config.enable": "Auto-save",
 			"config.enableHint": "While on: save a configuration before creating a container, updating a version, or deleting a container",
 			"config.dir": "Config directory",
 			"config.dirPick": "Choose folder…",
 			"config.dirPicking": "Choosing…",
-			"config.dirPicked": "Config directory set to {path}",
+			"config.dirSet": "Config directory set to {path}; 手动恢复指南.md written there",
+			"config.dirReset": "Restored the default config directory",
 			"config.dirPickCancelled": "Selection cancelled",
+			"config.autoSaveOn": "Auto-save on (a copy before create / update / delete)",
+			"config.autoSaveOff": "Auto-save off",
 			"config.saveNow": "Save config",
 			"config.saveNowRunning": "Saving…",
 			"config.saveNowDone": "Configuration saved",
@@ -3593,6 +3702,9 @@ window.__ModuleLoader__.load({
 			"config.action": "Actions",
 			"config.invalid": "file unreadable",
 			"config.create": "Create from config",
+			"config.createFromFile": "Create from config file…",
+			"config.createFromFilePicking": "Reading…",
+			"config.createFromFileCancelled": "Selection cancelled",
 			"config.delete": "Delete",
 			"config.deleteConfirm": "Delete configuration file {name}? The file is removed and cannot be recovered (the source container is unaffected).",
 			"config.createHint": "The new container copies this configuration (restoring = copying; the file itself is untouched); the version list reuses the installed versions from the Versions tab.",

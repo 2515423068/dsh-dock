@@ -8,8 +8,9 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ConfigCatalog, ConfigImported, ConfigSaved, ContainerRow, DirectoryPick, DockSettings, DockStatus, DockTask,
-  ExternalCheck, ExternalView, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ConfigCatalog, ConfigImported, ConfigInspect, ConfigInspectItem, ConfigSaved, ContainerRow, DirectoryPick,
+  DockSettings, DockStatus, DockTask, ExternalCheck, ExternalView, FilePick, ModelConfigView, OpError,
+  ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -488,6 +489,34 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest])
 
+  /**
+   * 打开宿主机的系统文件选择对话框(POST /api/pick-file;与目录选择器同一个对话框,
+   * 同样阻塞到用户选择或取消)。取消回 `path: null`,平台失败回 `{path: null, error}`。
+   */
+  const pickFile = useCallback(async (): Promise<FilePick | undefined> => {
+    try {
+      const answer = await mutate('configFilePick', () =>
+        rest<FilePick>('POST', '/api/pick-file', undefined, '打开文件选择器失败'))
+      return {
+        path: typeof answer?.path === 'string' && answer.path.length > 0 ? answer.path : null,
+        ...(typeof answer?.error === 'string' && answer.error.length > 0 ? { error: answer.error } : {}),
+      }
+    } catch {
+      return undefined
+    }
+  }, [mutate, rest])
+
+  /** 读一个配置文件的元信息(不复制、不落地);文件无效或路径不存在时返回 undefined。 */
+  const inspectConfig = useCallback(async (target: { file?: string; path?: string }): Promise<ConfigInspectItem | undefined> => {
+    try {
+      const answer = await mutate('configInspect', () =>
+        rest<ConfigInspect>('POST', '/api/configs/inspect', target, '读取配置文件失败'))
+      return answer?.item
+    } catch {
+      return undefined
+    }
+  }, [mutate, rest])
+
   /** 保存配置:省略 containerId = 保存全部容器(服务端语义)。 */
   const saveConfigNow = useCallback(async (containerId?: string) => {
     const body = containerId !== undefined && containerId.length > 0 ? { containerId } : {}
@@ -500,11 +529,17 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshConfigs])
 
-  // 从配置文件新建容器:服务端返回新容器 id,复用现有 container-create 任务轮询。
-  const createFromConfig = useCallback(async (file: string, input: { name: string; version: string; profile?: string }) => {
+  // 从配置文件新建容器:目标用 { file }(配置目录里的文件名)或 { path }(磁盘上任意
+  // 位置的配置文件)二选一,原样透传给服务端的 /api/configs/restore;服务端返回新容器
+  // id,复用现有 container-create 任务轮询。
+  const createFromConfig = useCallback(async (
+    target: { file?: string; path?: string },
+    input: { name: string; version: string; profile?: string },
+  ) => {
+    const key = target.file ?? target.path ?? ''
     try {
-      const answer = await mutate(`configRestore:${file}`, () =>
-        rest<{ id: string }>('POST', '/api/configs/restore', { file, ...input }, '从配置创建容器失败'))
+      const answer = await mutate(`configRestore:${key}`, () =>
+        rest<{ id: string }>('POST', '/api/configs/restore', { ...target, ...input }, '从配置创建容器失败'))
       watch('container-create', answer.id)
       return true
     } catch {
@@ -585,6 +620,8 @@ export function useDock(call: DockCall): DockStore {
     checkExternal,
     saveConfigSettings,
     pickDirectory,
+    pickFile,
+    inspectConfig,
     saveConfigNow,
     createFromConfig,
     deleteConfig,
@@ -653,10 +690,19 @@ export interface DockStore {
   saveConfigSettings: (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir'>>) => Promise<boolean>
   /** Open the host's native folder chooser; undefined on failure (see `opErrorFor`), `path: null` when cancelled. */
   pickDirectory: () => Promise<DirectoryPick | undefined>
+  /** Open the host's native file chooser (same dialog family); undefined on failure, `path: null` when cancelled. */
+  pickFile: () => Promise<FilePick | undefined>
+  /** Read one configuration file's metadata without copying it; undefined when unreadable/invalid. */
+  inspectConfig: (target: { file?: string; path?: string }) => Promise<ConfigInspectItem | undefined>
   /** Save a configuration file for one container, or for every container when omitted. */
   saveConfigNow: (containerId?: string) => Promise<boolean>
-  /** Create a new container from a configuration file (copy semantics) and watch the task. */
-  createFromConfig: (file: string, input: { name: string; version: string; profile?: string }) => Promise<boolean>
+  /**
+   * Create a new container from a configuration file (copy semantics) and watch
+   * the task. The target is either `{ file }` (a name in the config directory)
+   * or `{ path }` (any file on disk); whichever is given passes through to
+   * `POST /api/configs/restore` verbatim.
+   */
+  createFromConfig: (target: { file?: string; path?: string }, input: { name: string; version: string; profile?: string }) => Promise<boolean>
   deleteConfig: (file: string) => Promise<boolean>
   /** Copy an external DSH home into a configuration file (never a symlink). */
   saveExternalAsConfig: (input: { sourcePath: string; name?: string; acknowledge: boolean }) => Promise<boolean>

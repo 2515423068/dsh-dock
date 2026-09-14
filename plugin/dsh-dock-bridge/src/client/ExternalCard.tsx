@@ -5,12 +5,12 @@
  * 配置文件列表 + 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律
  * **只复制、绝不软链**。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Button, IconRefreshOutline16, IconWarningOutline16, Input, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ConfigRow, ExternalCheck } from './api.ts'
+import type { ConfigInspectItem, ConfigRow, ExternalCheck } from './api.ts'
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
@@ -66,6 +66,30 @@ function formatWhen(t: DockT, createdAt: number | null | undefined): string {
 function defaultContainerName(name: string): string {
   const sanitized = name.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '')
   return `${(sanitized.length > 0 ? sanitized : 'restored').slice(0, 56)}-new`
+}
+
+/**
+ * 待恢复的配置目标:配置目录里的文件名(`file`)或磁盘上任意位置的路径
+ * (`path`),二选一,原样交给 `/api/configs/restore`。
+ */
+interface RestoreTarget {
+  readonly file?: string
+  readonly path?: string
+  /** 表单标题里显示的目标(列表行用配置名,系统对话框选的带原始文件名)。 */
+  readonly label: string
+  readonly profile?: string
+}
+
+/** 恢复目标的 busy key 后缀:file / path 二选一,缺失时用空串兜底。 */
+function restoreKey(target: RestoreTarget | undefined): string {
+  if (target === undefined) return ''
+  return target.file ?? target.path ?? ''
+}
+
+/** 已安装版本里挑默认项:优先配置自己的版本,不在列表里就回退第一个已安装版本。 */
+function defaultVersion(configured: string | null | undefined, installed: readonly string[]): string {
+  const value = configured ?? ''
+  return value.length > 0 && installed.includes(value) ? value : installed[0] ?? ''
 }
 
 /** 该容器 tab 的卡片主体:外部检测 + 配置两张卡。 */
@@ -356,7 +380,7 @@ function ExternalDetectCard({ t, store }: {
   )
 }
 
-/** 配置卡:开关 / 目录(含文件夹选择器)+ 保存配置(全部或某个容器)+ 配置文件列表。 */
+/** 配置卡:开关 / 目录(含文件夹选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
 function ConfigCard({ t, store }: {
   t: DockT
   store: DockStore
@@ -365,10 +389,12 @@ function ConfigCard({ t, store }: {
   const [dir, setDir] = useState('')
   const [saveFor, setSaveFor] = useState('')
   const [note, setNote] = useState<string>()
-  const [restoreFor, setRestoreFor] = useState<ConfigRow>()
+  const [restoreFor, setRestoreFor] = useState<RestoreTarget>()
   const [restoreName, setRestoreName] = useState('')
   const [restoreVersion, setRestoreVersion] = useState('')
   const [deleteFor, setDeleteFor] = useState<ConfigRow>()
+  // 目录输入框最后一次成功提交的值:失焦与回车都会触发保存,靠它跳过重复提交。
+  const dirSaved = useRef('')
   const opError = store.opErrorFor(['config'])
   const items = store.configs?.items ?? []
   const installedVersions = (store.versions?.versions ?? [])
@@ -379,20 +405,39 @@ function ConfigCard({ t, store }: {
     if (store.settings !== undefined) {
       setEnabled(store.settings.configAutoSave === true)
       setDir(store.settings.configDir ?? '')
+      dirSaved.current = store.settings.configDir ?? ''
     }
   }, [store.settings])
 
-  const dirty = store.settings !== undefined && (
-    enabled !== (store.settings.configAutoSave === true)
-    || dir.trim() !== (store.settings.configDir ?? ''))
-
-  const saveSettings = async (): Promise<void> => {
+  /** 自动保存开关:勾选/取消后立即保存(没有「保存设置」按钮)。 */
+  const toggleAutoSave = async (next: boolean): Promise<void> => {
+    setEnabled(next)
     setNote(undefined)
-    const saved = await store.saveConfigSettings({
-      configAutoSave: enabled,
-      configDir: dir.trim(),
-    })
-    setNote(saved ? t('settings.saved') : t('error.operationFailed'))
+    const saved = await store.saveConfigSettings({ configAutoSave: next })
+    setNote(saved
+      ? (next ? t('config.autoSaveOn') : t('config.autoSaveOff'))
+      : t('error.operationFailed'))
+  }
+
+  /**
+   * 配置目录立即保存(回车或失焦触发):保存时沿用 saveConfigSettings 的合并写法,
+   * 只改 configDir,不会把 proxy 等字段覆盖成空。值没变就直接跳过,并在发起请求前
+   * **同步**记账,挡住「失焦后又按回车」把同一次修改提交两遍。服务端会在新目录里立刻
+   * 写一份《手动恢复指南.md》。
+   */
+  const commitDir = async (): Promise<void> => {
+    const next = dir.trim()
+    if (next === dirSaved.current) return
+    dirSaved.current = next
+    setNote(undefined)
+    const saved = await store.saveConfigSettings({ configDir: next })
+    if (saved) {
+      setNote(next.length > 0 ? t('config.dirSet', { path: next }) : t('config.dirReset'))
+      return
+    }
+    // 失败不记账(退回服务端现值),这样失焦/回车还能重试。
+    dirSaved.current = store.settings?.configDir ?? ''
+    setNote(t('error.operationFailed'))
   }
 
   /** 打开宿主机的文件夹选择器:选中后填入输入框并立即保存;取消/失败给出提示。 */
@@ -409,7 +454,32 @@ function ConfigCard({ t, store }: {
     }
     setDir(picked.path)
     const saved = await store.saveConfigSettings({ configDir: picked.path })
-    setNote(saved ? t('config.dirPicked', { path: picked.path }) : t('error.operationFailed'))
+    if (!saved) {
+      setNote(t('error.operationFailed'))
+      return
+    }
+    dirSaved.current = picked.path
+    setNote(t('config.dirSet', { path: picked.path }))
+  }
+
+  /** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
+  const pickConfigFile = async (): Promise<void> => {
+    setNote(undefined)
+    const picked = await store.pickFile()
+    if (picked === undefined) {
+      setNote(t('error.operationFailed'))
+      return
+    }
+    if (picked.path === null) {
+      setNote(picked.error !== undefined ? picked.error : t('config.createFromFileCancelled'))
+      return
+    }
+    const item = await store.inspectConfig({ path: picked.path })
+    if (item === undefined) {
+      setNote(t('error.operationFailed'))
+      return
+    }
+    openPicked(item)
   }
 
   const saveNow = async (): Promise<void> => {
@@ -418,20 +488,31 @@ function ConfigCard({ t, store }: {
     setNote(done ? t('config.saveNowDone') : t('error.operationFailed'))
   }
 
+  /** 列表行的「从配置创建」:目标指向配置目录里的文件名。 */
   const openRestore = (row: ConfigRow): void => {
     setNote(undefined)
-    setRestoreFor(row)
+    setRestoreFor({ file: row.file, label: row.name, profile: row.profile })
     setRestoreName(defaultContainerName(row.name))
-    const rowVersion = row.version ?? ''
-    setRestoreVersion(rowVersion.length > 0 && installedVersions.includes(rowVersion) ? rowVersion : installedVersions[0] ?? '')
+    setRestoreVersion(defaultVersion(row.version, installedVersions))
+  }
+
+  /** 系统对话框选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
+  const openPicked = (item: ConfigInspectItem): void => {
+    setNote(undefined)
+    setRestoreFor({ path: item.path, label: `${item.name}(${item.file})`, profile: item.profile })
+    setRestoreName(defaultContainerName(item.name))
+    setRestoreVersion(defaultVersion(item.version, installedVersions))
   }
 
   const submitRestore = async (): Promise<void> => {
-    const row = restoreFor
-    if (row === undefined) return
+    const target = restoreFor
+    if (target === undefined) return
     const name = restoreName.trim()
     if (name.length === 0 || restoreVersion.length === 0) return
-    const started = await store.createFromConfig(row.file, { name, version: restoreVersion, profile: row.profile })
+    const started = await store.createFromConfig(
+      target.file !== undefined ? { file: target.file } : { path: target.path },
+      { name, version: restoreVersion, profile: target.profile },
+    )
     if (started) {
       setRestoreFor(undefined)
       setNote(t('config.createStarted', { name }))
@@ -452,6 +533,15 @@ function ConfigCard({ t, store }: {
           <Button size="sm" variant="primary" disabled={store.isBusy('configSave')} onClick={() => { void saveNow() }}>
             {store.isBusy('configSave') ? t('config.saveNowRunning') : t('config.saveNow')}
           </Button>
+          <Button
+            size="sm"
+            disabled={store.isBusy('configFilePick') || store.isBusy('configInspect')}
+            onClick={() => { void pickConfigFile() }}
+          >
+            {store.isBusy('configFilePick') || store.isBusy('configInspect')
+              ? t('config.createFromFilePicking')
+              : t('config.createFromFile')}
+          </Button>
         </div>
       )}
     >
@@ -470,7 +560,11 @@ function ConfigCard({ t, store }: {
       <div className={css.rowLine}>
         <span className={css.labelCol}>{t('config.enable')}</span>
         <label className={css.checkboxRow}>
-          <input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked) }} />
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={event => { void toggleAutoSave(event.target.checked) }}
+          />
           <span>{t('config.enableHint')}</span>
         </label>
       </div>
@@ -481,6 +575,13 @@ function ConfigCard({ t, store }: {
           value={dir}
           placeholder={store.configs?.dir ?? ''}
           onChange={event => { setDir(event.target.value) }}
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              void commitDir()
+            }
+          }}
+          onBlur={() => { void commitDir() }}
         />
         <Button
           size="sm"
@@ -488,11 +589,6 @@ function ConfigCard({ t, store }: {
           onClick={() => { void pickDir() }}
         >
           {store.isBusy('configPick') ? t('config.dirPicking') : t('config.dirPick')}
-        </Button>
-      </div>
-      <div className={css.saveRow}>
-        <Button size="sm" variant="primary" disabled={!dirty || store.isBusy('configSettings')} onClick={() => { void saveSettings() }}>
-          {store.isBusy('configSettings') ? t('settings.saving') : t('settings.save')}
         </Button>
       </div>
 
@@ -552,7 +648,7 @@ function ConfigCard({ t, store }: {
       {restoreFor !== undefined && (
         <div className={css.inlineForm}>
           <div className={css.inlineFormRow}>
-            <span className={css.formLabel}>{t('config.create')} · {restoreFor.name}</span>
+            <span className={css.formLabel}>{t('config.create')} · {restoreFor.label}</span>
             <Input
               className={css.grow}
               value={restoreName}
@@ -566,7 +662,7 @@ function ConfigCard({ t, store }: {
             <Button
               size="sm"
               variant="primary"
-              disabled={restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreFor.file}`)}
+              disabled={restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreKey(restoreFor)}`)}
               onClick={() => { void submitRestore() }}
             >
               {t('containers.confirm')}
