@@ -29,8 +29,13 @@ let onboardingNeeded = false
 
 // 运行时(node/pnpm)解析:部署目录优先,应用自带(项目根/runtime)回退。
 // 运行时属于应用,部署目录只放用户数据 —— 二者解耦,新机器部署无需拷贝运行时。
+// 运行时目录名 = <平台>-<架构>(install.sh 按同一规则落盘);回退兼容历史的 linux-x64 固定目录
+const RUNTIME_TARGET = `${process.platform === 'win32' ? 'win' : process.platform}-${process.arch === 'arm64' ? 'arm64' : 'x64'}`
+
 function runtimeDir() {
   const candidates = [
+    path.join(DATA_ROOT, 'runtime', RUNTIME_TARGET),
+    path.join(APP_DIR, '..', 'runtime', RUNTIME_TARGET),
     path.join(DATA_ROOT, 'runtime', 'linux-x64'),
     path.join(APP_DIR, '..', 'runtime', 'linux-x64'),
   ]

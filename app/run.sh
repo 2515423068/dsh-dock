@@ -21,6 +21,21 @@ LOG="$DATA/logs/stdout.log"
 PID_FILE="$DATA/state/dshdock.pid"
 BASE_URL="http://127.0.0.1:$PORT"
 
+# 拉起服务用的 node:优先应用自带运行时(新机器无需系统 node),否则退回 PATH 上的 node
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64|Linux-amd64)     NODE_TARGET="linux-x64" ;;
+  Linux-aarch64|Linux-arm64)    NODE_TARGET="linux-arm64" ;;
+  Darwin-x86_64)                NODE_TARGET="darwin-x64" ;;
+  Darwin-arm64)                 NODE_TARGET="darwin-arm64" ;;
+  *)                            NODE_TARGET="linux-x64" ;;
+esac
+NODE_BIN="node"
+for cand in \
+  "$DATA/runtime/$NODE_TARGET/node/bin/node" "$APP/../runtime/$NODE_TARGET/node/bin/node" \
+  "$DATA/runtime/linux-x64/node/bin/node" "$APP/../runtime/linux-x64/node/bin/node"; do
+  if [ -x "$cand" ]; then NODE_BIN="$cand"; break; fi
+done
+
 server_pid() {
   pid="$(cat "$PID_FILE" 2>/dev/null)"
   if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then echo "$pid"; return; fi
@@ -40,7 +55,7 @@ start_server() {
   if curl -sf "$BASE_URL/api/settings" >/dev/null 2>&1; then return 0; fi
   mkdir -p "$DATA/logs"
   # setsid 独立会话 + 开发模式:服务不随调用方终端死亡;信号退出时容器进程保留
-  DSHDOCK_DEV=1 setsid nohup node "$APP/server.mjs" >> "$LOG" < /dev/null 2>&1 &
+  DSHDOCK_DEV=1 setsid nohup "$NODE_BIN" "$APP/server.mjs" >> "$LOG" < /dev/null 2>&1 &
   ok=""
   for _ in $(seq 20); do
     if curl -sf "$BASE_URL/api/settings" >/dev/null 2>&1; then ok=1; break; fi
@@ -148,7 +163,7 @@ cmd_fg() {
   fi
   echo "DSH Dock 前台模式 (Ctrl+C 停止所有容器并退出),访问地址(点击打开):"
   print_link "$BASE_URL/"
-  cd "$APP" && exec node server.mjs
+  cd "$APP" && exec "$NODE_BIN" server.mjs
 }
 
 cmd_devrestart() {
@@ -175,7 +190,7 @@ cmd_devrestart() {
   fi
   mkdir -p "$DATA/logs"
   # 开发模式信号保护:误发的 SIGINT/SIGTERM 只退出服务,不停容器
-  DSHDOCK_DEV=1 setsid nohup node "$APP/server.mjs" >> "$LOG" < /dev/null 2>&1 &
+  DSHDOCK_DEV=1 setsid nohup "$NODE_BIN" "$APP/server.mjs" >> "$LOG" < /dev/null 2>&1 &
   ok=""
   for _ in $(seq 40); do
     if curl -sf "$BASE_URL/api/settings" >/dev/null 2>&1; then ok=1; break; fi
