@@ -413,6 +413,19 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 配置目录的只读路径:单行省略,完整值走 title 悬停提示。 */
+.pathText {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chipRow {
   display: inline-flex;
   gap: 6px;

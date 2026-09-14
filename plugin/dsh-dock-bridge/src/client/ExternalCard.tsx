@@ -5,7 +5,7 @@
  * 配置文件列表 + 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律
  * **只复制、绝不软链**。
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Button, IconRefreshOutline16, IconWarningOutline16, Input, Pill,
@@ -210,6 +210,7 @@ function ExternalDetectCard({ t, store }: {
             <div className={css.rowActions}>
               <Button
                 size="sm"
+                title={t('external.saveAsConfigTitle')}
                 onClick={() => {
                   openSave({
                     path: home.path,
@@ -229,10 +230,7 @@ function ExternalDetectCard({ t, store }: {
       </ul>
       {external !== undefined && (
         <p className={css.footerNote}>
-          {t('external.managedNote', {
-            containers: String(external.containers.length),
-            running: String(external.managedRunning),
-          })}
+          {t('external.managedNote', { containers: String(external.containers.length) })}
         </p>
       )}
       {external !== undefined && (
@@ -315,6 +313,7 @@ function ExternalDetectCard({ t, store }: {
           <div className={css.inlineFormActions}>
             <Button
               size="sm"
+              title={t('external.saveAsConfigTitle')}
               onClick={() => {
                 openSave({
                   path: checked.path,
@@ -386,27 +385,23 @@ function ConfigCard({ t, store }: {
   store: DockStore
 }): ReactNode {
   const [enabled, setEnabled] = useState(false)
-  const [dir, setDir] = useState('')
   const [saveFor, setSaveFor] = useState('')
   const [note, setNote] = useState<string>()
   const [restoreFor, setRestoreFor] = useState<RestoreTarget>()
   const [restoreName, setRestoreName] = useState('')
   const [restoreVersion, setRestoreVersion] = useState('')
   const [deleteFor, setDeleteFor] = useState<ConfigRow>()
-  // 目录输入框最后一次成功提交的值:失焦与回车都会触发保存,靠它跳过重复提交。
-  const dirSaved = useRef('')
   const opError = store.opErrorFor(['config'])
   const items = store.configs?.items ?? []
   const installedVersions = (store.versions?.versions ?? [])
     .filter(entry => entry.installed)
     .map(entry => entry.tag)
+  // 配置目录只读展示:已设置的目录优先,未设置(空串 = 默认)时显示解析后的实际目录。
+  const configuredDir = store.settings?.configDir ?? ''
+  const dirPath = configuredDir.length > 0 ? configuredDir : store.configs?.dir ?? ''
 
   useEffect(() => {
-    if (store.settings !== undefined) {
-      setEnabled(store.settings.configAutoSave === true)
-      setDir(store.settings.configDir ?? '')
-      dirSaved.current = store.settings.configDir ?? ''
-    }
+    if (store.settings !== undefined) setEnabled(store.settings.configAutoSave === true)
   }, [store.settings])
 
   /** 自动保存开关:勾选/取消后立即保存(没有「保存设置」按钮)。 */
@@ -420,27 +415,8 @@ function ConfigCard({ t, store }: {
   }
 
   /**
-   * 配置目录立即保存(回车或失焦触发):保存时沿用 saveConfigSettings 的合并写法,
-   * 只改 configDir,不会把 proxy 等字段覆盖成空。值没变就直接跳过,并在发起请求前
-   * **同步**记账,挡住「失焦后又按回车」把同一次修改提交两遍。服务端会在新目录里立刻
-   * 写一份《手动恢复指南.md》。
+   * 打开宿主机的文件夹选择器:选中后立即保存(路径只读,不能手输);取消/失败给出提示。
    */
-  const commitDir = async (): Promise<void> => {
-    const next = dir.trim()
-    if (next === dirSaved.current) return
-    dirSaved.current = next
-    setNote(undefined)
-    const saved = await store.saveConfigSettings({ configDir: next })
-    if (saved) {
-      setNote(next.length > 0 ? t('config.dirSet', { path: next }) : t('config.dirReset'))
-      return
-    }
-    // 失败不记账(退回服务端现值),这样失焦/回车还能重试。
-    dirSaved.current = store.settings?.configDir ?? ''
-    setNote(t('error.operationFailed'))
-  }
-
-  /** 打开宿主机的文件夹选择器:选中后填入输入框并立即保存;取消/失败给出提示。 */
   const pickDir = async (): Promise<void> => {
     setNote(undefined)
     const picked = await store.pickDirectory()
@@ -452,14 +428,8 @@ function ConfigCard({ t, store }: {
       setNote(picked.error !== undefined ? picked.error : t('config.dirPickCancelled'))
       return
     }
-    setDir(picked.path)
     const saved = await store.saveConfigSettings({ configDir: picked.path })
-    if (!saved) {
-      setNote(t('error.operationFailed'))
-      return
-    }
-    dirSaved.current = picked.path
-    setNote(t('config.dirSet', { path: picked.path }))
+    setNote(saved ? t('config.dirSet', { path: picked.path }) : t('error.operationFailed'))
   }
 
   /** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
@@ -530,11 +500,18 @@ function ConfigCard({ t, store }: {
             <option value="">{t('config.saveTargetAll')}</option>
             {store.containers.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
           </select>
-          <Button size="sm" variant="primary" disabled={store.isBusy('configSave')} onClick={() => { void saveNow() }}>
+          <Button
+            size="sm"
+            variant="primary"
+            title={t('config.saveNowTitle')}
+            disabled={store.isBusy('configSave')}
+            onClick={() => { void saveNow() }}
+          >
             {store.isBusy('configSave') ? t('config.saveNowRunning') : t('config.saveNow')}
           </Button>
           <Button
             size="sm"
+            title={t('config.createFromFileTitle')}
             disabled={store.isBusy('configFilePick') || store.isBusy('configInspect')}
             onClick={() => { void pickConfigFile() }}
           >
@@ -559,37 +536,26 @@ function ConfigCard({ t, store }: {
 
       <div className={css.rowLine}>
         <span className={css.labelCol}>{t('config.enable')}</span>
-        <label className={css.checkboxRow}>
+        <label className={css.checkboxRow} title={t('config.enableTitle')}>
           <input
             type="checkbox"
+            aria-label={t('config.enable')}
             checked={enabled}
             onChange={event => { void toggleAutoSave(event.target.checked) }}
           />
-          <span>{t('config.enableHint')}</span>
         </label>
       </div>
       <div className={css.rowLine}>
         <span className={css.labelCol}>{t('config.dir')}</span>
-        <Input
-          className={css.grow}
-          value={dir}
-          placeholder={store.configs?.dir ?? ''}
-          onChange={event => { setDir(event.target.value) }}
-          onKeyDown={event => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              void commitDir()
-            }
-          }}
-          onBlur={() => { void commitDir() }}
-        />
         <Button
           size="sm"
+          title={t('config.dirTitle')}
           disabled={store.isBusy('configPick')}
           onClick={() => { void pickDir() }}
         >
           {store.isBusy('configPick') ? t('config.dirPicking') : t('config.dirPick')}
         </Button>
+        <span className={css.pathText} title={dirPath}>{dirPath.length > 0 ? dirPath : '-'}</span>
       </div>
 
       {items.length === 0 && <p className={css.empty}>{t('config.empty')}</p>}

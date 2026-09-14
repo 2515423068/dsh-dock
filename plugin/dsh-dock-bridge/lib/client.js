@@ -697,7 +697,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_mono{font-family:var(--ds-font-family-code);word-break:break-all;font-size:12px}.yFwJXq_warnNote{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:12px;display:flex}.yFwJXq_riskList{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:12px;line-height:18px;display:flex}.yFwJXq_riskItem{overflow-wrap:anywhere}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_pathText{min-width:0;font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-secondary);white-space:nowrap;text-overflow:ellipsis;flex:200px;font-size:12px;line-height:20px;overflow:hidden}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_mono{font-family:var(--ds-font-family-code);word-break:break-all;font-size:12px}.yFwJXq_warnNote{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:12px;display:flex}.yFwJXq_riskList{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:12px;line-height:18px;display:flex}.yFwJXq_riskItem{overflow-wrap:anywhere}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -708,101 +708,102 @@ window.__ModuleLoader__.load({
 		}
 		var DockSection_module_css_default = {
 			"mono": "yFwJXq_mono",
-			"cardActions": "yFwJXq_cardActions",
-			"switchLine": "yFwJXq_switchLine",
-			"outputTail": "yFwJXq_outputTail",
-			"tab": "yFwJXq_tab",
-			"modelRow": "yFwJXq_modelRow",
-			"rowUrl": "yFwJXq_rowUrl",
-			"errorLine": "yFwJXq_errorLine",
-			"taskHead": "yFwJXq_taskHead",
-			"ddItem": "yFwJXq_ddItem",
-			"rowActions": "yFwJXq_rowActions",
-			"ddCaret": "yFwJXq_ddCaret",
-			"ddX": "yFwJXq_ddX",
-			"empty": "yFwJXq_empty",
-			"grow": "yFwJXq_grow",
-			"card": "yFwJXq_card",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"warnNote": "yFwJXq_warnNote",
-			"subTitle": "yFwJXq_subTitle",
-			"formLabel": "yFwJXq_formLabel",
-			"guideBody": "yFwJXq_guideBody",
-			"ddName": "yFwJXq_ddName",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"chipRow": "yFwJXq_chipRow",
-			"cardTitle": "yFwJXq_cardTitle",
-			"modelField": "yFwJXq_modelField",
-			"modelList": "yFwJXq_modelList",
-			"rowTitle": "yFwJXq_rowTitle",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"modelWarn": "yFwJXq_modelWarn",
-			"capInput": "yFwJXq_capInput",
-			"verSelect": "yFwJXq_verSelect",
-			"tabs": "yFwJXq_tabs",
-			"saveRow": "yFwJXq_saveRow",
-			"rows": "yFwJXq_rows",
-			"ddStar": "yFwJXq_ddStar",
-			"ddTag": "yFwJXq_ddTag",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"formGrid": "yFwJXq_formGrid",
-			"footerNote": "yFwJXq_footerNote",
-			"guideTitle": "yFwJXq_guideTitle",
-			"ddMeta": "yFwJXq_ddMeta",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"cellAction": "yFwJXq_cellAction",
-			"dotMiss": "yFwJXq_dotMiss",
-			"inlineForm": "yFwJXq_inlineForm",
-			"spin": "yFwJXq_spin",
-			"errorNote": "yFwJXq_errorNote",
-			"riskList": "yFwJXq_riskList",
-			"riskItem": "yFwJXq_riskItem",
-			"ddLabel": "yFwJXq_ddLabel",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"mutedCell": "yFwJXq_mutedCell",
-			"row": "yFwJXq_row",
-			"taskFailed": "yFwJXq_taskFailed",
-			"section": "yFwJXq_section",
-			"title": "yFwJXq_title",
-			"taskInline": "yFwJXq_taskInline",
-			"rowLine": "yFwJXq_rowLine",
-			"labelCol": "yFwJXq_labelCol",
-			"table": "yFwJXq_table",
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"logPath": "yFwJXq_logPath",
-			"selfBadge": "yFwJXq_selfBadge",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"ddPanel": "yFwJXq_ddPanel",
-			"hintIcon": "yFwJXq_hintIcon",
-			"formRow": "yFwJXq_formRow",
-			"rowHead": "yFwJXq_rowHead",
-			"rangeInput": "yFwJXq_rangeInput",
-			"tabPanel": "yFwJXq_tabPanel",
-			"detailFrame": "yFwJXq_detailFrame",
-			"dot": "yFwJXq_dot",
-			"taskLine": "yFwJXq_taskLine",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"guide": "yFwJXq_guide",
-			"link": "yFwJXq_link",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"modelItem": "yFwJXq_modelItem",
-			"statusLabel": "yFwJXq_statusLabel",
-			"intro": "yFwJXq_intro",
 			"rowMeta": "yFwJXq_rowMeta",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"providerName": "yFwJXq_providerName",
-			"providerActions": "yFwJXq_providerActions",
-			"dotOk": "yFwJXq_dotOk",
+			"grow": "yFwJXq_grow",
+			"ddTag": "yFwJXq_ddTag",
+			"row": "yFwJXq_row",
+			"cellAction": "yFwJXq_cellAction",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
 			"dd": "yFwJXq_dd",
-			"ddProv": "yFwJXq_ddProv",
-			"checkLine": "yFwJXq_checkLine",
-			"providerRow": "yFwJXq_providerRow",
+			"formRow": "yFwJXq_formRow",
 			"cardBody": "yFwJXq_cardBody",
+			"ddProv": "yFwJXq_ddProv",
+			"inlineForm": "yFwJXq_inlineForm",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"taskInline": "yFwJXq_taskInline",
+			"modelWarn": "yFwJXq_modelWarn",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"statusLabel": "yFwJXq_statusLabel",
+			"outputTail": "yFwJXq_outputTail",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"labelCol": "yFwJXq_labelCol",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"errorLine": "yFwJXq_errorLine",
+			"taskLine": "yFwJXq_taskLine",
+			"pathText": "yFwJXq_pathText",
+			"ddName": "yFwJXq_ddName",
+			"mutedCell": "yFwJXq_mutedCell",
+			"cardActions": "yFwJXq_cardActions",
+			"logPath": "yFwJXq_logPath",
+			"saveRow": "yFwJXq_saveRow",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"footerNote": "yFwJXq_footerNote",
+			"intro": "yFwJXq_intro",
+			"dotOk": "yFwJXq_dotOk",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"modelList": "yFwJXq_modelList",
+			"guide": "yFwJXq_guide",
+			"table": "yFwJXq_table",
+			"title": "yFwJXq_title",
+			"tab": "yFwJXq_tab",
+			"rowUrl": "yFwJXq_rowUrl",
+			"card": "yFwJXq_card",
+			"subTitle": "yFwJXq_subTitle",
+			"rowActions": "yFwJXq_rowActions",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"ddCaret": "yFwJXq_ddCaret",
+			"dot": "yFwJXq_dot",
+			"rowLine": "yFwJXq_rowLine",
+			"switchLine": "yFwJXq_switchLine",
+			"spin": "yFwJXq_spin",
+			"rowHead": "yFwJXq_rowHead",
+			"ddX": "yFwJXq_ddX",
+			"section": "yFwJXq_section",
+			"link": "yFwJXq_link",
+			"warnNote": "yFwJXq_warnNote",
+			"detailFrame": "yFwJXq_detailFrame",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"cardHead": "yFwJXq_cardHead",
+			"errorNote": "yFwJXq_errorNote",
+			"taskHead": "yFwJXq_taskHead",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"riskList": "yFwJXq_riskList",
+			"providerRow": "yFwJXq_providerRow",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"providerName": "yFwJXq_providerName",
+			"empty": "yFwJXq_empty",
+			"ddMeta": "yFwJXq_ddMeta",
+			"guideBody": "yFwJXq_guideBody",
+			"dotMiss": "yFwJXq_dotMiss",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"ddPanel": "yFwJXq_ddPanel",
+			"ddItem": "yFwJXq_ddItem",
+			"modelItem": "yFwJXq_modelItem",
+			"modelRow": "yFwJXq_modelRow",
+			"selfBadge": "yFwJXq_selfBadge",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"taskFailed": "yFwJXq_taskFailed",
+			"capInput": "yFwJXq_capInput",
+			"tabPanel": "yFwJXq_tabPanel",
+			"rangeInput": "yFwJXq_rangeInput",
+			"tabs": "yFwJXq_tabs",
+			"providerActions": "yFwJXq_providerActions",
 			"narrow": "yFwJXq_narrow",
-			"cardHead": "yFwJXq_cardHead"
+			"formLabel": "yFwJXq_formLabel",
+			"hintIcon": "yFwJXq_hintIcon",
+			"formGrid": "yFwJXq_formGrid",
+			"rows": "yFwJXq_rows",
+			"rowTitle": "yFwJXq_rowTitle",
+			"cardTitle": "yFwJXq_cardTitle",
+			"checkLine": "yFwJXq_checkLine",
+			"guideTitle": "yFwJXq_guideTitle",
+			"chipRow": "yFwJXq_chipRow",
+			"verSelect": "yFwJXq_verSelect",
+			"ddLabel": "yFwJXq_ddLabel",
+			"modelField": "yFwJXq_modelField",
+			"riskItem": "yFwJXq_riskItem",
+			"ddStar": "yFwJXq_ddStar"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1578,6 +1579,7 @@ window.__ModuleLoader__.load({
 									className: DockSection_module_css_default.rowActions,
 									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 										size: "sm",
+										title: t("external.saveAsConfigTitle"),
 										onClick: () => {
 											openSave({
 												path: home.path,
@@ -1596,10 +1598,7 @@ window.__ModuleLoader__.load({
 					}),
 					external !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.footerNote,
-						children: t("external.managedNote", {
-							containers: String(external.containers.length),
-							running: String(external.managedRunning)
-						})
+						children: t("external.managedNote", { containers: String(external.containers.length) })
 					}),
 					external !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.footerNote,
@@ -1710,6 +1709,7 @@ window.__ModuleLoader__.load({
 								className: DockSection_module_css_default.inlineFormActions,
 								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
+									title: t("external.saveAsConfigTitle"),
 									onClick: () => {
 										openSave({
 											path: checked.path,
@@ -1808,23 +1808,19 @@ window.__ModuleLoader__.load({
 		/** 配置卡:开关 / 目录(含文件夹选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
 		function ConfigCard({ t, store }) {
 			const [enabled, setEnabled] = (0, react.useState)(false);
-			const [dir, setDir] = (0, react.useState)("");
 			const [saveFor, setSaveFor] = (0, react.useState)("");
 			const [note, setNote] = (0, react.useState)();
 			const [restoreFor, setRestoreFor] = (0, react.useState)();
 			const [restoreName, setRestoreName] = (0, react.useState)("");
 			const [restoreVersion, setRestoreVersion] = (0, react.useState)("");
 			const [deleteFor, setDeleteFor] = (0, react.useState)();
-			const dirSaved = (0, react.useRef)("");
 			const opError = store.opErrorFor(["config"]);
 			const items = store.configs?.items ?? [];
 			const installedVersions = (store.versions?.versions ?? []).filter((entry) => entry.installed).map((entry) => entry.tag);
+			const configuredDir = store.settings?.configDir ?? "";
+			const dirPath = configuredDir.length > 0 ? configuredDir : store.configs?.dir ?? "";
 			(0, react.useEffect)(() => {
-				if (store.settings !== void 0) {
-					setEnabled(store.settings.configAutoSave === true);
-					setDir(store.settings.configDir ?? "");
-					dirSaved.current = store.settings.configDir ?? "";
-				}
+				if (store.settings !== void 0) setEnabled(store.settings.configAutoSave === true);
 			}, [store.settings]);
 			/** 自动保存开关:勾选/取消后立即保存(没有「保存设置」按钮)。 */
 			const toggleAutoSave = async (next) => {
@@ -1834,24 +1830,8 @@ window.__ModuleLoader__.load({
 				setNote(saved ? next ? t("config.autoSaveOn") : t("config.autoSaveOff") : t("error.operationFailed"));
 			};
 			/**
-			* 配置目录立即保存(回车或失焦触发):保存时沿用 saveConfigSettings 的合并写法,
-			* 只改 configDir,不会把 proxy 等字段覆盖成空。值没变就直接跳过,并在发起请求前
-			* **同步**记账,挡住「失焦后又按回车」把同一次修改提交两遍。服务端会在新目录里立刻
-			* 写一份《手动恢复指南.md》。
+			* 打开宿主机的文件夹选择器:选中后立即保存(路径只读,不能手输);取消/失败给出提示。
 			*/
-			const commitDir = async () => {
-				const next = dir.trim();
-				if (next === dirSaved.current) return;
-				dirSaved.current = next;
-				setNote(void 0);
-				if (await store.saveConfigSettings({ configDir: next })) {
-					setNote(next.length > 0 ? t("config.dirSet", { path: next }) : t("config.dirReset"));
-					return;
-				}
-				dirSaved.current = store.settings?.configDir ?? "";
-				setNote(t("error.operationFailed"));
-			};
-			/** 打开宿主机的文件夹选择器:选中后填入输入框并立即保存;取消/失败给出提示。 */
 			const pickDir = async () => {
 				setNote(void 0);
 				const picked = await store.pickDirectory();
@@ -1863,13 +1843,8 @@ window.__ModuleLoader__.load({
 					setNote(picked.error !== void 0 ? picked.error : t("config.dirPickCancelled"));
 					return;
 				}
-				setDir(picked.path);
-				if (!await store.saveConfigSettings({ configDir: picked.path })) {
-					setNote(t("error.operationFailed"));
-					return;
-				}
-				dirSaved.current = picked.path;
-				setNote(t("config.dirSet", { path: picked.path }));
+				const saved = await store.saveConfigSettings({ configDir: picked.path });
+				setNote(saved ? t("config.dirSet", { path: picked.path }) : t("error.operationFailed"));
 			};
 			/** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
 			const pickConfigFile = async () => {
@@ -1953,6 +1928,7 @@ window.__ModuleLoader__.load({
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
 							variant: "primary",
+							title: t("config.saveNowTitle"),
 							disabled: store.isBusy("configSave"),
 							onClick: () => {
 								saveNow();
@@ -1961,6 +1937,7 @@ window.__ModuleLoader__.load({
 						}),
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
+							title: t("config.createFromFileTitle"),
 							disabled: store.isBusy("configFilePick") || store.isBusy("configInspect"),
 							onClick: () => {
 								pickConfigFile();
@@ -1996,15 +1973,17 @@ window.__ModuleLoader__.load({
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: DockSection_module_css_default.labelCol,
 							children: t("config.enable")
-						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("label", {
 							className: DockSection_module_css_default.checkboxRow,
-							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+							title: t("config.enableTitle"),
+							children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
 								type: "checkbox",
+								"aria-label": t("config.enable"),
 								checked: enabled,
 								onChange: (event) => {
 									toggleAutoSave(event.target.checked);
 								}
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("config.enableHint") })]
+							})
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
@@ -2014,30 +1993,19 @@ window.__ModuleLoader__.load({
 								className: DockSection_module_css_default.labelCol,
 								children: t("config.dir")
 							}),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
-								className: DockSection_module_css_default.grow,
-								value: dir,
-								placeholder: store.configs?.dir ?? "",
-								onChange: (event) => {
-									setDir(event.target.value);
-								},
-								onKeyDown: (event) => {
-									if (event.key === "Enter") {
-										event.preventDefault();
-										commitDir();
-									}
-								},
-								onBlur: () => {
-									commitDir();
-								}
-							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								size: "sm",
+								title: t("config.dirTitle"),
 								disabled: store.isBusy("configPick"),
 								onClick: () => {
 									pickDir();
 								},
 								children: store.isBusy("configPick") ? t("config.dirPicking") : t("config.dirPick")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.pathText,
+								title: dirPath,
+								children: dirPath.length > 0 ? dirPath : "-"
 							})
 						]
 					}),
@@ -3374,67 +3342,69 @@ window.__ModuleLoader__.load({
 			"versions.cachedAt": "目录更新于 {time}",
 			"versions.confirmDelete": "删除版本 {tag}?仅在本版本未被任何容器使用时允许。",
 			"config.title": "外部与配置",
-			"external.title": "外部 DSH 检测(只读)",
+			"external.title": "外部 DSH",
 			"external.refresh": "重新检测",
-			"external.intro": "检测 DSH Dock 之外已有的 DSH:官方 ~/.dsh、npx/全局安装、harness 源码检出,以及正在运行的实例。这里只检测并告知:不改动这些外部实例,也不建立任何链接;唯一可做的动作是把某份配置「保存为配置」。",
-			"external.usageUnknown": "当前平台读不到进程的 DSH_HOME:无法自动判断某个配置是否正在被使用,提交前请自行确认源 DSH 已停止。",
-			"external.homesTitle": "检测到的配置目录(DSH_HOME)",
-			"external.homesEmpty": "未检测到外部 DSH(DSHBox 自己管理的容器不在此列)",
-			"external.managedNote": "DSHBox 自己管理的 {containers} 个容器不计入外部 DSH;本次检测过滤掉 {running} 个由它们产生的 host 进程。",
+			"external.intro": "只读检测,不会修改或接管它们。",
+			"external.usageUnknown": "当前平台无法判断配置是否正在被使用;提交前请确认源 DSH 已停止。",
+			"external.homesTitle": "配置目录",
+			"external.homesEmpty": "未检测到外部 DSH",
+			"external.managedNote": "DSHBox 自管的 {containers} 个容器不计入外部 DSH。",
 			"external.inUse": "正在运行(pid {pid})",
 			"external.homeFacts": "{sessions} 个会话 · {files} 个文件 · {size}",
 			"external.saveConfigFacts": "{sessions} 个会话 · {size}",
 			"external.hasCredentials": "含凭据文件",
 			"external.hasSettings": "含 settings.yaml",
 			"external.officialName": "官方 ~/.dsh",
-			"external.officialHomeNote": "官方路径:{path}(不存在时不列出)",
+			"external.officialHomeNote": "官方路径:{path}",
 			"external.saveAsConfig": "保存为配置",
-			"external.versionsTitle": "检测到的 DSH 安装 / 检出",
-			"external.versionsEmpty": "未检测到外部 DSH 安装或 harness 检出",
+			"external.saveAsConfigTitle": "复制成一个配置文件,源目录不动",
+			"external.versionsTitle": "已安装的 dsh / 源码检出",
+			"external.versionsEmpty": "未检测到 dsh 安装或源码检出",
 			"external.prebuilt": "已有构建产物",
 			"external.notPrebuilt": "未构建",
 			"external.checkoutVersion": "检出 {version}",
 			"external.installedVersion": "版本 {version}",
 			"external.kind.npx": "npx 缓存",
 			"external.kind.global": "npm 全局",
-			"external.runningTitle": "正在运行的 DSH 进程",
-			"external.runningEmpty": "未检测到正在运行的 DSH 进程",
+			"external.runningTitle": "运行中的实例",
+			"external.runningEmpty": "没有运行中的实例",
 			"external.pid": "PID",
 			"external.port": "端口",
 			"external.home": "DSH_HOME",
-			"external.checkLabel": "检测一个路径",
+			"external.checkLabel": "检测路径",
 			"external.checkPlaceholder": "绝对路径,例如 /home/you/.dsh",
 			"external.check": "检测",
 			"external.checkHome": "这是一个 DSH 配置目录({sessions} 个会话),可保存为配置文件。",
 			"external.checkHarness": "这是一份 harness 检出(版本 {version})。",
 			"external.checkNone": "既不是 DSH 配置目录,也不是 harness 检出。",
 			"external.saveConfigTitle": "保存为配置",
-			"external.riskCopy": "只做复制:源目录不会被修改,复制完成后两边各自独立、互不影响;绝不使用软链。",
-			"external.riskCredentials": "配置里可能含明文凭据(.credentials.yaml):配置文件请视为敏感数据,不要提交到公开仓库或分享。",
+			"external.riskCopy": "只复制:源目录不会被改动,两边各自独立。",
+			"external.riskCredentials": "配置可能含明文凭据(.credentials.yaml),请视为敏感数据,不要提交或分享。",
 			"external.riskStop": "请先停止源 DSH:运行中复制可能得到写到一半的会话文件。",
-			"external.riskInUse": "⚠️ 检测到源 DSH 仍在运行:保存到的可能只是某一刻的快照。",
-			"external.riskPlaintext": "⚠️ 该目录含 .credentials.yaml(明文 API Key),保存成的配置文件里仍以 0600 权限保存。",
+			"external.riskInUse": "⚠️ 源 DSH 仍在运行,保存到的可能只是某一刻的快照。",
+			"external.riskPlaintext": "⚠️ 该目录含 .credentials.yaml(明文 API Key),配置文件内以 0600 权限保存。",
 			"external.acknowledge": "我确认该 DSH 已停止,并了解以上风险",
 			"external.saveConfigConfirm": "保存为配置",
 			"external.savingConfig": "保存中…",
 			"external.savedConfig": "已保存为配置文件:{name}",
 			"config.cardTitle": "配置",
-			"config.intro": "一次「保存配置」= 生成一个自包含的配置文件(<名字>-<版本>-<时间>.dshcfg,tar.gz,内含 meta.json 与 home/);恢复时只需要这个文件。配置文件是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照配置目录内的《手动恢复指南.md》手动恢复:它讲清了怎么解压配置文件,以及怎么在不用 DSH Dock 的情况下用 `DSH_HOME=<解出的 home> npx @deepseek-ai/dsh web` 启动。改配置目录:在地址栏改完按回车,或用「选择文件夹…」,两者都会立即生效,并由服务端在该目录写一份《手动恢复指南.md》。",
+			"config.intro": "恢复只需要一个配置文件;目录里另有《手动恢复指南.md》。",
 			"config.enable": "自动保存",
-			"config.enableHint": "开启后:创建容器、更新版本、删除容器前自动保存一份配置",
+			"config.enableTitle": "创建容器后、更新版本前、删除容器前自动保存一份配置",
 			"config.dir": "配置目录",
 			"config.dirPick": "选择文件夹…",
+			"config.dirTitle": "选择配置文件的存放目录",
 			"config.dirPicking": "选择中…",
-			"config.dirSet": "配置目录已设为 {path},并已写入《手动恢复指南.md》",
-			"config.dirReset": "已恢复默认配置目录",
+			"config.dirSet": "配置目录已设为 {path}",
 			"config.dirPickCancelled": "已取消选择",
-			"config.autoSaveOn": "已开启自动保存(创建后 / 更新前 / 删除前各存一份)",
+			"config.autoSaveOn": "已开启自动保存",
 			"config.autoSaveOff": "已关闭自动保存",
 			"config.saveNow": "保存配置",
+			"config.saveNowTitle": "把所选容器的配置保存成一个 .dshcfg 文件",
 			"config.saveNowRunning": "保存中…",
 			"config.saveNowDone": "已保存配置",
 			"config.saveTargetAll": "全部容器",
-			"config.empty": "暂无配置文件",
+			"config.empty": "还没有配置文件",
 			"config.file": "文件名",
 			"config.source": "来源",
 			"config.version": "版本",
@@ -3446,11 +3416,12 @@ window.__ModuleLoader__.load({
 			"config.invalid": "文件不可读",
 			"config.create": "从配置创建",
 			"config.createFromFile": "从配置文件创建…",
+			"config.createFromFileTitle": "选择一个 .dshcfg 文件,用它创建一个新容器",
 			"config.createFromFilePicking": "读取中…",
 			"config.createFromFileCancelled": "已取消选择",
 			"config.delete": "删除",
 			"config.deleteConfirm": "删除配置文件 {name}?文件会被移除,不可恢复(源容器不受影响)。",
-			"config.createHint": "新建容器会复制这份配置(恢复 = 复制,不动配置文件本身);版本下拉复用「版本」分区的已安装版本。",
+			"config.createHint": "恢复 = 复制,配置文件本身不动。",
 			"config.createStarted": "已开始从配置创建容器:{name}",
 			"config.unknownTime": "未知",
 			"config.reason.manual": "手动",
@@ -3631,31 +3602,32 @@ window.__ModuleLoader__.load({
 			"versions.cachedAt": "Catalog updated at {time}",
 			"versions.confirmDelete": "Delete version {tag}? Only allowed while no container uses it.",
 			"config.title": "External & configs",
-			"external.title": "External DSH detection (read-only)",
+			"external.title": "External DSH",
 			"external.refresh": "Detect again",
-			"external.intro": "Detects DSH instances that already exist outside DSH Dock: the official ~/.dsh, npx/global installs, harness source checkouts, and running instances. This only detects and informs — external instances are never modified and no link is ever created; the single available action is \"Save as config\", which packs an existing DSH_HOME into one self-contained configuration file.",
-			"external.usageUnknown": "This platform cannot read a process's DSH_HOME, so it cannot tell whether a configuration is in use; confirm the source DSH is stopped before submitting.",
-			"external.homesTitle": "Detected config directories (DSH_HOME)",
-			"external.homesEmpty": "No external DSH detected (containers managed by DSHBox itself are not included)",
-			"external.managedNote": "The {containers} containers managed by DSHBox itself are not counted as external DSH; this detection filtered out {running} host processes they produced.",
+			"external.intro": "Read-only detection: nothing here is modified or taken over.",
+			"external.usageUnknown": "This platform cannot tell whether a configuration is in use; confirm the source DSH is stopped before submitting.",
+			"external.homesTitle": "Config directories",
+			"external.homesEmpty": "No external DSH detected",
+			"external.managedNote": "The {containers} containers managed by DSHBox are not counted as external DSH.",
 			"external.inUse": "Running (pid {pid})",
 			"external.homeFacts": "{sessions} sessions · {files} files · {size}",
 			"external.saveConfigFacts": "{sessions} sessions · {size}",
 			"external.hasCredentials": "has credentials file",
 			"external.hasSettings": "has settings.yaml",
 			"external.officialName": "official ~/.dsh",
-			"external.officialHomeNote": "Official path: {path} (not listed while it does not exist)",
+			"external.officialHomeNote": "Official path: {path}",
 			"external.saveAsConfig": "Save as config",
-			"external.versionsTitle": "Detected DSH installs / checkouts",
-			"external.versionsEmpty": "No external DSH install or harness checkout detected",
+			"external.saveAsConfigTitle": "Copy into a configuration file; the source directory stays untouched",
+			"external.versionsTitle": "Installed dsh / source checkouts",
+			"external.versionsEmpty": "No dsh install or source checkout detected",
 			"external.prebuilt": "prebuilt",
 			"external.notPrebuilt": "not built",
 			"external.checkoutVersion": "checkout {version}",
 			"external.installedVersion": "version {version}",
 			"external.kind.npx": "npx cache",
 			"external.kind.global": "npm global",
-			"external.runningTitle": "Running DSH processes",
-			"external.runningEmpty": "No running DSH process detected",
+			"external.runningTitle": "Running instances",
+			"external.runningEmpty": "No running instance",
 			"external.pid": "PID",
 			"external.port": "Port",
 			"external.home": "DSH_HOME",
@@ -3666,7 +3638,7 @@ window.__ModuleLoader__.load({
 			"external.checkHarness": "This is a harness checkout (version {version}).",
 			"external.checkNone": "Neither a DSH config directory nor a harness checkout.",
 			"external.saveConfigTitle": "Save as config",
-			"external.riskCopy": "Copy only: the source directory is never modified, and both sides stay independent afterwards; symlinks are never used.",
+			"external.riskCopy": "Copy only: the source directory is never modified and both sides stay independent.",
 			"external.riskCredentials": "The config may hold plaintext credentials (.credentials.yaml): treat the configuration file as sensitive and never commit or share it.",
 			"external.riskStop": "Stop the source DSH first: copying while it runs may capture half-written session files.",
 			"external.riskInUse": "⚠️ The source DSH is still running: what gets saved may only be a snapshot of one moment.",
@@ -3676,18 +3648,19 @@ window.__ModuleLoader__.load({
 			"external.savingConfig": "Saving…",
 			"external.savedConfig": "Saved as a configuration file: {name}",
 			"config.cardTitle": "Configurations",
-			"config.intro": "One \"Save config\" creates one self-contained configuration file (<name>-<version>-<time>.dshcfg, a tar.gz holding meta.json and home/); restoring needs nothing but that file. Every configuration file is an independent copy (copy only, never a link), so it can still be restored by hand from 手动恢复指南.md in the config directory even after DSH Dock is uninstalled: it explains how to unpack a configuration file and how to start without DSH Dock via `DSH_HOME=<unpacked home> npx @deepseek-ai/dsh web`. To change the config directory, edit the field and press Enter, or use \"Choose folder…\": both take effect immediately and the server writes a 手动恢复指南.md into that directory.",
+			"config.intro": "Restoring needs just one configuration file; the directory also holds 手动恢复指南.md.",
 			"config.enable": "Auto-save",
-			"config.enableHint": "While on: save a configuration before creating a container, updating a version, or deleting a container",
+			"config.enableTitle": "Save a configuration after creating a container, before updating a version, and before deleting a container",
 			"config.dir": "Config directory",
 			"config.dirPick": "Choose folder…",
+			"config.dirTitle": "Choose where configuration files are stored",
 			"config.dirPicking": "Choosing…",
-			"config.dirSet": "Config directory set to {path}; 手动恢复指南.md written there",
-			"config.dirReset": "Restored the default config directory",
+			"config.dirSet": "Config directory set to {path}",
 			"config.dirPickCancelled": "Selection cancelled",
-			"config.autoSaveOn": "Auto-save on (a copy before create / update / delete)",
+			"config.autoSaveOn": "Auto-save on",
 			"config.autoSaveOff": "Auto-save off",
 			"config.saveNow": "Save config",
+			"config.saveNowTitle": "Save the selected container's configuration as one .dshcfg file",
 			"config.saveNowRunning": "Saving…",
 			"config.saveNowDone": "Configuration saved",
 			"config.saveTargetAll": "All containers",
@@ -3703,11 +3676,12 @@ window.__ModuleLoader__.load({
 			"config.invalid": "file unreadable",
 			"config.create": "Create from config",
 			"config.createFromFile": "Create from config file…",
+			"config.createFromFileTitle": "Pick a .dshcfg file and create a new container from it",
 			"config.createFromFilePicking": "Reading…",
 			"config.createFromFileCancelled": "Selection cancelled",
 			"config.delete": "Delete",
 			"config.deleteConfirm": "Delete configuration file {name}? The file is removed and cannot be recovered (the source container is unaffected).",
-			"config.createHint": "The new container copies this configuration (restoring = copying; the file itself is untouched); the version list reuses the installed versions from the Versions tab.",
+			"config.createHint": "Restoring copies it; the file itself is untouched.",
 			"config.createStarted": "Creating a container from the configuration: {name}",
 			"config.unknownTime": "unknown",
 			"config.reason.manual": "manual",
