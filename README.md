@@ -133,7 +133,7 @@ sh install.sh --yes            # 或用 --runtime system 复用系统 node/pnpm
 - HTTP 代理 / GitHub 镜像 / npm 镜像(中国大陆网络)。
 - 容器端口池范围;启动容器后是否自动打开浏览器;新容器是否跳过首开弹窗。
 - **模型配置表**:一行一个模型(协议 / 端点 / 凭据引用 / 提供方),支持从已有容器一键导入,建容器时自动归纳成提供方并写进 `settings.yaml` + 凭据。
-- **配置**:自动保存开关、配置目录(地址栏 + 一键调用系统文件夹选择器,选好即填入并生效)。
+- **配置**:自动保存开关、配置目录(地址栏直接改,或用系统文件夹选择器;改完立即生效并自动写入使用指南)。
 
 **外部 DSH 与配置**(WebUI「外部/配置」页)
 
@@ -142,9 +142,9 @@ sh install.sh --yes            # 或用 --runtime system 复用系统 node/pnpm
 - **只读检测**:列出机器上已有的 DSH —— 官方配置目录 `~/.dsh`(以及 `$DSH_HOME`)、npx / 全局安装的 dsh、harness 源码检出、正在运行的实例(pid / 端口;POSIX 还能识别某个配置是否正被使用)。**DSHBox 自己管理的容器不算外部**(它们由「容器管理」页负责),检测结果里也不会出现。DSHBox 不接管外部实例、不修改它们、也不与它们建立任何链接。
 - **配置服务(只复制,一个文件就是一份配置)**:把容器的 DSH 配置(该实例的 `DSH_HOME`:`settings.yaml`、`.credentials.yaml`、`sessions/`、`storages/`、插件、技能)打包成**单个自包含文件** `<名字>-<版本>-<时间>.dshcfg`(tar.gz,内含 `meta.json` + `home/`)。
   - **保存配置**:可保存全部容器或指定容器;恢复时**只需要提供这个配置文件**。
-  - **从配置创建**:选中配置文件 → 填容器名 + 选版本 → 就是一个新容器(复制语义,配置文件本身不受影响)。
-  - **上传 / 下载配置文件**:从别的机器拿到的 `.dshcfg` 可以直接上传进来再创建;也能把这里的配置下载带走。
-  - 配置目录默认 `<部署目录>/configs`(可在界面上用地址栏或**系统文件夹选择器**改),**不在「卸载数据」的删除范围内**;每次保存都会重写其中的 **`手动恢复指南.md`** —— 它讲清「配置文件就是一个 tar.gz,要**解压**」以及不用 DSHBox 时怎么恢复(`tar -xzf` 解出 `home/` → `chmod 600` 凭据 → `DSH_HOME=<home> npx @deepseek-ai/dsh web`,Windows 也有对应写法),所以即使 DSHBox 被卸载,配置文件与恢复方法都还在。
+  - **从配置创建**:两种选文件方式 ——「从配置文件创建…」用**系统文件对话框**直接选本机文件(与「选择文件夹」是同一个对话框),或从列表里点某份配置;填容器名 + 选版本即新建一个容器(复制语义,配置文件本身不受影响)。
+  - **上传 / 下载配置文件**:DSH Dock 跑在另一台机器时,用浏览器的「上传配置文件」;也能把这里的配置下载带走。
+  - 配置目录默认 `<部署目录>/configs`(可在界面上用地址栏或**系统文件夹选择器**改),**不在「卸载数据」的删除范围内**;配置目录一改就会写、每次保存也会重写其中的 **`手动恢复指南.md`** —— 它开头是**给普通用户看的大白话三步**(装 Node.js → 解压 → 一条命令启动),后面才是详细说明,讲清「配置文件就是一个 tar.gz,要**解压**」以及不用 DSHBox 时怎么恢复(`tar -xzf` 解出 `home/` → `chmod 600` 凭据 → `DSH_HOME=<home> npx @deepseek-ai/dsh web`,Windows 也有对应写法),所以即使 DSHBox 被卸载,配置文件与恢复方法都还在。
   - 自动保存开关打开后,会在**创建容器后 / 更新版本前 / 删除容器前**各保存一份。配置文件**不会自动删除**(需要时在列表里手动删)。
   - 想把某份**外部** DSH 配置留下来,由你点「保存为配置」决定;提交前会展示风险(明文凭据、只复制、源需停止)并要求勾选确认。
   - 配置文件里是**明文凭据**,请当敏感数据处理。
@@ -276,8 +276,9 @@ GET  /api/model-configs                 PUT/DELETE /api/model-configs/models/:ui
 POST /api/model-configs/default|import
 GET  /api/external                      POST /api/external/check         # 外部 DSH 只读检测 / 校验单个路径
 GET  /api/configs                       POST /api/configs                # 配置列表 / 保存配置 {containerId?|sourcePath}
-POST /api/configs/upload?filename=      POST /api/configs/restore        # 上传配置文件(raw body)/ 从配置创建
-GET  /api/configs/:file/download        DELETE /api/configs/:file        # 下载 / 删除配置文件
+POST /api/configs/inspect               POST /api/configs/restore        # 读配置元信息 {file?|path?} / 从配置创建
+POST /api/configs/upload?filename=      DELETE /api/configs/:file        # 上传配置文件(raw body)/ 删除配置文件
+GET  /api/configs/:file/download        POST /api/pick-directory|pick-file  # 下载配置文件 / 系统目录·文件选择对话框
 GET  /api/tasks                         GET /events                      # 任务列表 / SSE 进度
 POST /api/shutdown                                                       # 优雅关闭(先停容器)
 ```

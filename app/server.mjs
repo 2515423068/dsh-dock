@@ -824,6 +824,73 @@ function writeConfigGuide() {
     '',
     '---',
     '',
+    '# 先看这里(大白话版,不用懂命令行也能看懂)',
+    '',
+    '**这是什么?**',
+    '一个「配置包」文件(`.dshcfg` 结尾)。它把你那个 DSH 的**全部个人东西**装在一起:',
+    '登录用的 API Key、聊天记录(会话)、模型设置、装过的插件和技能。',
+    '',
+    '**它能干嘛?**',
+    '换电脑、重装系统,或者 DSH Dock 坏了 / 被你卸载了 —— 用这个文件就能把原来的 DSH **恢复成原样**:',
+    '不用重新配模型、不用重新登录、原来的会话都还在。',
+    '',
+    '**只要记住三句话:**',
+    '',
+    '1. **它不是能双击打开的软件**,而是一个压缩包(和 `.zip` / `.rar` 是一回事,只是名字不同)。',
+    '2. **要解压**。Windows 上可以先试试右键有没有「解压」;没有就用下面那条命令。',
+    '3. **解压完用一条命令启动**,原来的一切就回来了。',
+    '',
+    '**真的只要三步(照抄即可):**',
+    '',
+    '**第一步:装 Node.js**(如果电脑上已经有了,跳过)。',
+    '打开 <https://nodejs.org>,下载写着 **LTS** 的那个版本,一路「下一步」装完。',
+    '',
+    '**第二步:解压配置包。**',
+    '',
+    'Windows:按键盘 `Win` 键,输入 `powershell` 回车打开,把下面这行**整个复制进去**再回车:',
+    '',
+    '```powershell',
+    'tar -xzf "C:\\path\\to\\<配置文件>.dshcfg" -C $env:USERPROFILE\\dsh-restore',
+    '```',
+    '',
+    'Mac / Linux:打开「终端」,把下面这行复制进去回车:',
+    '',
+    '```bash',
+    `tar -xzf "${dir}/${sample}" -C ~/dsh-restore`,
+    '```',
+    '',
+    '> 不知道文件路径怎么写?**把文件直接拖进黑窗口**,路径会自动填上。',
+    '> 把 `<配置文件>` 换成你那个文件的真实名字(例如 `Project_Dev-20260914-121933.dshcfg`)。',
+    '',
+    '**第三步:启动。**',
+    '',
+    'Windows(PowerShell 里):',
+    '',
+    '```powershell',
+    '$env:DSH_HOME="$env:USERPROFILE\\dsh-restore\\home"; npx @deepseek-ai/dsh web',
+    '```',
+    '',
+    'Mac / Linux(终端里):',
+    '',
+    '```bash',
+    'DSH_HOME=~/dsh-restore/home npx @deepseek-ai/dsh web',
+    '```',
+    '',
+    '浏览器会自己打开一个页面 —— 原来的会话、设置都在里面。完事。',
+    '',
+    '**常问的几件事**',
+    '',
+    '- **会不会把我原来的东西弄坏?** 不会。解压只是「读」这个文件,原文件一直在,想恢复几次都行。',
+    '- **API Key 会不会泄露?** 这个文件里**明明白白写着你的 API Key**。所以:别发给别人、别传到网上、别放进公开的网盘或代码仓库。放在自己电脑上、自己保管,就是安全的。',
+    '- **我照着做了但打不开?** 把黑窗口里报错的那几行发出来;或者看下面的详细说明,里面每种情况都写了。',
+    '- **我不想装 Node.js 行不行?** 也行 —— 如果你电脑上已经装了 DSH Dock,直接用它界面上的「从配置创建」最省事。',
+    '',
+    '---',
+    '',
+    '# 详细说明(给想看细节的人)',
+    '',
+    '---',
+    '',
     '## 一、配置文件是什么',
     '',
     '每个 `*.dshcfg` 就是一个 **tar.gz 压缩包**(只是换了个扩展名),里面有两个东西:',
@@ -2452,24 +2519,47 @@ function beginContainerCreate({ name, version, profile = 'web', config = null })
 //   macOS:   osascript choose folder(系统自带)
 //   Linux:   zenity → kdialog → yad 链式回退(Linux 无保证预装的 GUI 工具,需装其一)
 // 用户取消返回 {path:null};工具缺失自动尝试下一个。
-function pickDirectoryNative() {
+/**
+ * 原生「选择路径」对话框(目录与文件走同一套实现,所以两种选择体验一致)。
+ *
+ *   Windows: PowerShell 的 FolderBrowserDialog / OpenFileDialog
+ *   macOS:   osascript 的 choose folder / choose file
+ *   Linux:   zenity → kdialog → yad 链式回退(哪个装了用哪个)
+ *
+ * @param options.kind - `'directory'` 选目录,`'file'` 选文件
+ * @returns `{ path }` 选中,`{ path: null }` 用户取消,`{ path: null, error }` 工具缺失/失败
+ */
+function pickNative({ kind = 'directory', title = '选择路径' } = {}) {
+  const isFile = kind === 'file'
+  const filterLabel = 'DSH Dock 配置'
+  const filterPattern = '*.dshcfg *.tar.gz'
   return new Promise((resolve) => {
-    const title = '选择 DSH Dock 部署目录'
     if (process.platform === 'win32') {
-      const script = [
-        `Add-Type -AssemblyName System.Windows.Forms | Out-Null`,
-        `$d = New-Object System.Windows.Forms.FolderBrowserDialog`,
-        `$d.Description = '${title}'`,
-        `if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }`,
-      ].join('; ')
+      const script = isFile
+        ? [
+            'Add-Type -AssemblyName System.Windows.Forms | Out-Null',
+            '$d = New-Object System.Windows.Forms.OpenFileDialog',
+            `$d.Title = '${title}'`,
+            `$d.Filter = '${filterLabel} (${filterPattern})|${filterPattern.replace(/ /g, ';')}|所有文件 (*.*)|*.*'`,
+            'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }',
+          ].join('; ')
+        : [
+            'Add-Type -AssemblyName System.Windows.Forms | Out-Null',
+            '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
+            `$d.Description = '${title}'`,
+            'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }',
+          ].join('; ')
       return execFile('powershell', ['-NoProfile', '-STA', '-Command', script], (error, stdout) => {
-        if (error) return resolve({ path: null, error: `PowerShell 目录对话框失败: ${String(error.message).split('\n')[0]}` })
+        if (error) return resolve({ path: null, error: `PowerShell 对话框失败: ${String(error.message).split('\n')[0]}` })
         const picked = String(stdout).trim()
         resolve(picked ? { path: picked } : { path: null })
       })
     }
     if (process.platform === 'darwin') {
-      return execFile('osascript', ['-e', `POSIX path of (choose folder with prompt "${title}")`], (error, stdout) => {
+      const apple = isFile
+        ? `POSIX path of (choose file with prompt "${title}")`
+        : `POSIX path of (choose folder with prompt "${title}")`
+      return execFile('osascript', ['-e', apple], (error, stdout) => {
         if (error) {
           if (error.code === 1) return resolve({ path: null }) // 用户取消
           return resolve({ path: null, error: String(error.message).split('\n')[0] })
@@ -2478,17 +2568,23 @@ function pickDirectoryNative() {
         resolve(picked ? { path: picked } : { path: null })
       })
     }
-    // Linux: zenity → kdialog → yad
-    const candidates = [
-      ['zenity', ['--file-selection', '--directory', `--filename=${os.homedir()}/`, '--title', title]],
-      ['kdialog', ['--getexistingdirectory', `${os.homedir()}/`, '--title', title]],
-      ['yad', ['--file', '--directory', `--filename=${os.homedir()}/`, '--title', title, '--geometry', '900x600']],
-    ]
+    // Linux:zenity → kdialog → yad
+    const candidates = isFile
+      ? [
+          ['zenity', ['--file-selection', `--file-filter=${filterLabel} | ${filterPattern}`, `--filename=${os.homedir()}/`, '--title', title]],
+          ['kdialog', ['--getopenfilename', `${os.homedir()}/`, `${filterPattern}|${filterLabel}`, '--title', title]],
+          ['yad', ['--file', `--file-filter=${filterLabel} | ${filterPattern}`, `--filename=${os.homedir()}/`, '--title', title, '--geometry', '900x600']],
+        ]
+      : [
+          ['zenity', ['--file-selection', '--directory', `--filename=${os.homedir()}/`, '--title', title]],
+          ['kdialog', ['--getexistingdirectory', `${os.homedir()}/`, '--title', title]],
+          ['yad', ['--file', '--directory', `--filename=${os.homedir()}/`, '--title', title, '--geometry', '900x600']],
+        ]
     const attempt = (index) => {
       if (index >= candidates.length) {
         return resolve({
           path: null,
-          error: '未找到目录选择工具。请安装任一:sudo pacman -S zenity(或 kdialog/yad),或直接在输入框手动填写路径',
+          error: '未找到图形选择工具。请安装任一:sudo pacman -S zenity(或 kdialog/yad),或直接在输入框手动填写路径',
         })
       }
       const [bin, args] = candidates[index]
@@ -2506,6 +2602,9 @@ function pickDirectoryNative() {
   })
 }
 
+const pickDirectoryNative = () => pickNative({ kind: 'directory', title: '选择 DSH Dock 部署目录' })
+const pickConfigFileNative = () => pickNative({ kind: 'file', title: '选择 DSH Dock 配置文件(.dshcfg)' })
+
 async function handleApi(request, response, url) {
   const route = `${request.method} ${url.pathname}`
   const send = (status, body) => {
@@ -2518,9 +2617,13 @@ async function handleApi(request, response, url) {
   if (route === 'GET /api/onboarding') {
     return send(200, { needed: onboardingNeeded, suggestion: path.join(os.homedir(), 'DSHDock-data') })
   }
-  // 拉起系统目录选择对话框(zenity/kdialog/yad 链式回退),阻塞直至用户选择或取消
+  // 拉起系统目录/文件选择对话框(zenity/kdialog/yad 链式回退),阻塞直至用户选择或取消
   if (route === 'POST /api/pick-directory') {
     const result = await pickDirectoryNative()
+    return send(200, result)
+  }
+  if (route === 'POST /api/pick-file') {
+    const result = await pickConfigFileNative()
     return send(200, result)
   }
   if (route === 'POST /api/onboarding') {
@@ -2550,6 +2653,7 @@ async function handleApi(request, response, url) {
   }
   if (route === 'POST /api/settings') {
     const body = await readJsonBody(request)
+    const previous = readSettings()
     writeSettings({
       proxy: String(body.proxy ?? '').trim(),
       githubMirror: String(body.githubMirror ?? '').trim(),
@@ -2561,6 +2665,18 @@ async function handleApi(request, response, url) {
       configAutoSave: body.configAutoSave === undefined ? readSettings().configAutoSave : !!body.configAutoSave,
       configDir: body.configDir === undefined ? readSettings().configDir : String(body.configDir).trim(),
     })
+    // 配置目录变了就立刻在新目录里放一份手动恢复指南(不用等下次保存配置)
+    if (body.configDir !== undefined) {
+      const before = previous.configDir ?? ''
+      const after = readSettings().configDir ?? ''
+      if (before !== after) {
+        try {
+          writeConfigGuide()
+        } catch (error) {
+          log(`写入手动恢复指南失败: ${String(error?.message ?? error)}`)
+        }
+      }
+    }
     return send(200, readSettings())
   }
 
@@ -2875,6 +2991,34 @@ async function handleApi(request, response, url) {
       return send(200, { ok: true, file: path.basename(target), item: configItem(path.basename(target)) })
     } catch (error) {
       fs.rmSync(target, { force: true })
+      return send(400, { error: `不是有效的 DSH Dock 配置文件: ${String(error?.message ?? error)}` })
+    }
+  }
+
+  // 读一个配置文件的元信息(file = 配置目录里的文件名;path = 磁盘上任意位置)
+  if (route === 'POST /api/configs/inspect') {
+    const body = await readJsonBody(request)
+    const byPath = String(body.path ?? '').trim()
+    const byFile = String(body.file ?? '').trim()
+    const full = byPath.length > 0 ? path.resolve(byPath) : (byFile.length > 0 ? configFilePath(byFile) : '')
+    if (!full || !fs.existsSync(full)) return send(404, { error: `配置文件不存在: ${byPath || byFile}` })
+    try {
+      const meta = readConfigMeta(full)
+      return send(200, {
+        ok: true,
+        item: {
+          file: path.basename(full),
+          path: full,
+          name: meta.name,
+          version: meta.version ?? null,
+          profile: meta.profile ?? 'web',
+          sessions: meta.sessions ?? 0,
+          bytes: fs.statSync(full).size,
+          createdAt: meta.createdAt ?? null,
+          hasCredentials: !!meta.hasCredentials,
+        },
+      })
+    } catch (error) {
       return send(400, { error: `不是有效的 DSH Dock 配置文件: ${String(error?.message ?? error)}` })
     }
   }

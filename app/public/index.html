@@ -1490,16 +1490,16 @@ async function renderConfigPanel() {
         </span>
         <select id="cfg-target" class="ver-select" style="width:200px"><option value="">全部容器</option>${options}</select>
         <button class="primary" onclick="saveConfigNow()">保存配置</button>
+        <button onclick="createFromPickedFile()">从配置文件创建…</button>
         <span class="muted">恢复时只需要一个配置文件</span>
       </div>
       <div class="row" style="margin-top:8px">
         <span class="muted">配置目录</span>
-        <input id="cfg-dir" style="width:360px" placeholder="${escapeHtml(data.dir)}" value="${escapeHtml(data.dir)}">
+        <input id="cfg-dir" style="width:360px" placeholder="${escapeHtml(data.dir)}" value="${escapeHtml(data.dir)}" onchange="saveConfigSettings()">
         <button onclick="pickConfigDir(this)">选择文件夹…</button>
-        <button onclick="saveConfigSettings()">保存设置</button>
-        <label class="switch-wrap" style="gap:6px">上传配置文件<input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" style="max-width:260px" onchange="uploadConfig(this)"></label>
+        <label class="switch-wrap" style="gap:6px">或上传配置文件<input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" style="max-width:240px" onchange="uploadConfig(this)"></label>
       </div>
-      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,里面有一份 <code>手动恢复指南.md</code>(讲清配置文件怎么解压、怎么在不用 DSHBox 的情况下用 <code>DSH_HOME=&lt;解出的 home&gt;</code> 启动)。凭据为明文,请妥善保管。</div>
+      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 改地址栏(回车)或用「选择文件夹…」都会立即生效,并在该目录写一份 <code>手动恢复指南.md</code>(含**大白话三步恢复**与详细步骤)。该目录不在「卸载数据」的删除范围内。选择配置文件有两种方式:<b>「从配置文件创建…」</b>用系统对话框直接选本机文件(与「选择文件夹」是同一个对话框);<b>「上传配置文件」</b>用浏览器选择文件,适合 DSH Dock 跑在另一台机器上时。凭据为明文,请妥善保管。</div>
       <table style="margin-top:12px"><thead><tr><th>配置文件</th><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="8"><div class="empty">还没有配置文件,点「保存配置」生成第一个</div></td></tr>'}</tbody></table>
     </div>`
@@ -1556,7 +1556,7 @@ async function saveConfigSettings() {
   const dir = $('#cfg-dir').value.trim()
   try {
     await api('/api/settings', { method: 'POST', body: { configDir: dir } })
-    toast(dir.length > 0 ? `配置目录已设为 ${dir}` : '已恢复默认配置目录')
+    toast(dir.length > 0 ? `配置目录已设为 ${dir},并已写入《手动恢复指南.md》` : '已恢复默认配置目录')
     renderConfigPanel()
   } catch (error) { toast(`保存失败: ${error}`, true) }
 }
@@ -1569,7 +1569,7 @@ async function pickConfigDir(button) {
     if (!result?.path) return toast('已取消选择')
     $('#cfg-dir').value = result.path
     await api('/api/settings', { method: 'POST', body: { configDir: result.path } })
-    toast(`配置目录已设为 ${result.path}`)
+    toast(`配置目录已设为 ${result.path},并已写入《手动恢复指南.md》`)
     renderConfigPanel()
   } catch (error) {
     toast(`选择目录失败: ${error}`, true)
@@ -1587,26 +1587,50 @@ async function saveConfigNow() {
   } catch (error) { toast(`保存失败: ${error}`, true) }
 }
 
+/** 待恢复的配置目标:配置目录里的文件名(file)或磁盘上任意路径(path)。 */
+let pendingConfigRestore
+
 function createFromConfigPrompt(encodedFile, currentVersion, installed) {
   const file = decodeURIComponent(encodedFile)
+  openRestoreModal({ file }, file, currentVersion, installed)
+}
+
+/** 用系统文件对话框(与「选择文件夹」同一个对话框)挑一个配置文件,直接进入创建流程。 */
+async function createFromPickedFile() {
+  try {
+    const picked = await api('/api/pick-file', { method: 'POST' })
+    if (!picked?.path) return toast(picked?.error ?? '已取消选择')
+    const info = await api('/api/configs/inspect', { method: 'POST', body: { path: picked.path } })
+    const catalog = await api('/api/versions/catalog').catch(() => ({ installed: [] }))
+    openRestoreModal({ path: info.item.path }, `${info.item.name}(${info.item.file})`, info.item.version, catalog.installed ?? [])
+  } catch (error) {
+    toast(`无法读取该配置文件: ${error}`, true)
+  }
+}
+
+function openRestoreModal(target, label, currentVersion, installed) {
+  pendingConfigRestore = target
   const versions = [...new Set([...(installed ?? []), ...(currentVersion ? [currentVersion] : [])])]
   const options = versions.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === currentVersion ? 'selected' : ''}>${escapeHtml(tag)}</option>`).join('')
   openModal('从配置创建', `
-    <p class="muted">用 <code>${escapeHtml(file)}</code> 里的配置**复制**出一个新容器;配置文件本身不受影响。</p>
+    <p class="muted">用 <code>${escapeHtml(label)}</code> 里的配置**复制**出一个新容器;配置文件本身不受影响。</p>
     <div class="row" style="margin-top:12px">
       <input id="cc-name" placeholder="新容器名称" style="width:220px">
       <select id="cc-version" class="ver-select" style="width:190px">${options || '<option value="">无已安装版本</option>'}</select>
-      <button class="primary" onclick="doCreateFromConfig('${encodedFile}')">创建</button>
+      <button class="primary" onclick="doCreateFromConfig()">创建</button>
       <button onclick="closeModal()">取消</button>
     </div>`)
 }
 
-async function doCreateFromConfig(encodedFile) {
+async function doCreateFromConfig() {
+  const target = pendingConfigRestore
+  if (target === undefined) return
   const name = $('#cc-name').value.trim()
   const version = $('#cc-version').value
   if (!name || !version) return toast('请填写容器名并选择版本', true)
   try {
-    await api('/api/configs/restore', { method: 'POST', body: { file: decodeURIComponent(encodedFile), name, version } })
+    await api('/api/configs/restore', { method: 'POST', body: { ...target, name, version } })
+    pendingConfigRestore = undefined
     closeModal()
     toast(`容器 ${name} 创建中(来自配置文件)`)
     syncTasks().then(renderExternal).catch(() => {})
