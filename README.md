@@ -133,13 +133,28 @@ sh install.sh --yes            # 或用 --runtime system 复用系统 node/pnpm
 - HTTP 代理 / GitHub 镜像 / npm 镜像(中国大陆网络)。
 - 容器端口池范围;启动容器后是否自动打开浏览器;新容器是否跳过首开弹窗。
 - **模型配置表**:一行一个模型(协议 / 端点 / 凭据引用 / 提供方),支持从已有容器一键导入,建容器时自动归纳成提供方并写进 `settings.yaml` + 凭据。
+- **备份**:开关、备份目录、每容器保留份数。
+
+**外部 DSH 与备份**(WebUI「外部/备份」页)
+
+装 DSH Dock 之前(或在它之外)你可能已经有 DSH 了。这一页做两件事,边界很清楚:
+
+- **只读检测**:列出机器上已有的 DSH —— 配置目录(官方 `~/.dsh`、`$DSH_HOME`)、npx / 全局安装的 dsh、harness 源码检出、正在运行的实例(pid / 端口;POSIX 还能识别某个配置是否正被使用)。**DSHBox 不接管这些实例、不修改它们、也不与它们建立任何链接**。
+- **备份服务(只复制)**:把容器的 DSH 配置(该实例的 `DSH_HOME`:`settings.yaml`、`.credentials.yaml`、`sessions/`、`storages/`、插件、技能)整份复制成独立副本。
+  - 备份目录默认 `<部署目录>/backups`,**不在「卸载数据」的删除范围内**;每次备份都会重写其中的 `README.md` **恢复指南**(含"不依赖 DSHBox、直接用 `DSH_HOME=<备份>/home` 启动"的步骤),所以即使 DSHBox 被卸载,你的配置与恢复方法都还在。
+  - 开关打开后,会在**创建容器后 / 更新版本前 / 删除容器前**各自动留一份,并按保留份数滚动清理。
+  - 可以从备份**新建容器**(复制语义,备份本身不受影响)。
+  - 想把某份**外部** DSH 配置备份进来,由你点「复制为备份」决定;提交前会展示风险(明文凭据、只复制、源需停止)并要求勾选确认。
+  - 备份里是**明文凭据**,请把备份目录当敏感数据处理。
+  - 明确不做:不接管外部实例、不使用软链(软链会让 DSHBox 与外部 DSH 产生隐式依赖、破坏容器隔离)、不自动删除任何源。
 
 **插件 `dsh-dock-bridge`**(`plugin/dsh-dock-bridge/`)
 
 把上面这套能力装进**任意 DSH 容器**:
 
 - 9 个 `dshdock_*` 模型工具 + 一个按需加载的 `dshdock` 技能,让容器内的 agent 自己建容器 / 装版本 / 起服务并交付 URL;
-- DSH web 设置里的顶级分区「**DSH Dock**」(容器 / 版本 / 插件管理 / 设置四卡,zh/en 双语);
+- DSH web 设置里的顶级分区「**DSH Dock**」(容器 / 版本 / 插件管理 / 设置 / 外部与备份五卡,zh/en 双语);
+- 「外部与备份」卡与 WebUI 同源:只读检测外部 DSH + 配置备份(开关 / 列表 / 立即备份 / 从备份新建容器 / 复制外部配置);
 - 自带分层自保护:对「当前会话所在容器」的停止 / 更新 / 删除默认拒绝,`force` 才放行;受开发保护的容器删除由服务端再拦一道。
 
 安装到某个容器(在该容器所在机器执行;`<容器>` 为容器目录):
@@ -234,6 +249,7 @@ versions/<tag>/harness/ # 已安装的 DSH 版本
 pnpm-store/             # 共享 pnpm store(硬链接省空间)
 state/                  # settings.json、模型配置、版本目录缓存
 logs/                   # dshdock.log(全量)、stdout.log
+backups/                # 配置备份 + README 恢复指南(★ 不在卸载删除范围内)
 ```
 
 **`DATA_ROOT` 解析优先级**:环境变量 `DSHBOX_DATA_ROOT` → 配置文件 `~/.config/dshdock/config.json` 的 `dataRoot` → 安装目录。数据与应用解耦,换机器只搬部署目录即可。
@@ -247,15 +263,19 @@ logs/                   # dshdock.log(全量)、stdout.log
 服务只监听 `127.0.0.1`,接口与 WebUI 同源:
 
 ```
-GET  /api/settings                      POST /api/settings               # 网络/端口池/启动行为
+GET  /api/settings                      POST /api/settings               # 网络/端口池/启动行为/备份开关
 GET  /api/versions/catalog[?refresh=1]  POST /api/versions/install       # 版本目录 / 安装 {tag}
 DELETE /api/versions/:tag
-GET  /api/containers                    POST /api/containers             # 列表 / 创建 {name,version,profile}
+GET  /api/containers                    POST /api/containers             # 列表 / 创建 {name,version,profile,backupId?}
 POST /api/containers/:id/start|stop|update|protect|autostart|port
 DELETE /api/containers/:id
 GET  /api/containers/:id/url|hostlog
 GET  /api/model-configs                 PUT/DELETE /api/model-configs/models/:uid
 POST /api/model-configs/default|import
+GET  /api/external                      POST /api/external/check         # 外部 DSH 只读检测 / 校验单个路径
+GET  /api/backups                       POST /api/backups                # 备份列表 / 立即备份 {containerId?}
+POST /api/backups/import                DELETE /api/backups/:id           # 复制外部配置为备份 / 删除备份
+POST /api/backups/:id/restore                                            # 从备份新建容器(复制)
 GET  /api/tasks                         GET /events                      # 任务列表 / SSE 进度
 POST /api/shutdown                                                       # 优雅关闭(先停容器)
 ```
@@ -269,6 +289,7 @@ POST /api/shutdown                                                       # 优�
 ```bash
 node --check app/server.mjs          # 语法检查
 node --test app/platform.test.mjs    # 平台差异层单测(Windows 分支也在 Linux 上跑)
+node --test app/external.test.mjs    # 外部 DSH 检测 / 备份复制 / 权限收紧 的单元测试
 dshdock devrestart                   # 改完代码重启服务(容器进程保留,不假成功)
 ```
 

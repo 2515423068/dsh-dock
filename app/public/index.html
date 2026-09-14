@@ -754,6 +754,10 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       <span class="nav-label">容器管理</span>
     </a>
+    <a data-page="external" title="外部 DSH 与备份">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/><path d="M12 8v4l3 2"/></svg>
+      <span class="nav-label">外部/备份</span>
+    </a>
     <a data-page="settings" title="设置">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
       <span class="nav-label">设置</span>
@@ -1045,6 +1049,7 @@ async function renderCurrent() {
   $('#main').classList.toggle('page-versions', currentPage === 'versions')
   if (currentPage === 'versions') renderVersions()
   else if (currentPage === 'containers') renderContainers()
+  else if (currentPage === 'external') renderExternal()
   else if (currentPage === 'settings') renderSettings()
 }
 
@@ -1432,6 +1437,192 @@ async function doUpdate(id, version) {
     toast(`更新任务已开始 → ${version}(进度见底部终端)`)
     renderContainers()
   } catch (error) { toast(`更新失败: ${error}`, true) }
+}
+
+// ── 外部 DSH 与备份 ─────────────────────────────────────────────────────────
+// 原则:DSHBox **不接管**外部 DSH、也不建立任何链接(软链会破坏容器隔离)。
+// 这里只做两件事:① 把检测到的外部 DSH 如实告诉用户;② 提供备份服务 ——
+// 备份是独立副本,默认落在部署目录的 backups/(不在卸载删除范围内),并生成恢复指南。
+async function renderExternal() {
+  const main = $('#main')
+  main.innerHTML = `
+    <h1>外部 DSH 与备份</h1><div class="subtitle">检测机器上已有的 DSH;把容器配置备份成独立副本(只复制、不用软链;备份目录不随卸载删除)</div>
+    <div id="bk-panel"><div class="empty">加载中…</div></div>
+    <div id="ext-panel"><div class="empty">加载中…</div></div>`
+  await Promise.all([renderBackupPanel(), renderExternalPanel()])
+}
+
+const BACKUP_REASON = { manual: '手动', created: '创建后', 'pre-update': '更新前', 'pre-delete': '删除前', import: '导入' }
+const fmtSize = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
+const fmtTime = (seconds) => (seconds ? new Date(seconds * 1000).toLocaleString('zh-CN') : '-')
+
+async function renderBackupPanel() {
+  const panel = $('#bk-panel')
+  const [data, catalog] = await Promise.all([
+    api('/api/backups').catch(() => ({ items: [], enabled: false, dir: '', keep: 10 })),
+    api('/api/versions/catalog').catch(() => ({ installed: [] })),
+  ])
+  const installed = catalog.installed ?? []
+  const rows = (data.items ?? []).map((item) => `
+    <tr>
+      <td>${escapeHtml(item.name)}</td>
+      <td class="muted">${escapeHtml(item.version ?? '-')}</td>
+      <td class="muted">${item.sessions}</td>
+      <td class="muted">${fmtSize(item.bytes)}</td>
+      <td class="muted">${fmtTime(item.createdAt)}</td>
+      <td><span class="chip">${BACKUP_REASON[item.reason] ?? item.reason}</span></td>
+      <td>
+        <button onclick="restoreBackup('${item.id}', ${JSON.stringify(installed).replace(/"/g, '&quot;')})">从备份新建容器</button>
+        <button class="danger" onclick="deleteBackup('${item.id}', '${escapeHtml(item.name)}')">删除</button>
+      </td>
+    </tr>`).join('')
+  panel.innerHTML = `
+    <div class="panel"><h2>配置备份</h2>
+      <div class="row">
+        <span class="switch-wrap" title="开启后:创建容器、更新版本前、删除容器前会自动各留一份配置备份">
+          自动备份<label class="switch"><input type="checkbox" id="bk-enabled" ${data.enabled ? 'checked' : ''} onchange="toggleBackup(this.checked)"><span class="slider"></span></label>
+        </span>
+        <span class="muted">备份目录</span>
+        <input id="bk-dir" style="width:320px" placeholder="${escapeHtml(data.dir)}" value="">
+        <span class="muted">保留份数</span>
+        <input id="bk-keep" style="width:70px" value="${data.keep}">
+        <button onclick="saveBackupSettings()">保存</button>
+        <button class="primary" onclick="backupNow()">立即备份全部</button>
+      </div>
+      <div class="muted" style="margin-top:8px">备份是独立副本(只复制,不做软链)。目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,且每次备份都会重写其中的 <code>README.md</code> 恢复指南(含脱离 DSHBox 单独恢复的步骤)。凭据为明文,请自行妥善保管。</div>
+      <table style="margin-top:12px"><thead><tr><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="7"><div class="empty">还没有备份</div></td></tr>'}</tbody></table>
+    </div>`
+}
+
+async function renderExternalPanel() {
+  const panel = $('#ext-panel')
+  let data
+  try {
+    data = await api('/api/external')
+  } catch (error) {
+    panel.innerHTML = `<div class="panel"><h2>检测到的外部 DSH</h2><div class="error-text">加载失败:${escapeHtml(error)}</div></div>`
+    return
+  }
+  const homeRows = (data.homes ?? []).map((home) => `
+    <tr>
+      <td style="word-break:break-all">${escapeHtml(home.path)}</td>
+      <td class="muted">${home.sessions}</td>
+      <td class="muted">${home.hasCredentials ? '有' : '无'}</td>
+      <td class="muted">${fmtSize(home.bytes)}</td>
+      <td>${home.inUse ? `<span class="chip chip-warn">运行中 (pid ${home.pid})</span>` : '<span class="muted">未运行</span>'}</td>
+      <td><button onclick="importExternalPrompt('${escapeHtml(home.path)}')">复制为备份</button></td>
+    </tr>`).join('')
+  const installedRows = [
+    ...(data.installed ?? []).map((item) => `<li><code>${escapeHtml(item.path)}</code> <span class="chip">${escapeHtml(item.kind)}</span> <span class="muted">${escapeHtml(item.version || '-')}</span></li>`),
+    ...(data.checkouts ?? []).map((item) => `<li><code>${escapeHtml(item.path)}</code> <span class="chip">harness 源码</span> <span class="muted">${escapeHtml(item.version || '-')}${item.prebuilt ? ' · 已构建' : ''}</span></li>`),
+  ].join('')
+  const runningRows = (data.running ?? []).map((item) => `<li>pid ${item.pid}${item.port ? ` · 端口 ${item.port}` : ''} · <span class="muted">${escapeHtml((item.cmdline || '').slice(0, 120))}</span></li>`).join('')
+  panel.innerHTML = `
+    <div class="panel"><h2>检测到的外部 DSH</h2>
+      <div class="muted">这里是**只读检测结果**:DSHBox 不接管这些实例、也不与它们建立任何链接(不修改、不删除、不改动其启动方式)。如果你想把某份外部配置纳入 DSHBox 的备份体系,请点「复制为备份」——那是把配置复制一份进来,源目录保持原样。</div>
+      <table style="margin-top:12px"><thead><tr><th>DSH 配置目录(home)</th><th>会话</th><th>凭据</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>${homeRows || `<tr><td colspan="6"><div class="empty">没有检测到外部 DSH 配置目录(官方路径 ${escapeHtml(data.officialHome ?? '~/.dsh')} 不存在)</div></td></tr>`}</tbody></table>
+      ${installedRows ? `<div class="muted" style="margin-top:12px">检测到的 dsh 安装 / 源码检出(仅供参考,DSHBox 不会使用或改动它们):</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${installedRows}</ul>` : ''}
+      ${runningRows ? `<div class="muted" style="margin-top:12px">检测到正在运行的 DSH 进程:</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${runningRows}</ul>` : ''}
+      ${data.canDetectUsage === false ? '<div class="muted" style="margin-top:10px">⚠️ 当前平台无法自动判断某个配置是否正在被使用,复制前请自行确认目标 DSH 已停止。</div>' : ''}
+    </div>`
+}
+
+async function toggleBackup(enabled) {
+  try {
+    await api('/api/settings', { method: 'POST', body: { backupEnabled: enabled } })
+    toast(enabled ? '已开启自动备份(创建/更新前/删除前各留一份)' : '已关闭自动备份')
+  } catch (error) { toast(`操作失败: ${error}`, true) }
+}
+
+async function saveBackupSettings() {
+  const dir = $('#bk-dir').value.trim()
+  const keep = Number($('#bk-keep').value)
+  try {
+    await api('/api/settings', { method: 'POST', body: { ...(dir ? { backupDir: dir } : {}), ...(Number.isInteger(keep) ? { backupKeep: keep } : {}) } })
+    toast('备份设置已保存')
+    renderBackupPanel()
+  } catch (error) { toast(`保存失败: ${error}`, true) }
+}
+
+async function backupNow() {
+  try {
+    const result = await api('/api/backups', { method: 'POST', body: {} })
+    toast(`已备份 ${result.created.length} 个容器`)
+    renderBackupPanel()
+  } catch (error) { toast(`备份失败: ${error}`, true) }
+}
+
+function restoreBackup(id, installed) {
+  const options = (installed ?? []).map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('')
+  openModal('从备份新建容器', `
+    <p class="muted">会用备份里的 DSH 配置(settings / 凭据 / 会话)**复制**出一份新容器;备份本身不受影响。</p>
+    <div class="row" style="margin-top:12px">
+      <input id="rs-name" placeholder="新容器名称" style="width:220px">
+      <select id="rs-version" class="ver-select" style="width:190px">${options || '<option value="">无已安装版本</option>'}</select>
+      <button class="primary" onclick="doRestore('${id}')">创建</button>
+      <button onclick="closeModal()">取消</button>
+    </div>`)
+}
+
+async function doRestore(id) {
+  const name = $('#rs-name').value.trim()
+  const version = $('#rs-version').value
+  if (!name || !version) return toast('请填写容器名并选择版本', true)
+  try {
+    const result = await api(`/api/backups/${id}/restore`, { method: 'POST', body: { name, version } })
+    closeModal()
+    toast(`容器 ${name} 创建中(来自备份)`)
+    syncTasks().then(renderExternal).catch(() => {})
+    setTimeout(renderExternal, 800)
+    return result
+  } catch (error) { toast(`创建失败: ${error}`, true) }
+}
+
+async function deleteBackup(id, name) {
+  if (!confirm(`删除备份「${name}」?不会影响你的容器,只是少一份配置副本。`)) return
+  try {
+    await api(`/api/backups/${id}`, { method: 'DELETE' })
+    toast('备份已删除')
+    renderBackupPanel()
+  } catch (error) { toast(`删除失败: ${error}`, true) }
+}
+
+async function importExternalPrompt(sourcePath) {
+  let check
+  try {
+    check = await api('/api/external/check', { method: 'POST', body: { path: sourcePath } })
+  } catch (error) { return toast(`无法读取该目录: ${error}`, true) }
+  if (!check.isHome) return toast('该目录不是 DSH 配置目录(缺 settings.yaml / sessions / storages)', true)
+  const running = check.usage?.inUse
+    ? `<p class="error-text">检测到该配置正在被 pid ${check.usage.pid} 使用 —— 建议先停止它,否则复制到的可能是写到一半的会话数据。</p>`
+    : ''
+  openModal('复制为备份', `
+    <p>把 <code>${escapeHtml(sourcePath)}</code> 复制一份到备份目录。</p>
+    ${running}
+    <ul class="muted" style="line-height:22px">
+      <li>只做复制:源目录不会被修改,复制后两边各自独立</li>
+      <li>本操作只在本机进行,不会上传任何内容</li>
+      <li>该配置含明文凭据(.credentials.yaml),备份目录请妥善保管</li>
+      <li>会话数 ${check.home.sessions} · 大小 ${fmtSize(check.home.bytes)}${check.home.hasCredentials ? ' · 含凭据' : ''}</li>
+    </ul>
+    <label class="switch-wrap" style="margin-top:10px;display:flex"><input type="checkbox" id="im-ack"> 我确认该 DSH 已停止 / 我了解上述风险</label>
+    <div class="row" style="margin-top:12px;justify-content:flex-end">
+      <button onclick="closeModal()">取消</button>
+      <button class="primary" onclick="doImportExternal('${escapeHtml(sourcePath)}')">复制为备份</button>
+    </div>`)
+}
+
+async function doImportExternal(sourcePath) {
+  const acknowledge = $('#im-ack').checked
+  if (!acknowledge) return toast('请先勾选确认', true)
+  try {
+    await api('/api/backups/import', { method: 'POST', body: { sourcePath, acknowledge: true } })
+    closeModal()
+    toast('已复制为备份(源目录未改动)')
+    renderExternal()
+  } catch (error) { toast(`导入失败: ${error}`, true) }
 }
 
 // ── 设置 ──

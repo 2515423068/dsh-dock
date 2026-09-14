@@ -377,10 +377,17 @@ async function cmdCleanup(argv) {
 
 // ── 卸载数据 ────────────────────────────────────────────────────────────────
 function cmdUninstallData(argv) {
+  // 备份目录不在删除范围内:卸载后用户仍应留有各容器的配置备份与恢复指南
+  let backupDir = path.join(DATA_ROOT, 'backups')
+  try {
+    const configured = JSON.parse(fs.readFileSync(path.join(DATA_ROOT, 'state', 'settings.json'), 'utf8')).backupDir
+    if (typeof configured === 'string' && configured.trim().length > 0) backupDir = configured.trim()
+  } catch {}
   info('将删除以下应用生成内容:')
   info(`  部署目录: ${['containers', 'versions', 'pnpm-store', 'state', 'logs', 'plugins'].join(' / ')}`)
   info(`  配置目录: ${CONFIG_DIR}`)
-  info('保留: app/ runtime/ 及部署目录中其他所有文件')
+  info(`保留: app/ runtime/ 及部署目录中其他所有文件`)
+  info(`保留: 备份目录 ${backupDir}(含各容器配置备份与 README 恢复指南)`)
   if (!argv.includes('--yes')) {
     info('确认请加 --yes(例如 dshdock uninstall-data --yes)')
     process.exit(1)
