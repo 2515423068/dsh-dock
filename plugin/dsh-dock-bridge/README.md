@@ -5,7 +5,7 @@ DSH Dock 桥接插件:把 DSH Dock(https://127.0.0.1:7940)的容器/版本管理
 - **Host 半**(`src/`,零构建纯 ESM):9 个 `dshdock_*` 模型工具 + `dshdock` 技能 + `/dshdock-plugins` 页面通道。唯一运行时依赖:`@deepseek-ai/dsh-tools` 的 `defineTool`。
 - **浏览器半**(`src/client/`,构建产物 `lib/client.js` 已入库):DSH web 设置里的顶级分区 **"DSH Dock"**(四卡:容器 / 版本 / 插件管理 / 设置),zh/en 双语。
 
-设计与机制依据:`DSHDock_Docs/DSH Dock 插件方案.md`(§3 设计、§6 机制证据)。
+设计要点:Host 半零依赖纯 ESM;单一激活路径(只走 profile 的 patch 行,包内不声明 `dsh.bundle`);页面通道自己挂 `webServer` 前缀路由并复用 connection 的浏览器信任围栏;分层自保护(devProtect + self 识别)。
 
 ## 安装(web profile,容器内或宿主机执行)
 
@@ -13,8 +13,9 @@ DSH Dock 桥接插件:把 DSH Dock(https://127.0.0.1:7940)的容器/版本管理
 
 ```bash
 # 1) 装包进目标容器 profile(pnpm add 拷贝语义,含依赖 @deepseek-ai/dsh-tools)
+#    在容器的 harness 目录下执行;file: 指向 DSH Dock 安装目录里的插件源码
 DSH_HOME=<容器>/profile node --import tsx/esm apps/cli/src/bin.ts plugin --profile web add \
-  file:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge
+  file:<DSH Dock 安装目录>/plugin/dsh-dock-bridge
 # 无 dsh.bundle 的 "plain dependency" 警告 = 预期(激活只走 patch 行,见下)
 
 # 2) 把 cordis.patch.yml 里的 insert 块写进目标 profile 的 cordis.patch.yml
