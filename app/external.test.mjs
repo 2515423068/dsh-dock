@@ -1,5 +1,5 @@
 /**
- * 「外部 DSH 发现 / 配置备份与复用」的单元测试(node:test)。
+ * 「外部 DSH 只读检测 / 配置打包与权限收紧」的单元测试(node:test)。
  *
  *   node --test app/external.test.mjs
  *
@@ -13,8 +13,8 @@ import path from 'node:path'
 import test from 'node:test'
 
 import {
-  copyTree, countSessions, hardenHomePermissions, harnessFacts, homeCandidates, homeFacts, importPlan, isSymlink,
-  measureTree, parseJsonArray, removeEntrySafely, verifyCopy,
+  copyTree, countSessions, discoverExternal, hardenHomePermissions, harnessFacts, homeCandidates, homeFacts,
+  importPlan, isDsBoxContainerPath, isSymlink, measureTree, parseJsonArray, removeEntrySafely, verifyCopy,
 } from './external.mjs'
 
 function tmpdir() {
@@ -150,7 +150,96 @@ test('importPlan: 只做复制;源在跑未确认则拒绝;风险里必须点出
   assert.equal(ok.ok, true)
   assert.match(ok.risks.join(' '), /只做复制/)
   assert.match(ok.risks.join(' '), /明文凭据/)
-  assert.deepEqual(ok.steps, ['把源复制到备份目录', '校验文件数与字节数一致', '收紧凭据权限(0600)', '写入/更新恢复操作指南'])
+  assert.deepEqual(ok.steps, ['把源复制到临时目录', '打包成单个配置文件', '校验文件数与字节数一致', '收紧凭据权限(0600)', '写入/更新使用说明'])
   assert.equal(importPlan({ targetExists: true }).ok, false)
   assert.match(importPlan({ inUse: true, acknowledged: true }).risks.join(' '), /仍在运行/)
+})
+
+test('discoverExternal: 不把 DSHBox 自己的容器当成外部 DSH(含继承来的 DSH_HOME)', () => {
+  const root = tmpdir()
+  const containersDir = path.join(root, 'containers')
+  const versionsDir = path.join(root, 'versions')
+  const homeRoot = path.join(root, 'userhome')
+  // DSHBox 自己的容器 profile(带完整 home 特征)
+  const managedProfile = path.join(containersDir, 'container-1', 'profile')
+  fs.mkdirSync(path.join(managedProfile, 'sessions'), { recursive: true })
+  fs.writeFileSync(path.join(managedProfile, 'settings.yaml'), 'a: 1\n')
+  // 真·外部 DSH(~/.dsh)
+  const externalHome = path.join(homeRoot, '.dsh')
+  fs.mkdirSync(path.join(externalHome, 'sessions'), { recursive: true })
+  fs.writeFileSync(path.join(externalHome, 'settings.yaml'), 'a: 1\n')
+  // 两个 host 进程的 --patch 文件(用于推出端口)
+  const managedPatch = path.join(containersDir, 'container-1', 'web.patch.yml')
+  fs.writeFileSync(managedPatch, '- id: webserver\n  config:\n    port: 41800\n')
+  const externalPatch = path.join(root, 'ext.patch.yml')
+  fs.writeFileSync(externalPatch, '- id: webserver\n  config:\n    port: 41999\n')
+
+  const psOutput = [
+    `  101 node apps/cli/src/bin.ts --profile web --patch ${managedPatch}`,
+    `  202 node apps/cli/src/bin.ts --profile web --patch ${externalPatch}`,
+    '  303 node some-unrelated-service --flag',
+  ].join('\n')
+  const run = (command) => (command === 'ps' ? psOutput : '/nonexistent/npm/root')
+
+  const found = discoverExternal({
+    homedir: homeRoot,
+    // 服务进程常带着容器自己的 DSH_HOME —— 必须被排除
+    env: { DSH_HOME: managedProfile },
+    platform: 'darwin',
+    run,
+    managed: { containersDir, versionsDir, ports: new Set([41800]) },
+  })
+
+  assert.deepEqual(found.homes.map((h) => h.path), [externalHome])
+  assert.deepEqual(found.running.map((r) => r.pid), [202])
+  assert.equal(found.managedRunning, 1)
+})
+
+test('discoverExternal: 没有外部 DSH 时返回空列表(而不是把内部容器报成外部)', () => {
+  const root = tmpdir()
+  const containersDir = path.join(root, 'containers')
+  const managedProfile = path.join(containersDir, 'container-9', 'profile')
+  fs.mkdirSync(path.join(managedProfile, 'sessions'), { recursive: true })
+  fs.writeFileSync(path.join(managedProfile, 'settings.yaml'), 'a: 1\n')
+  const found = discoverExternal({
+    homedir: path.join(root, 'userhome'),
+    env: { DSH_HOME: managedProfile },
+    platform: 'darwin',
+    run: () => '',
+    managed: { containersDir, versionsDir: path.join(root, 'versions'), ports: new Set() },
+  })
+  assert.deepEqual(found.homes, [])
+  assert.deepEqual(found.running, [])
+})
+
+test('isDsBoxContainerPath: 认出任意 DSHBox 的容器目录(不是靠 DATA_ROOT 硬比)', () => {
+  const other = tmpdir()
+  const containerDir = path.join(other, 'containers', 'container-123')
+  const profile = path.join(containerDir, 'profile')
+  fs.mkdirSync(path.join(profile, 'sessions'), { recursive: true })
+  fs.writeFileSync(path.join(containerDir, 'container.json'), '{"id":"container-123"}')
+  assert.equal(isDsBoxContainerPath(fs, profile), true)
+  assert.equal(isDsBoxContainerPath(fs, path.join(containerDir, 'web.patch.yml')), true)
+  // 普通目录里自建的 DSH home 不应被误判
+  const plain = path.join(tmpdir(), 'containers', 'my-dsh', 'profile')
+  fs.mkdirSync(plain, { recursive: true })
+  assert.equal(isDsBoxContainerPath(fs, plain), false)
+  assert.equal(isDsBoxContainerPath(fs, '/srv/dsh'), false)
+})
+
+test('discoverExternal: 别的 DSHBox 安装的容器也不算外部(继承 DSH_HOME 场景)', () => {
+  const other = tmpdir()
+  const containerDir = path.join(other, 'containers', 'container-abc')
+  const profile = path.join(containerDir, 'profile')
+  fs.mkdirSync(path.join(profile, 'sessions'), { recursive: true })
+  fs.writeFileSync(path.join(profile, 'settings.yaml'), 'a: 1\n')
+  fs.writeFileSync(path.join(containerDir, 'container.json'), '{"id":"container-abc"}')
+  const found = discoverExternal({
+    homedir: path.join(other, 'userhome'),
+    env: { DSH_HOME: profile },
+    platform: 'darwin',
+    run: () => '',
+    managed: { containersDir: path.join(other, 'my-containers'), versionsDir: path.join(other, 'versions'), ports: new Set() },
+  })
+  assert.deepEqual(found.homes, [])
 })

@@ -6,7 +6,7 @@ import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import net from 'node:net'
-import { spawn, execFile } from 'node:child_process'
+import { spawn, execFile, execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
@@ -127,10 +127,10 @@ function readSettings() {
     proxy: '',
     githubMirror: '',
     npmRegistry: '',
-    // 备份服务:开关(默认关)、备份目录(空 = DATA_ROOT/backups)、每容器保留份数
-    backupEnabled: false,
-    backupDir: '',
-    backupKeep: 10,
+    // 配置服务:自动保存开关(默认关)、配置目录(空 = DATA_ROOT/configs)、每容器保留份数
+    configAutoSave: false,
+    configDir: '',
+    configKeep: 10,
     ...readJson(SETTINGS_PATH, {}),
   }
 }
@@ -636,75 +636,109 @@ function sanitizeCopiedGit(harnessDir) {
   fs.rmSync(path.join(gitDir, 'dsh-hooks'), { recursive: true, force: true })
 }
 
-// ── 备份服务:容器 DSH 配置的独立副本 + 恢复操作指南 ────────────────────────
+// ── 配置:把容器配置保存成**单个配置文件**,以及从配置文件创建容器 ──────────
 // 设计取向(用户要求):
-//   - DSHBox **不接管**外部 DSH,也不使用软链(软链会产生隐式依赖、破坏容器隔离)
-//   - 只提供「备份」:把容器的 profile(即该实例的 DSH_HOME)整份复制到备份目录
-//   - 备份目录默认在 DATA_ROOT/backups,**不在 uninstall-data 的删除范围内** ——
-//     即使 DSHBox 被卸载,备份与其中的 README(操作指南)仍可独立使用
-//   - 外部 DSH 只做「检测 + 告知」;是否把某份外部配置复制进来,由用户点按钮决定
+//   - 以「配置文件」为核心:一次保存 = 一个自包含文件
+//     `<名字>-<版本>-<时间>.dshcfg`(tar.gz,内含 meta.json + home/,即完整 DSH_HOME)
+//   - 恢复时**只需要提供这个文件**:从列表里选,或上传本地拿到的配置文件
+//   - DSHBox 不接管外部 DSH、不使用软链;是否把外部配置保存进来由用户点按钮决定
+//   - 配置目录默认 DATA_ROOT/configs,**不在 uninstall-data 的删除范围内**
 
-const BACKUP_DIR = () => {
-  const configured = readSettings().backupDir?.trim()
-  return configured && configured.length > 0 ? configured : path.join(DATA_ROOT, 'backups')
+const CONFIG_EXT = '.dshcfg'
+const CONFIG_STORE = () => {
+  const configured = readSettings().configDir?.trim()
+  return configured && configured.length > 0 ? configured : path.join(DATA_ROOT, 'configs')
 }
-const backupDirPath = (id) => path.join(BACKUP_DIR(), id)
-const backupHomePath = (id) => path.join(backupDirPath(id), 'home')
+const configFilePath = (file) => path.join(CONFIG_STORE(), path.basename(file))
 
-function listBackupIds() {
-  const dir = BACKUP_DIR()
-  if (!fs.existsSync(dir)) return []
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(dir, entry.name, 'meta.json')))
-    .map((entry) => entry.name)
-}
-
-function backupView(id) {
-  const meta = readJson(path.join(backupDirPath(id), 'meta.json'), {})
-  const home = backupHomePath(id)
-  const available = fs.existsSync(home)
-  // 备份是只读副本、内容不会被改写:列表直接用备份时记录的数字,避免每次翻页重走整棵树;
-  // 只有旧条目缺字段时才现算一次。
-  const facts = (meta.files === undefined || meta.bytes === undefined) && available ? homeFacts(fs, home) : null
-  return {
-    id,
-    name: meta.name ?? id,
-    containerId: meta.containerId ?? null,
-    version: meta.version ?? null,
-    profile: meta.profile ?? 'web',
-    port: meta.port ?? null,
-    reason: meta.reason ?? 'manual',
-    note: meta.note ?? '',
-    createdAt: meta.createdAt ?? null,
-    available,
-    bytes: meta.bytes ?? facts?.bytes ?? 0,
-    files: meta.files ?? facts?.files ?? 0,
-    sessions: meta.sessions ?? facts?.sessions ?? 0,
-    hasCredentials: meta.hasCredentials ?? facts?.hasCredentials ?? false,
+/** tar 负责打包/解包(Linux/macOS 自带;Windows 10 1803+ 自带 tar.exe)。 */
+function tar(args, options = {}) {
+  try {
+    return execFileSync('tar', args, { encoding: 'utf8', windowsHide: true, maxBuffer: 32 * 1024 * 1024, ...options })
+  } catch (error) {
+    const detail = String(error?.stderr ?? error?.message ?? error).trim().split('\n').slice(-2).join(' ')
+    throw new Error(`tar 执行失败(${detail});本机可能缺少 tar(Windows 需 10 1803+)`)
   }
 }
 
-/**
- * 把一份 DSH home 复制成备份条目。
- * @param source - 源目录(容器 profile,或用户指定的外部 home)
- * @param info - 元信息(name/containerId/version/profile/port/reason/note)
- */
-function createBackupFrom(source, info) {
-  if (!fs.existsSync(source)) throw new Error(`配置目录不存在: ${source}`)
-  const id = `backup-${Date.now()}-${randomUUID().slice(0, 6)}`
-  const dir = backupDirPath(id)
-  fs.mkdirSync(dir, { recursive: true })
-  const home = backupHomePath(id)
+/** 配置文件名:安全化 + 时间戳,便于用户一眼认出来源与时间。 */
+function configFileName(name, version) {
+  const base = String(name ?? 'config').trim().replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 48) || 'config'
+  const ver = String(version ?? '').trim().replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 24)
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-')
+  return `${base}${ver.length > 0 ? `-${ver}` : ''}-${stamp}${CONFIG_EXT}`
+}
+
+/** 读配置文件里的 meta.json(顺带验证它确实是 DSH Dock 配置文件)。 */
+function readConfigMeta(file) {
+  const meta = JSON.parse(tar(['-xzOf', file, 'meta.json']))
+  if (typeof meta !== 'object' || meta === null || typeof meta.name !== 'string') throw new Error('meta.json 内容不合法')
+  return meta
+}
+
+function listConfigFiles() {
+  const dir = CONFIG_STORE()
+  if (!fs.existsSync(dir)) return []
+  return fs.readdirSync(dir)
+    .filter((file) => file.endsWith(CONFIG_EXT) || file.endsWith('.tar.gz'))
+    .filter((file) => {
+      try {
+        return fs.statSync(path.join(dir, file)).isFile()
+      } catch {
+        return false
+      }
+    })
+}
+
+/** 列表项:元信息全部来自配置文件本身(换台机器/别人给的配置文件也能直接列出来)。 */
+function configItem(file) {
+  const full = configFilePath(file)
+  const stat = fs.statSync(full)
+  const view = {
+    file,
+    bytes: stat.size,
+    modifiedAt: Math.floor(stat.mtimeMs / 1000),
+    valid: true,
+    error: null,
+  }
   try {
+    const meta = readConfigMeta(full)
+    return {
+      ...view,
+      name: meta.name,
+      containerId: meta.containerId ?? null,
+      version: meta.version ?? null,
+      profile: meta.profile ?? 'web',
+      port: meta.port ?? null,
+      reason: meta.reason ?? 'manual',
+      note: meta.note ?? '',
+      createdAt: meta.createdAt ?? null,
+      files: meta.files ?? 0,
+      sessions: meta.sessions ?? 0,
+      hasCredentials: !!meta.hasCredentials,
+      source: meta.source ?? null,
+    }
+  } catch (error) {
+    return { ...view, valid: false, error: String(error?.message ?? error), name: file, files: 0, sessions: 0, hasCredentials: false }
+  }
+}
+
+/** 把一份 DSH home 打包成单个配置文件。 */
+function packConfigFrom(source, info) {
+  if (!fs.existsSync(source)) throw new Error(`配置目录不存在: ${source}`)
+  fs.mkdirSync(CONFIG_STORE(), { recursive: true })
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'dshdock-config-'))
+  try {
+    const home = path.join(staging, 'home')
     copyTree(fs, source, home)
-    const verdict = verifyCopy(fs, source, home)
-    if (!verdict.ok) throw new Error(`复制校验失败(源 ${verdict.source.files} 文件 / 目标 ${verdict.target.files} 文件)`)
-    // 复制会保留源权限;DSH 拒绝「owner 之外可读」的凭据文件,恢复前必须收紧
+    // 复制会保留源权限;DSH 拒绝 owner 之外可读的凭据,必须收紧后再打包,否则恢复起不来
     hardenHomePermissions(fs, home)
     const facts = homeFacts(fs, home)
-    writeJson(path.join(dir, 'meta.json'), {
-      id,
-      name: info.name ?? path.basename(source),
+    const name = String(info.name ?? path.basename(source)).trim() || path.basename(source)
+    writeJson(path.join(staging, 'meta.json'), {
+      format: 'dsh-dock-config',
+      formatVersion: 1,
+      name,
       containerId: info.containerId ?? null,
       version: info.version ?? null,
       profile: info.profile ?? 'web',
@@ -713,26 +747,33 @@ function createBackupFrom(source, info) {
       note: info.note ?? '',
       source,
       createdAt: nowSeconds(),
-      bytes: facts.bytes,
       files: facts.files,
       sessions: facts.sessions,
       hasCredentials: facts.hasCredentials,
     })
-    writeBackupGuide()
-    log(`备份完成 ${id}(${info.name ?? path.basename(source)}:${facts.files} 文件 / ${facts.sessions} 会话 → ${dir})`)
-    return { id }
-  } catch (error) {
-    removeEntrySafely(fs, dir)
-    throw error
+    const file = configFileName(name, info.version)
+    const out = configFilePath(file)
+    tar(['-czf', out, '-C', staging, 'meta.json', 'home'])
+    // 打包校验:能读回 meta,且归档条目数不少于源文件数
+    readConfigMeta(out)
+    const entries = tar(['-tzf', out]).split('\n').filter((line) => line.trim().length > 0)
+    if (entries.length < facts.files + 1) {
+      throw new Error(`打包校验失败(归档 ${entries.length} 条目 < 源 ${facts.files} 文件)`)
+    }
+    writeConfigGuide()
+    log(`保存配置 ${file}(${name}:${facts.files} 文件 / ${facts.sessions} 会话 → ${out})`)
+    return { file, facts }
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
   }
 }
 
-/** 备份一个容器(取它的 profile = 该实例的 DSH_HOME)。 */
-function createBackup(containerId, { reason = 'manual', note = '' } = {}) {
+/** 保存某个容器的配置(取它的 profile = 该实例的 DSH_HOME)。 */
+function saveContainerConfig(containerId, { reason = 'manual', note = '' } = {}) {
   const meta = getContainer(containerId)
   const profileDir = path.join(containerDir(containerId), 'profile')
-  if (!fs.existsSync(profileDir)) throw new Error('该容器还没有 profile(可能尚未成功创建),暂无可备份的配置')
-  return createBackupFrom(profileDir, {
+  if (!fs.existsSync(profileDir)) throw new Error('该容器还没有 profile(可能尚未成功创建),暂无可保存的配置')
+  return packConfigFrom(profileDir, {
     name: meta.name ?? containerId,
     containerId,
     version: meta.version,
@@ -743,88 +784,103 @@ function createBackup(containerId, { reason = 'manual', note = '' } = {}) {
   })
 }
 
-/** 按容器保留最近 N 份(backupKeep,默认 10;0 表示不清理)。 */
-function pruneBackups() {
-  const keep = Number(readSettings().backupKeep ?? 10)
+/** 从配置文件里解出 home/ 并铺到容器 profile(只复制,随后与配置文件各自独立)。 */
+function extractConfigHome(file, profileDir) {
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'dshdock-restore-'))
+  try {
+    tar(['-xzf', file, '-C', staging, 'home'])
+    const home = path.join(staging, 'home')
+    if (!fs.existsSync(home)) throw new Error('配置文件里缺少 home/ 目录')
+    removeEntrySafely(fs, profileDir)
+    copyTree(fs, home, profileDir)
+    hardenHomePermissions(fs, profileDir)
+    return homeFacts(fs, profileDir)
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
+  }
+}
+
+/** 按容器保留最近 N 份配置文件(configKeep,默认 10;0 表示不清理)。 */
+function pruneConfigs() {
+  const keep = Number(readSettings().configKeep ?? 10)
   if (!Number.isInteger(keep) || keep <= 0) return
   const groups = new Map()
-  for (const id of listBackupIds()) {
-    const meta = readJson(path.join(backupDirPath(id), 'meta.json'), {})
-    const key = meta.containerId ?? meta.name ?? id
+  for (const file of listConfigFiles()) {
+    const item = configItem(file)
+    const key = item.containerId ?? item.name ?? file
     if (!groups.has(key)) groups.set(key, [])
-    groups.get(key).push({ id, createdAt: meta.createdAt ?? 0 })
+    groups.get(key).push({ file, createdAt: item.createdAt ?? 0 })
   }
   for (const entries of groups.values()) {
     entries.sort((a, b) => b.createdAt - a.createdAt)
     for (const stale of entries.slice(keep)) {
-      removeEntrySafely(fs, backupDirPath(stale.id))
-      log(`备份超过保留份数(${keep}),已清理 ${stale.id}`)
+      fs.rmSync(configFilePath(stale.file), { force: true })
+      log(`配置超过保留份数(${keep}),已清理 ${stale.file}`)
     }
   }
 }
 
-/** 生成/更新备份目录里的恢复操作指南(与 DSHBox 解耦,卸载后仍可照做)。 */
-function writeBackupGuide() {
-  const dir = BACKUP_DIR()
+/** 生成/更新配置目录里的使用说明(与 DSHBox 解耦:卸载后仍看得懂、能恢复)。 */
+function writeConfigGuide() {
+  const dir = CONFIG_STORE()
   fs.mkdirSync(dir, { recursive: true })
-  const items = listBackupIds().map(backupView).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+  const items = listConfigFiles().map(configItem).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
   const rows = items.map((item) => {
     const when = item.createdAt ? new Date(item.createdAt * 1000).toISOString().replace('T', ' ').slice(0, 19) : '-'
-    return `| \`${item.id}\` | ${item.name} | ${item.version ?? '-'} | ${item.profile} | ${item.port ?? '-'} | ${item.sessions} | ${(item.bytes / 1048576).toFixed(1)} MB | ${when} | ${item.reason} |`
+    return `| \`${item.file}\` | ${item.name} | ${item.version ?? '-'} | ${item.sessions} | ${(item.bytes / 1048576).toFixed(1)} MB | ${when} |`
   })
   const lines = [
-    '# DSH Dock 配置备份与恢复指南',
+    '# DSH Dock 配置文件说明',
     '',
-    '本目录由 DSH Dock 生成,与 DSH Dock 本体**相互独立**:即使 DSH Dock 被卸载、',
-    '安装目录被删除,这里的备份与这份说明仍然可用。',
+    '本目录里每一个 `*.dshcfg` 都是一个**自包含的配置文件**:它就是一个 tar.gz,',
+    '里面装着 `meta.json`(来源容器、版本、时间等)和 `home/`(该实例的完整 `DSH_HOME`:',
+    '`settings.yaml`、`.credentials.yaml`、`sessions/`、`storages/`、`plugins/`、`skills/`)。',
     '',
-    `- 备份目录: \`${dir}\``,
-    `- 备份份数: ${items.length}`,
+    '本目录与 DSH Dock 本体**相互独立**:即使卸载了 DSH Dock,这些配置文件与这份说明仍然可用。',
+    '',
+    `- 配置目录: \`${dir}\``,
+    `- 配置文件数: ${items.length}`,
     `- 生成时间: ${new Date().toISOString().replace('T', ' ').slice(0, 19)}`,
     '',
-    '## 备份清单',
+    '## 现有配置文件',
     '',
-    '| 备份 ID | 容器 | 版本 | profile | 端口 | 会话 | 大小 | 创建时间 | 原因 |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-    ...(rows.length > 0 ? rows : ['| (暂无备份) | | | | | | | | |']),
+    '| 文件 | 来源 | 版本 | 会话 | 大小 | 保存时间 |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...(rows.length > 0 ? rows : ['| (暂无) | | | | | |']),
     '',
-    '每个备份目录里有两项:',
+    '## 怎么用配置文件恢复',
     '',
-    '- `home/` —— 该实例的完整 DSH 配置(即它的 `DSH_HOME`):`settings.yaml`、`.credentials.yaml`、`sessions/`、`storages/`、`plugins/`、`skills/`、`attachments/`',
-    '- `meta.json` —— 来源容器、DSH 版本、端口、备份时间等元信息',
+    '### 方式一:在 DSH Dock 里(推荐)',
     '',
-    '## 怎么恢复',
+    '「外部 DSH 与配置」页 → 选中配置文件 →「**从配置创建**」,填容器名并选一个已安装版本即可。',
+    '也可以把别处拿到的配置文件用「上传配置文件」放进来,再从列表里创建。',
     '',
-    '### 方式一:直接当独立 DSH 用(不需要 DSH Dock)',
+    '### 方式二:不用 DSH Dock(只要这个文件)',
     '',
     '```bash',
-    '# 1) 准备一个 DSH(任选一种)',
-    'npx @deepseek-ai/dsh web                     # npm 方式(需 Node ≥ 22)',
-    '# 或源码方式:git clone https://github.com/deepseek-ai/deepseek-harness',
-    '#            cd deepseek-harness && pnpm install && pnpm run build',
+    '# 1) 解出配置(任何有 tar 的机器都可以:Linux/macOS/Windows 10+)',
+    `mkdir -p /tmp/restore && tar -xzf "${dir}/<配置文件>.dshcfg" -C /tmp/restore`,
     '',
-    '# 2) 把某个备份的 home 直接当 DSH_HOME 启动',
-    `DSH_HOME="${dir}/<备份 ID>/home" npx @deepseek-ai/dsh web`,
+    '# 2) 装一个 DSH 并指向解出来的 home',
+    'chmod 600 /tmp/restore/home/.credentials.yaml      # DSH 要求凭据仅 owner 可读',
+    'DSH_HOME=/tmp/restore/home npx @deepseek-ai/dsh web',
     '```',
     '',
     'Windows PowerShell:',
     '',
     '```powershell',
-    `$env:DSH_HOME="${dir}\\<备份 ID>\\home"; npx @deepseek-ai/dsh web`,
+    'mkdir $env:TEMP\restore -Force',
+    `tar -xzf "${dir}\\<配置文件>.dshcfg" -C $env:TEMP\restore`,
+    '$env:DSH_HOME="$env:TEMP\restore\home"; npx @deepseek-ai/dsh web',
     '```',
-    '',
-    '### 方式二:在 DSH Dock 里从备份新建容器',
-    '',
-    'DSH Dock →「外部 DSH 与备份」→ 选中备份 →「从备份新建容器」。',
-    '这是**复制**:新容器与备份、与源容器都相互独立。',
     '',
     '## 注意事项',
     '',
-    '- `.credentials.yaml` 是**明文凭据**:本目录请勿提交到公开仓库、勿分享;建议放在加密盘或权限受限的位置。',
-    '- 恢复出来的实例与备份、与源容器各自独立:在任何一处改动都不会影响其它副本。',
-    '- 备份是**时间点快照**:恢复得到的是备份那一刻的会话与配置。',
-    '- 调整备份目录 / 保留份数:DSH Dock →「设置」→ 备份。',
-    '- 备份不会自动上传到任何地方;整个过程只发生在本机。',
+    '- `.credentials.yaml` 是**明文凭据**:配置文件请当敏感数据保管,不要提交到公开仓库、不要随手分享。',
+    '- 恢复出来的实例与配置文件、与源容器各自独立:在哪一处改动都不影响其它副本。',
+    '- 配置文件是**时间点快照**:恢复得到的是保存那一刻的会话与配置。',
+    '- 自动保存开关打开后,会在创建容器后 / 更新版本前 / 删除容器前各保存一份;保留份数可在设置里调。',
+    '- 全部操作都在本机进行,不会上传到任何地方。',
     '',
   ]
   fs.writeFileSync(path.join(dir, 'README.md'), lines.join('\n'))
@@ -2287,7 +2343,7 @@ async function stopContainer(id) {
  * @returns 容器 id
  * @throws 校验失败(由调用方转成 400)
  */
-function beginContainerCreate({ name, version, profile = 'web', backup = null }) {
+function beginContainerCreate({ name, version, profile = 'web', config = null }) {
   if (!isSafeName(name)) throw new Error('容器名只能包含字母、数字、点、下划线、连字符(≤64字符)')
   if (!profileTemplateBundlesSafe(profile)) throw new Error('profile 仅支持 web / headless')
   const versionDir = path.join(VERSIONS_DIR, version, 'harness')
@@ -2308,7 +2364,7 @@ function beginContainerCreate({ name, version, profile = 'web', backup = null })
   }
   saveContainer(id, {
     id, name, version, profile, port, createdAt: nowSeconds(),
-    ...(backup === null ? {} : { backupSource: { id: backup.id, at: nowSeconds() } }),
+    ...(config === null ? {} : { configFile: config.name, configSavedAt: nowSeconds() }),
   })
 
   runTask('container-create', id, `创建容器 ${name}`, async ({ line, task }) => {
@@ -2316,16 +2372,12 @@ function beginContainerCreate({ name, version, profile = 'web', backup = null })
     line('复制版本源码(含共享构建产物,排除 node_modules)...')
     await copyHarness(versionDir, path.join(containerPath, 'harness'))
     allowAllBuilds(path.join(containerPath, 'harness'))
-    if (backup !== null) {
-      // 从备份恢复:profile 是备份里那份 home 的**副本**(不做链接 —— 恢复出的实例
-      // 与备份、与源容器此后各自独立,DSHBox 也不因此与外部产生依赖)
-      if (!fs.existsSync(backup.dir)) throw `备份内容缺失: ${backup.id}`
-      line(`复制备份中的 DSH 配置(${backup.dir})...`)
-      const profileDir = path.join(containerPath, 'profile')
-      removeEntrySafely(fs, profileDir)
-      copyTree(fs, backup.dir, profileDir)
-      hardenHomePermissions(fs, profileDir)
-      line('沿用备份里的 settings / 凭据 / 会话,跳过初始配置注入与默认工作区')
+    if (config !== null) {
+      // 从配置创建:profile 来自配置文件里的 home/(复制语义 —— 此后与配置文件、与源容器各自独立)
+      if (!fs.existsSync(config.file)) throw `配置文件不存在: ${config.file}`
+      line(`从配置文件恢复 DSH 配置(${config.file})...`)
+      const facts = extractConfigHome(config.file, path.join(containerPath, 'profile'))
+      line(`已恢复 ${facts.files} 个文件 / ${facts.sessions} 个会话,跳过初始配置注入与默认工作区`)
     } else {
       line('生成 profile 骨架...')
       createProfileSkeleton(containerPath, profile)
@@ -2345,13 +2397,13 @@ function beginContainerCreate({ name, version, profile = 'web', backup = null })
       await pnpmBuild(path.join(containerPath, 'harness'), task)
     }
     line('容器创建完成')
-    // 备份开关开启时,顺手留一份初始配置(失败不影响创建结果)
-    if (readSettings().backupEnabled) {
+    // 自动保存开关开启时,顺手保存一份初始配置(失败不影响创建结果)
+    if (readSettings().configAutoSave) {
       try {
-        const entry = createBackup(id, { reason: 'created' })
-        line(`已自动备份初始配置: ${entry.id}`)
+        const entry = saveContainerConfig(id, { reason: 'created' })
+        line(`已自动保存配置: ${entry.file}`)
       } catch (error) {
-        line(`自动备份失败(不影响创建): ${String(error?.message ?? error)}`)
+        line(`自动保存配置失败(不影响创建): ${String(error?.message ?? error)}`)
       }
     }
   }).catch(async (error) => {
@@ -2479,9 +2531,9 @@ async function handleApi(request, response, url) {
       // 未传字段时保留现值(避免仅改其他设置的调用把开关悄悄关掉)
       autoOpenUiOnStart: body.autoOpenUiOnStart === undefined ? readSettings().autoOpenUiOnStart : !!body.autoOpenUiOnStart,
       skipFirstOpenPrompts: body.skipFirstOpenPrompts === undefined ? readSettings().skipFirstOpenPrompts : !!body.skipFirstOpenPrompts,
-      backupEnabled: body.backupEnabled === undefined ? readSettings().backupEnabled : !!body.backupEnabled,
-      backupDir: body.backupDir === undefined ? readSettings().backupDir : String(body.backupDir).trim(),
-      backupKeep: body.backupKeep === undefined ? readSettings().backupKeep : Math.max(0, Number(body.backupKeep) || 0),
+      configAutoSave: body.configAutoSave === undefined ? readSettings().configAutoSave : !!body.configAutoSave,
+      configDir: body.configDir === undefined ? readSettings().configDir : String(body.configDir).trim(),
+      configKeep: body.configKeep === undefined ? readSettings().configKeep : Math.max(0, Number(body.configKeep) || 0),
     })
     return send(200, readSettings())
   }
@@ -2647,22 +2699,34 @@ async function handleApi(request, response, url) {
   // ── 外部 DSH:只读检测 / 告知 ──────────────────────────────────────────────
   // 用户可能在 DSH Dock 之外已有 DSH(官方 ~/.dsh、npx/全局安装、源码检出、正在跑的实例)。
   // DSHBox **不接管**它们、也不建立任何链接:这里只负责把事实读出来告诉用户;
-  // 要不要把某份配置复制进来做备份,由用户自己点按钮决定(POST /api/backups/import)。
+  // 要不要把某份配置保存成配置文件,由用户自己点按钮决定(POST /api/configs + sourcePath)。
   if (route === 'GET /api/external') {
-    const discovered = discoverExternal({ homedir: os.homedir() })
+    // ★ 必须把「自己的容器/版本目录与端口」交给检测层过滤,否则服务进程继承的
+    //   DSH_HOME(就是本容器 profile)会被当成外部 DSH —— 这正是之前的检测 bug。
+    const discovered = discoverExternal({
+      homedir: os.homedir(),
+      managed: {
+        containersDir: CONTAINERS_DIR,
+        versionsDir: VERSIONS_DIR,
+        ports: new Set(listContainerIds().map((id) => {
+          const meta = readJson(path.join(CONTAINERS_DIR, id, 'container.json'), {})
+          return meta.port
+        }).filter((port) => port !== undefined && port !== null)),
+      },
+    })
     return send(200, {
       ...discovered,
       officialHome: path.join(os.homedir(), '.dsh'),
-      backupDir: BACKUP_DIR(),
-      backupEnabled: readSettings().backupEnabled === true,
+      configDir: CONFIG_STORE(),
+      configAutoSave: readSettings().configAutoSave === true,
       containers: listContainerIds().map((id) => {
         const meta = readJson(path.join(CONTAINERS_DIR, id, 'container.json'), {})
         return {
           id,
           name: meta.name ?? id,
           status: containerStatus(id),
-          /** 该容器是否由某个备份恢复而来 */
-          backupSource: meta.backupSource?.id ?? null,
+          /** 该容器是否由某个配置文件创建而来 */
+          configFile: meta.configFile ?? null,
         }
       }),
     })
@@ -2690,79 +2754,115 @@ async function handleApi(request, response, url) {
   }
 
   // 把外部 harness 检出登记为 DSHBox 版本(link 默认:源保持唯一真相,删版本只删链接)
-  // ── 备份服务:备份 / 恢复 / 外部配置导入(只复制,不做链接)────────────────
-  if (route === 'GET /api/backups') {
+  // ── 配置:保存为单个配置文件 / 从配置创建 / 上传 / 下载 / 删除 ──────────────
+  // 一个配置文件 = 一个自包含文件(meta.json + home/);恢复只需要提供它。
+  if (route === 'GET /api/configs') {
+    const dir = CONFIG_STORE()
+    const items = listConfigFiles()
+      .map((file) => configItem(file))
+      .sort((a, b) => (b.createdAt ?? b.modifiedAt ?? 0) - (a.createdAt ?? a.modifiedAt ?? 0))
     return send(200, {
-      dir: BACKUP_DIR(),
-      enabled: readSettings().backupEnabled === true,
-      keep: readSettings().backupKeep ?? 10,
-      items: listBackupIds().map(backupView).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)),
+      dir,
+      autoSave: readSettings().configAutoSave === true,
+      keep: readSettings().configKeep ?? 10,
+      items,
     })
   }
 
-  // 立即备份:不带 containerId 则备份全部容器
-  if (route === 'POST /api/backups') {
+  // 保存配置:容器(默认全部)或用户指定的外部 home → 打包成一个配置文件
+  if (route === 'POST /api/configs') {
     const body = await readJsonBody(request).catch(() => ({}))
+    const sourcePathRaw = String(body.sourcePath ?? '').trim()
+    if (sourcePathRaw.length > 0) {
+      const sourcePath = path.resolve(sourcePathRaw)
+      if (!fs.existsSync(sourcePath)) return send(400, { error: `源路径不存在: ${sourcePath}` })
+      if (sourcePath === CONFIG_STORE() || sourcePath.startsWith(`${CONFIG_STORE()}${path.sep}`)) {
+        return send(400, { error: '源不能是配置目录自身' })
+      }
+      const facts = homeFacts(fs, sourcePath)
+      if (!facts.isHome) {
+        return send(400, { error: '这不是一个 DSH 配置目录(需要 settings.yaml / sessions / storages 等)' })
+      }
+      const usage = homeUsage(sourcePath)
+      const plan = importPlan({ inUse: usage.inUse, acknowledged: !!body.acknowledge })
+      if (!plan.ok) return send(400, { error: plan.reasons.join(';'), risks: plan.risks, steps: plan.steps })
+      try {
+        const entry = packConfigFrom(sourcePath, {
+          name: String(body.name ?? '').trim() || path.basename(sourcePath),
+          reason: 'import',
+          note: `来自 ${sourcePath}`,
+        })
+        pruneConfigs()
+        return send(200, { ok: true, file: entry.file, item: configItem(entry.file), risks: plan.risks })
+      } catch (error) {
+        return send(500, { error: String(error?.message ?? error) })
+      }
+    }
     const targets = body.containerId === undefined || body.containerId === ''
       ? listContainerIds()
       : [String(body.containerId)]
-    if (targets.length === 0) return send(400, { error: '还没有容器可备份' })
+    if (targets.length === 0) return send(400, { error: '还没有容器可保存' })
     for (const id of targets) {
       if (!fs.existsSync(path.join(CONTAINERS_DIR, id, 'container.json'))) return send(404, { error: `容器不存在: ${id}` })
     }
     const created = []
     for (const id of targets) {
       try {
-        created.push(createBackup(id, { reason: 'manual', note: String(body.note ?? '') }).id)
+        created.push(saveContainerConfig(id, { reason: 'manual', note: String(body.note ?? '') }).file)
       } catch (error) {
-        return send(500, { error: `备份 ${id} 失败: ${String(error?.message ?? error)}` })
+        return send(500, { error: `保存 ${id} 失败: ${String(error?.message ?? error)}` })
       }
     }
-    pruneBackups()
-    return send(200, { ok: true, created, items: listBackupIds().map(backupView) })
+    pruneConfigs()
+    return send(200, { ok: true, created, items: listConfigFiles().map(configItem) })
   }
 
-  // 把外部 DSH 的配置复制一份进来(是否复制由用户决定;只复制,不链接、不改源)
-  if (route === 'POST /api/backups/import') {
-    const body = await readJsonBody(request)
-    const sourcePath = path.resolve(String(body.sourcePath ?? '').trim())
-    const acknowledged = !!body.acknowledge
-    if (!sourcePath || !fs.existsSync(sourcePath)) return send(400, { error: `源路径不存在: ${sourcePath}` })
-    const facts = homeFacts(fs, sourcePath)
-    if (!facts.isHome) {
-      return send(400, { error: '这不是一个 DSH 配置目录(需要 settings.yaml / sessions / storages 等)' })
+  // 上传配置文件(raw body;浏览器选择本地文件,或从别的机器拷过来)
+  if (route === 'POST /api/configs/upload') {
+    const raw = String(url.searchParams.get('filename') ?? '').trim()
+    const safe = raw.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 96)
+    const base = safe.length > 0 ? safe : `config-${Date.now()}`
+    const target = configFilePath(base.endsWith(CONFIG_EXT) ? base : `${base}${CONFIG_EXT}`)
+    fs.mkdirSync(CONFIG_STORE(), { recursive: true })
+    const chunks = []
+    let total = 0
+    for await (const chunk of request) {
+      total += chunk.length
+      if (total > 2 * 1024 * 1024 * 1024) return send(413, { error: '配置文件过大(>2GB)' })
+      chunks.push(chunk)
     }
-    if (sourcePath === BACKUP_DIR() || sourcePath.startsWith(`${BACKUP_DIR()}${path.sep}`)) {
-      return send(400, { error: '源不能是备份目录自身' })
-    }
-    const usage = homeUsage(sourcePath)
-    const plan = importPlan({ inUse: usage.inUse, acknowledged })
-    if (!plan.ok) return send(400, { error: plan.reasons.join(';'), risks: plan.risks, steps: plan.steps })
+    if (total === 0) return send(400, { error: '上传内容为空' })
+    fs.writeFileSync(target, Buffer.concat(chunks))
     try {
-      const entry = createBackupFrom(sourcePath, {
-        name: String(body.name ?? '').trim() || path.basename(sourcePath),
-        reason: 'import',
-        note: `导入自 ${sourcePath}`,
-      })
-      pruneBackups()
-      return send(200, { ok: true, id: entry.id, item: backupView(entry.id), risks: plan.risks })
+      const meta = readConfigMeta(target)
+      writeConfigGuide()
+      log(`配置文件已上传: ${path.basename(target)}(${meta.name})`)
+      return send(200, { ok: true, file: path.basename(target), item: configItem(path.basename(target)) })
     } catch (error) {
-      return send(500, { error: String(error?.message ?? error) })
+      fs.rmSync(target, { force: true })
+      return send(400, { error: `不是有效的 DSH Dock 配置文件: ${String(error?.message ?? error)}` })
     }
   }
 
-  const restoreMatch = url.pathname.match(/^\/api\/backups\/([^/]+)\/restore$/)
-  if (restoreMatch && request.method === 'POST') {
-    const backupId = decodeURIComponent(restoreMatch[1])
-    if (!fs.existsSync(path.join(backupDirPath(backupId), 'meta.json'))) return send(404, { error: `备份不存在: ${backupId}` })
+  // 从配置创建:file = 配置目录里的文件名;path = 磁盘上任意位置(二选一)
+  if (route === 'POST /api/configs/restore') {
     const body = await readJsonBody(request)
-    const meta = readJson(path.join(backupDirPath(backupId), 'meta.json'), {})
+    const byPath = String(body.path ?? '').trim()
+    const byFile = String(body.file ?? '').trim()
+    const full = byPath.length > 0 ? path.resolve(byPath) : (byFile.length > 0 ? configFilePath(byFile) : '')
+    if (!full || !fs.existsSync(full)) return send(404, { error: `配置文件不存在: ${byPath || byFile}` })
+    let meta
+    try {
+      meta = readConfigMeta(full)
+    } catch (error) {
+      return send(400, { error: `不是有效的 DSH Dock 配置文件: ${String(error?.message ?? error)}` })
+    }
     try {
       const id = beginContainerCreate({
         name: body.name,
         version: body.version ?? meta.version,
         profile: body.profile ?? meta.profile ?? 'web',
-        backup: { id: backupId, dir: backupHomePath(backupId) },
+        config: { file: full, name: meta.name ?? path.basename(full) },
       })
       return send(200, { ok: true, id })
     } catch (error) {
@@ -2770,13 +2870,28 @@ async function handleApi(request, response, url) {
     }
   }
 
-  const backupMatch = url.pathname.match(/^\/api\/backups\/([^/]+)$/)
-  if (backupMatch && request.method === 'DELETE') {
-    const backupId = decodeURIComponent(backupMatch[1])
-    if (!fs.existsSync(path.join(backupDirPath(backupId), 'meta.json'))) return send(404, { error: `备份不存在: ${backupId}` })
-    removeEntrySafely(fs, backupDirPath(backupId))
-    writeBackupGuide()
-    log(`备份已删除: ${backupId}`)
+  const configDownloadMatch = url.pathname.match(/^\/api\/configs\/([^/]+)\/download$/)
+  if (configDownloadMatch && request.method === 'GET') {
+    const file = path.basename(decodeURIComponent(configDownloadMatch[1]))
+    const full = configFilePath(file)
+    if (!fs.existsSync(full)) return send(404, { error: `配置文件不存在: ${file}` })
+    response.writeHead(200, {
+      'Content-Type': 'application/gzip',
+      'Content-Disposition': `attachment; filename="${file}"`,
+      'Content-Length': fs.statSync(full).size,
+    })
+    fs.createReadStream(full).pipe(response)
+    return
+  }
+
+  const configFileMatch = url.pathname.match(/^\/api\/configs\/([^/]+)$/)
+  if (configFileMatch && request.method === 'DELETE') {
+    const file = path.basename(decodeURIComponent(configFileMatch[1]))
+    const full = configFilePath(file)
+    if (!fs.existsSync(full)) return send(404, { error: `配置文件不存在: ${file}` })
+    fs.rmSync(full, { force: true })
+    writeConfigGuide()
+    log(`配置文件已删除: ${file}`)
     return send(200, { ok: true })
   }
 
@@ -2805,16 +2920,19 @@ async function handleApi(request, response, url) {
 
   // 创建容器
   if (route === 'POST /api/containers') {
-    const { name, version, profile = 'web', backupId } = await readJsonBody(request)
-    let backup = null
-    if (backupId !== undefined && backupId !== null && String(backupId).length > 0) {
-      const id = String(backupId)
-      if (!fs.existsSync(path.join(backupDirPath(id), 'meta.json'))) return send(404, { error: `备份不存在: ${id}` })
-      if (!fs.existsSync(backupHomePath(id))) return send(400, { error: '备份内容缺失,请重新备份' })
-      backup = { id, dir: backupHomePath(id) }
+    const { name, version, profile = 'web', configFile } = await readJsonBody(request)
+    let config = null
+    if (configFile !== undefined && configFile !== null && String(configFile).length > 0) {
+      const file = configFilePath(String(configFile))
+      if (!fs.existsSync(file)) return send(404, { error: `配置文件不存在: ${configFile}` })
+      try {
+        config = { file, name: readConfigMeta(file).name }
+      } catch (error) {
+        return send(400, { error: `不是有效的 DSH Dock 配置文件: ${String(error?.message ?? error)}` })
+      }
     }
     try {
-      return send(200, { ok: true, id: beginContainerCreate({ name, version, profile, backup }) })
+      return send(200, { ok: true, id: beginContainerCreate({ name, version, profile, config }) })
     } catch (error) {
       return send(400, { error: String(error?.message ?? error) })
     }
@@ -2901,20 +3019,20 @@ async function handleApi(request, response, url) {
       try {
         await stopContainer(id)
       } catch {}
-      // 备份开关开启时,删除前自动留一份配置(删掉容器也不至于丢掉会话与凭据)
-      if (readSettings().backupEnabled) {
+      // 自动保存开启时,删除前存一份配置(删掉容器也不至于丢掉会话与凭据)
+      if (readSettings().configAutoSave) {
         try {
-          const entry = createBackup(id, { reason: 'pre-delete', note: '删除容器前' })
-          log(`删除前已自动备份 ${delContainer.name}: ${entry.id}`)
+          const entry = saveContainerConfig(id, { reason: 'pre-delete', note: '删除容器前' })
+          log(`删除前已自动保存 ${delContainer.name} 的配置: ${entry.file}`)
         } catch (error) {
-          log(`删除前自动备份失败(继续删除): ${String(error?.message ?? error)}`)
+          log(`删除前自动保存失败(继续删除): ${String(error?.message ?? error)}`)
         }
       }
       // 保险:容器 profile 若是链接(历史遗留),先摘链接再删目录,绝不下钻到目标
       const profileDir = path.join(containerDir(id), 'profile')
       if (isSymlink(fs, profileDir)) removeEntrySafely(fs, profileDir)
       fs.rmSync(containerDir(id), { recursive: true, force: true })
-      pruneBackups()
+      pruneConfigs()
       return send(200, { ok: true })
     }
 
@@ -2932,13 +3050,13 @@ async function handleApi(request, response, url) {
           line('停止运行中的容器...')
           await stopContainer(id)
         }
-        // 备份开关开启时,换 harness 之前先留一份(配置与旧版本一起可回退)
-        if (readSettings().backupEnabled) {
+        // 自动保存开启时,换 harness 之前先存一份(配置与旧版本一起可回退)
+        if (readSettings().configAutoSave) {
           try {
-            const entry = createBackup(id, { reason: 'pre-update', note: `更新到 ${version} 之前` })
-            line(`更新前已自动备份: ${entry.id}`)
+            const entry = saveContainerConfig(id, { reason: 'pre-update', note: `更新到 ${version} 之前` })
+            line(`更新前已自动保存配置: ${entry.file}`)
           } catch (error) {
-            line(`自动备份失败(继续更新): ${String(error?.message ?? error)}`)
+            line(`自动保存配置失败(继续更新): ${String(error?.message ?? error)}`)
           }
         }
         const harnessDir = path.join(containerPath, 'harness')

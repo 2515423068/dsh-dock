@@ -1,11 +1,11 @@
 /**
- * 外部 DSH 的**只读检测**,以及容器配置的**备份与恢复**。
+ * 外部 DSH 的**只读检测**,以及容器配置的**保存(打包成单个配置文件)与恢复**。
  *
  * 定位(用户明确要求):
  *   - 用户可能在装 DSH Dock 之前(或在 DSH Dock 之外)已经有 DSH:官方路径的 `~/.dsh`、
  *     npx/全局安装的 dsh、一份 harness 源码检出、甚至正在跑的实例。
  *   - DSHBox **不接管**这些外部实例,也**不使用软链**(软链会让两边产生隐式依赖,
- *     破坏容器隔离)。这里只负责「检测 + 告知」,以及把配置**复制**进来做备份。
+ *     破坏容器隔离)。这里只负责「检测 + 告知」,以及把配置**复制**进来打包成配置文件。
  *   - 是否把某个外部配置复制进 DSHBox,由用户自己决定。
  *
  * 备份的取向:备份是给用户留后路的 —— 即使 DSHBox 被卸载,备份目录与其中的恢复
@@ -17,7 +17,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { isWindows } from './platform.mjs'
+import { isInside, isWindows } from './platform.mjs'
 
 /** 判定“这是一个 DSH home”的信号文件/目录。 */
 export const HOME_SIGNALS = ['settings.yaml', '.credentials.yaml', 'sessions', 'storages', 'profiles', 'plugins', 'skills', 'attachments']
@@ -182,7 +182,7 @@ export function verifyCopy(fsImpl, src, dst) {
 
 // ── 策略裁决(风险告知与放行条件集中在这里,便于单测与统一文案)────────────
 /**
- * 是否允许把某个 home 复制进来(备份/导入)。**只支持复制** ——
+ * 是否允许把某个 home 保存成配置文件。**只支持复制** ——
  * 软链会让 DSHBox 与外部 DSH 产生隐式依赖,破坏容器隔离,因此不提供。
  * @param options.inUse - 源是否正被运行中的 DSH 使用
  * @param options.acknowledged - 用户是否已勾选「我确认它已停止 / 了解风险」
@@ -194,7 +194,7 @@ export function importPlan({ inUse = false, acknowledged = false, targetExists =
   if (targetExists) reasons.push('目标位置已存在同名条目')
   if (inUse && !acknowledged) reasons.push('源 DSH 正在运行:请先停止它(这样复制到的才是完整一致的会话数据)')
 
-  risks.push('只做复制:源目录不会被修改,复制完成后两边各自独立、互不影响')
+  risks.push('只做复制:源目录不会被修改,保存成配置文件后两边各自独立、互不影响')
   risks.push('复制只在本机进行,不会上传任何内容')
   risks.push('⚠️ 配置里含明文凭据(.credentials.yaml):备份目录请视为敏感数据,不要提交到公开仓库或分享')
   if (!acknowledged) risks.push('请确认该 DSH 当前处于停止状态(运行中复制可能得到写到一半的会话文件)')
@@ -204,7 +204,7 @@ export function importPlan({ inUse = false, acknowledged = false, targetExists =
     ok: reasons.length === 0,
     reasons,
     risks,
-    steps: ['把源复制到备份目录', '校验文件数与字节数一致', '收紧凭据权限(0600)', '写入/更新恢复操作指南'],
+    steps: ['把源复制到临时目录', '打包成单个配置文件', '校验文件数与字节数一致', '收紧凭据权限(0600)', '写入/更新使用说明'],
   }
 }
 
@@ -324,21 +324,42 @@ function readPackage(fsImpl, pkgPath) {
   }
 }
 
-/** 汇总一次发现结果。 */
-export function discoverExternal({ fsImpl = fs, homedir, env = process.env, platform = process.platform, run } = {}) {
+/**
+ * 汇总一次发现结果。
+ *
+ * ★ 必须排除 DSHBox **自己**的东西,否则会把「DSH Dock 的容器」当成外部 DSH:
+ *   - 服务进程常常带着容器自己的 `DSH_HOME`(它就是被 DSHBox 启动的),那是内部容器;
+ *   - 内部容器里跑的 host 进程、以及它们占用的端口,也不是「外部实例」。
+ * 过滤依据由调用方给出(containersDir / versionsDir / managedPorts),这里只做判定。
+ */
+export function discoverExternal({
+  fsImpl = fs, homedir, env = process.env, platform = process.platform, run,
+  managed = {},
+} = {}) {
+  const managedRoots = [managed.containersDir, managed.versionsDir].filter((dir) => typeof dir === 'string' && dir.length > 0)
+  const isManagedPath = (target) => typeof target === 'string' &&
+    (managedRoots.some((root) => isInside(target, root)) || isDsBoxContainerPath(fsImpl, target))
+  const managedPorts = managed.ports instanceof Set ? managed.ports : new Set(managed.ports ?? [])
+
   const homes = []
   for (const dir of homeCandidates({ homedir, env })) {
     if (!fsImpl.existsSync(dir)) continue
+    if (isManagedPath(dir)) continue // DSHBox 自己的容器 profile:不是外部 DSH
     const facts = homeFacts(fsImpl, dir)
     if (facts.isHome) homes.push({ path: dir, ...facts })
   }
   const checkouts = []
   for (const dir of [path.join(homedir, 'deepseek-harness'), path.join(homedir, 'dsh-src')]) {
-    if (!fsImpl.existsSync(dir)) continue
+    if (!fsImpl.existsSync(dir) || isManagedPath(dir)) continue
     const facts = harnessFacts(fsImpl, dir)
     if (facts.isHarness) checkouts.push({ path: dir, ...facts })
   }
-  const running = listDshProcesses({ platform, run })
+  const all = listDshProcesses({ platform, run })
+  // 内部容器的 host 进程:端口属于我们的容器,或命令行/home 落在 containers/versions 内
+  const running = all.filter((item) =>
+    !(item.port !== null && managedPorts.has(item.port)) &&
+    !isManagedPath(item.home) &&
+    !isManagedPath(patchPathOf(item.cmdline)))
   // 把“正在运行”的判定挂到对应 home 上(POSIX 能读到 DSH_HOME;其它平台标记 unknown)
   const used = new Map(running.filter((item) => item.home).map((item) => [path.resolve(item.home), item]))
   const markUsed = (dir) => {
@@ -350,7 +371,29 @@ export function discoverExternal({ fsImpl = fs, homedir, env = process.env, plat
     checkouts: checkouts.map((item) => ({ ...item, ...markUsed(item.path) })),
     installed: findInstalledDsh({ fsImpl, homedir, run }),
     running,
+    /** 被过滤掉的内部 host 进程数(界面据此说明“自己的容器不在此列”) */
+    managedRunning: all.length - running.length,
     /** Windows/macOS 读不到进程环境变量:界面上必须让用户自己确认源已停止 */
     canDetectUsage: platform === 'linux',
   }
+}
+
+/**
+ * 该路径是否落在**某个 DSHBox 的容器目录**里(`<...>/containers/<id>/…`)。
+ * 判据是容器目录里确实有 container.json / state/host.json —— 这样既排除了我们自己的容器,
+ * 也排除了「别的 DSHBox 安装」的容器,同时不会误伤用户在普通目录里自建的 DSH home。
+ */
+export function isDsBoxContainerPath(fsImpl, target) {
+  if (typeof target !== 'string' || target.length === 0) return false
+  const parts = path.resolve(target).split(path.sep)
+  const index = parts.lastIndexOf('containers')
+  if (index <= 0 || parts.length <= index + 2) return false
+  const containerDir = parts.slice(0, index + 2).join(path.sep)
+  return fsImpl.existsSync(path.join(containerDir, 'container.json')) || fsImpl.existsSync(path.join(containerDir, 'state', 'host.json'))
+}
+
+/** 从 DSH host 命令行里取出 `--patch <file>` 的路径(用于判断是不是我们的容器)。 */
+function patchPathOf(cmdline) {
+  const match = String(cmdline ?? '').match(/--patch\s+(\S+)/)
+  return match ? match[1] : undefined
 }

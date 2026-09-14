@@ -754,9 +754,9 @@ details.adv summary { cursor: pointer; color: var(--dsw-label-tertiary); font-si
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
       <span class="nav-label">容器管理</span>
     </a>
-    <a data-page="external" title="外部 DSH 与备份">
+    <a data-page="external" title="外部 DSH 与配置">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 3 21 9 15 9"/><path d="M12 8v4l3 2"/></svg>
-      <span class="nav-label">外部/备份</span>
+      <span class="nav-label">外部/配置</span>
     </a>
     <a data-page="settings" title="设置">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -1439,59 +1439,70 @@ async function doUpdate(id, version) {
   } catch (error) { toast(`更新失败: ${error}`, true) }
 }
 
-// ── 外部 DSH 与备份 ─────────────────────────────────────────────────────────
+// ── 外部 DSH 与配置 ─────────────────────────────────────────────────────────
 // 原则:DSHBox **不接管**外部 DSH、也不建立任何链接(软链会破坏容器隔离)。
-// 这里只做两件事:① 把检测到的外部 DSH 如实告诉用户;② 提供备份服务 ——
-// 备份是独立副本,默认落在部署目录的 backups/(不在卸载删除范围内),并生成恢复指南。
+// 这里只做两件事:① 把检测到的外部 DSH 如实告诉用户(DSHBox 自己的容器不算外部);
+// ② 配置服务 —— 每个容器可保存成一个自包含的 *.dshcfg 配置文件,恢复只需要这个文件。
 async function renderExternal() {
   const main = $('#main')
   main.innerHTML = `
-    <h1>外部 DSH 与备份</h1><div class="subtitle">检测机器上已有的 DSH;把容器配置备份成独立副本(只复制、不用软链;备份目录不随卸载删除)</div>
-    <div id="bk-panel"><div class="empty">加载中…</div></div>
+    <h1>外部 DSH 与配置</h1><div class="subtitle">检测机器上已有的 DSH;把容器配置保存成单个配置文件(只复制、不用软链;配置目录不随卸载删除)</div>
+    <div id="cfg-panel"><div class="empty">加载中…</div></div>
     <div id="ext-panel"><div class="empty">加载中…</div></div>`
-  await Promise.all([renderBackupPanel(), renderExternalPanel()])
+  await Promise.all([renderConfigPanel(), renderExternalPanel()])
 }
 
-const BACKUP_REASON = { manual: '手动', created: '创建后', 'pre-update': '更新前', 'pre-delete': '删除前', import: '导入' }
+const CONFIG_REASON = { manual: '手动', created: '创建后', 'pre-update': '更新前', 'pre-delete': '删除前', import: '外部保存' }
 const fmtSize = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 const fmtTime = (seconds) => (seconds ? new Date(seconds * 1000).toLocaleString('zh-CN') : '-')
 
-async function renderBackupPanel() {
-  const panel = $('#bk-panel')
-  const [data, catalog] = await Promise.all([
-    api('/api/backups').catch(() => ({ items: [], enabled: false, dir: '', keep: 10 })),
+async function renderConfigPanel() {
+  const panel = $('#cfg-panel')
+  const [data, catalog, containers] = await Promise.all([
+    api('/api/configs').catch(() => ({ items: [], autoSave: false, dir: '', keep: 10 })),
     api('/api/versions/catalog').catch(() => ({ installed: [] })),
+    api('/api/containers').catch(() => []),
   ])
   const installed = catalog.installed ?? []
-  const rows = (data.items ?? []).map((item) => `
-    <tr>
-      <td>${escapeHtml(item.name)}</td>
+  const rows = (data.items ?? []).map((item) => {
+    const actions = item.valid === false
+      ? `<span class="chip chip-warn">无法读取</span> <button class="danger" onclick="deleteConfig('${encodeURIComponent(item.file)}')">删除</button>`
+      : `<button onclick="createFromConfigPrompt('${encodeURIComponent(item.file)}', '${escapeHtml(item.version ?? '')}', ${JSON.stringify(installed).replace(/"/g, '&quot;')})">从配置创建</button>
+         <button onclick="downloadConfig('${encodeURIComponent(item.file)}')">下载</button>
+         <button class="danger" onclick="deleteConfig('${encodeURIComponent(item.file)}')">删除</button>`
+    return `<tr>
+      <td style="word-break:break-all">${escapeHtml(item.file)}</td>
+      <td>${escapeHtml(item.name ?? '-')}</td>
       <td class="muted">${escapeHtml(item.version ?? '-')}</td>
-      <td class="muted">${item.sessions}</td>
-      <td class="muted">${fmtSize(item.bytes)}</td>
-      <td class="muted">${fmtTime(item.createdAt)}</td>
-      <td><span class="chip">${BACKUP_REASON[item.reason] ?? item.reason}</span></td>
-      <td>
-        <button onclick="restoreBackup('${item.id}', ${JSON.stringify(installed).replace(/"/g, '&quot;')})">从备份新建容器</button>
-        <button class="danger" onclick="deleteBackup('${item.id}', '${escapeHtml(item.name)}')">删除</button>
-      </td>
-    </tr>`).join('')
+      <td class="muted">${item.sessions ?? 0}</td>
+      <td class="muted">${fmtSize(item.bytes ?? 0)}</td>
+      <td class="muted">${fmtTime(item.createdAt ?? item.modifiedAt)}</td>
+      <td><span class="chip">${CONFIG_REASON[item.reason] ?? item.reason ?? '-'}</span></td>
+      <td>${actions}</td>
+    </tr>`
+  }).join('')
+  const options = (containers ?? []).map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
   panel.innerHTML = `
-    <div class="panel"><h2>配置备份</h2>
+    <div class="panel"><h2>配置</h2>
       <div class="row">
-        <span class="switch-wrap" title="开启后:创建容器、更新版本前、删除容器前会自动各留一份配置备份">
-          自动备份<label class="switch"><input type="checkbox" id="bk-enabled" ${data.enabled ? 'checked' : ''} onchange="toggleBackup(this.checked)"><span class="slider"></span></label>
+        <span class="switch-wrap" title="开启后:创建容器后、更新版本前、删除容器前会自动各保存一份配置">
+          自动保存<label class="switch"><input type="checkbox" id="cfg-auto" ${data.autoSave ? 'checked' : ''} onchange="toggleConfigAutoSave(this.checked)"><span class="slider"></span></label>
         </span>
-        <span class="muted">备份目录</span>
-        <input id="bk-dir" style="width:320px" placeholder="${escapeHtml(data.dir)}" value="">
-        <span class="muted">保留份数</span>
-        <input id="bk-keep" style="width:70px" value="${data.keep}">
-        <button onclick="saveBackupSettings()">保存</button>
-        <button class="primary" onclick="backupNow()">立即备份全部</button>
+        <select id="cfg-target" class="ver-select" style="width:200px"><option value="">全部容器</option>${options}</select>
+        <button class="primary" onclick="saveConfigNow()">保存配置</button>
+        <span class="muted">恢复时只需要一个配置文件</span>
       </div>
-      <div class="muted" style="margin-top:8px">备份是独立副本(只复制,不做软链)。目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,且每次备份都会重写其中的 <code>README.md</code> 恢复指南(含脱离 DSHBox 单独恢复的步骤)。凭据为明文,请自行妥善保管。</div>
-      <table style="margin-top:12px"><thead><tr><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="7"><div class="empty">还没有备份</div></td></tr>'}</tbody></table>
+      <div class="row" style="margin-top:8px">
+        <span class="muted">配置目录</span>
+        <input id="cfg-dir" style="width:320px" placeholder="${escapeHtml(data.dir)}" value="">
+        <span class="muted">保留份数</span>
+        <input id="cfg-keep" style="width:70px" value="${data.keep}">
+        <button onclick="saveConfigSettings()">保存设置</button>
+        <label class="switch-wrap" style="gap:6px">上传配置文件<input type="file" id="cfg-file" accept=".dshcfg,.gz,.tgz" style="max-width:260px" onchange="uploadConfig(this)"></label>
+      </div>
+      <div class="muted" style="margin-top:8px">每个 <code>*.dshcfg</code> 都是自包含文件(tar.gz:meta.json + home/),里面是完整的 DSH 配置(settings / 凭据 / 会话 / storages)。当前目录:${escapeHtml(data.dir)} —— 该目录不在「卸载数据」的删除范围内,并带一份 <code>README.md</code> 说明(含不用 DSHBox 直接用 <code>DSH_HOME=&lt;解出的 home&gt;</code> 启动的步骤)。凭据为明文,请妥善保管。</div>
+      <table style="margin-top:12px"><thead><tr><th>配置文件</th><th>来源</th><th>版本</th><th>会话</th><th>大小</th><th>时间</th><th>原因</th><th>操作</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="8"><div class="empty">还没有配置文件,点「保存配置」生成第一个</div></td></tr>'}</tbody></table>
     </div>`
 }
 
@@ -1504,6 +1515,7 @@ async function renderExternalPanel() {
     panel.innerHTML = `<div class="panel"><h2>检测到的外部 DSH</h2><div class="error-text">加载失败:${escapeHtml(error)}</div></div>`
     return
   }
+  const managedCount = (data.containers ?? []).length
   const homeRows = (data.homes ?? []).map((home) => `
     <tr>
       <td style="word-break:break-all">${escapeHtml(home.path)}</td>
@@ -1511,7 +1523,7 @@ async function renderExternalPanel() {
       <td class="muted">${home.hasCredentials ? '有' : '无'}</td>
       <td class="muted">${fmtSize(home.bytes)}</td>
       <td>${home.inUse ? `<span class="chip chip-warn">运行中 (pid ${home.pid})</span>` : '<span class="muted">未运行</span>'}</td>
-      <td><button onclick="importExternalPrompt('${escapeHtml(home.path)}')">复制为备份</button></td>
+      <td><button onclick="importExternalPrompt('${escapeHtml(home.path)}')">保存为配置</button></td>
     </tr>`).join('')
   const installedRows = [
     ...(data.installed ?? []).map((item) => `<li><code>${escapeHtml(item.path)}</code> <span class="chip">${escapeHtml(item.kind)}</span> <span class="muted">${escapeHtml(item.version || '-')}</span></li>`),
@@ -1520,73 +1532,120 @@ async function renderExternalPanel() {
   const runningRows = (data.running ?? []).map((item) => `<li>pid ${item.pid}${item.port ? ` · 端口 ${item.port}` : ''} · <span class="muted">${escapeHtml((item.cmdline || '').slice(0, 120))}</span></li>`).join('')
   panel.innerHTML = `
     <div class="panel"><h2>检测到的外部 DSH</h2>
-      <div class="muted">这里是**只读检测结果**:DSHBox 不接管这些实例、也不与它们建立任何链接(不修改、不删除、不改动其启动方式)。如果你想把某份外部配置纳入 DSHBox 的备份体系,请点「复制为备份」——那是把配置复制一份进来,源目录保持原样。</div>
+      <div class="muted">**只读检测**:DSHBox 不接管这些实例、也不与它们建立任何链接(不修改、不删除、不改动启动方式)。想把某份外部配置留在 DSHBox 里,点「保存为配置」——那是**复制**成一个配置文件,源目录保持原样。DSHBox 自己管理的 ${managedCount} 个容器不在此列(它们在「容器管理」页)。</div>
       <table style="margin-top:12px"><thead><tr><th>DSH 配置目录(home)</th><th>会话</th><th>凭据</th><th>大小</th><th>状态</th><th>操作</th></tr></thead>
       <tbody>${homeRows || `<tr><td colspan="6"><div class="empty">没有检测到外部 DSH 配置目录(官方路径 ${escapeHtml(data.officialHome ?? '~/.dsh')} 不存在)</div></td></tr>`}</tbody></table>
       ${installedRows ? `<div class="muted" style="margin-top:12px">检测到的 dsh 安装 / 源码检出(仅供参考,DSHBox 不会使用或改动它们):</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${installedRows}</ul>` : ''}
-      ${runningRows ? `<div class="muted" style="margin-top:12px">检测到正在运行的 DSH 进程:</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${runningRows}</ul>` : ''}
-      ${data.canDetectUsage === false ? '<div class="muted" style="margin-top:10px">⚠️ 当前平台无法自动判断某个配置是否正在被使用,复制前请自行确认目标 DSH 已停止。</div>' : ''}
+      ${runningRows ? `<div class="muted" style="margin-top:12px">检测到正在运行的外部 DSH 进程:</div><ul style="margin:6px 0 0;padding-left:18px;line-height:22px">${runningRows}</ul>` : ''}
+      <div class="row" style="margin-top:12px">
+        <input id="ext-path" style="width:360px" placeholder="手动检测一个路径,例如 ~/.dsh 或 /srv/dsh">
+        <button onclick="checkExternalPath()">检测该路径</button>
+        <span class="muted" id="ext-check-note"></span>
+      </div>
+      <div class="muted" style="margin-top:6px">检测到路径后可直接「保存为配置」(只复制)。${data.canDetectUsage === false ? '⚠️ 当前平台无法自动判断配置是否正在被使用,保存前请自行确认目标 DSH 已停止。' : ''}</div>
     </div>`
 }
 
-async function toggleBackup(enabled) {
+async function toggleConfigAutoSave(enabled) {
   try {
-    await api('/api/settings', { method: 'POST', body: { backupEnabled: enabled } })
-    toast(enabled ? '已开启自动备份(创建/更新前/删除前各留一份)' : '已关闭自动备份')
+    await api('/api/settings', { method: 'POST', body: { configAutoSave: enabled } })
+    toast(enabled ? '已开启自动保存(创建后 / 更新前 / 删除前各存一份)' : '已关闭自动保存')
   } catch (error) { toast(`操作失败: ${error}`, true) }
 }
 
-async function saveBackupSettings() {
-  const dir = $('#bk-dir').value.trim()
-  const keep = Number($('#bk-keep').value)
+async function saveConfigSettings() {
+  const dir = $('#cfg-dir').value.trim()
+  const keep = Number($('#cfg-keep').value)
   try {
-    await api('/api/settings', { method: 'POST', body: { ...(dir ? { backupDir: dir } : {}), ...(Number.isInteger(keep) ? { backupKeep: keep } : {}) } })
-    toast('备份设置已保存')
-    renderBackupPanel()
+    await api('/api/settings', { method: 'POST', body: { ...(dir ? { configDir: dir } : {}), ...(Number.isInteger(keep) ? { configKeep: keep } : {}) } })
+    toast('配置设置已保存')
+    renderConfigPanel()
   } catch (error) { toast(`保存失败: ${error}`, true) }
 }
 
-async function backupNow() {
+async function saveConfigNow() {
+  const containerId = $('#cfg-target').value
   try {
-    const result = await api('/api/backups', { method: 'POST', body: {} })
-    toast(`已备份 ${result.created.length} 个容器`)
-    renderBackupPanel()
-  } catch (error) { toast(`备份失败: ${error}`, true) }
+    const result = await api('/api/configs', { method: 'POST', body: containerId ? { containerId } : {} })
+    toast(containerId ? '配置已保存' : `已保存 ${result.created.length} 个容器的配置`)
+    renderConfigPanel()
+  } catch (error) { toast(`保存失败: ${error}`, true) }
 }
 
-function restoreBackup(id, installed) {
-  const options = (installed ?? []).map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join('')
-  openModal('从备份新建容器', `
-    <p class="muted">会用备份里的 DSH 配置(settings / 凭据 / 会话)**复制**出一份新容器;备份本身不受影响。</p>
+function createFromConfigPrompt(encodedFile, currentVersion, installed) {
+  const file = decodeURIComponent(encodedFile)
+  const versions = [...new Set([...(installed ?? []), ...(currentVersion ? [currentVersion] : [])])]
+  const options = versions.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === currentVersion ? 'selected' : ''}>${escapeHtml(tag)}</option>`).join('')
+  openModal('从配置创建', `
+    <p class="muted">用 <code>${escapeHtml(file)}</code> 里的配置**复制**出一个新容器;配置文件本身不受影响。</p>
     <div class="row" style="margin-top:12px">
-      <input id="rs-name" placeholder="新容器名称" style="width:220px">
-      <select id="rs-version" class="ver-select" style="width:190px">${options || '<option value="">无已安装版本</option>'}</select>
-      <button class="primary" onclick="doRestore('${id}')">创建</button>
+      <input id="cc-name" placeholder="新容器名称" style="width:220px">
+      <select id="cc-version" class="ver-select" style="width:190px">${options || '<option value="">无已安装版本</option>'}</select>
+      <button class="primary" onclick="doCreateFromConfig('${encodedFile}')">创建</button>
       <button onclick="closeModal()">取消</button>
     </div>`)
 }
 
-async function doRestore(id) {
-  const name = $('#rs-name').value.trim()
-  const version = $('#rs-version').value
+async function doCreateFromConfig(encodedFile) {
+  const name = $('#cc-name').value.trim()
+  const version = $('#cc-version').value
   if (!name || !version) return toast('请填写容器名并选择版本', true)
   try {
-    const result = await api(`/api/backups/${id}/restore`, { method: 'POST', body: { name, version } })
+    await api('/api/configs/restore', { method: 'POST', body: { file: decodeURIComponent(encodedFile), name, version } })
     closeModal()
-    toast(`容器 ${name} 创建中(来自备份)`)
+    toast(`容器 ${name} 创建中(来自配置文件)`)
     syncTasks().then(renderExternal).catch(() => {})
     setTimeout(renderExternal, 800)
-    return result
   } catch (error) { toast(`创建失败: ${error}`, true) }
 }
 
-async function deleteBackup(id, name) {
-  if (!confirm(`删除备份「${name}」?不会影响你的容器,只是少一份配置副本。`)) return
+async function deleteConfig(encodedFile) {
+  const file = decodeURIComponent(encodedFile)
+  if (!confirm(`删除配置文件「${file}」?不会影响你的容器,只是少一份配置副本。`)) return
   try {
-    await api(`/api/backups/${id}`, { method: 'DELETE' })
-    toast('备份已删除')
-    renderBackupPanel()
+    await api(`/api/configs/${encodeURIComponent(file)}`, { method: 'DELETE' })
+    toast('配置文件已删除')
+    renderConfigPanel()
   } catch (error) { toast(`删除失败: ${error}`, true) }
+}
+
+function downloadConfig(encodedFile) {
+  window.open(`/api/configs/${encodeURIComponent(decodeURIComponent(encodedFile))}/download`, '_blank')
+}
+
+async function uploadConfig(input) {
+  const file = input?.files?.[0]
+  if (!file) return
+  try {
+    const response = await fetch(`/api/configs/upload?filename=${encodeURIComponent(file.name)}`, { method: 'POST', body: file })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) throw body.error || `HTTP ${response.status}`
+    toast(`已上传配置文件 ${body.file}`)
+    input.value = ''
+    renderConfigPanel()
+  } catch (error) {
+    input.value = ''
+    toast(`上传失败: ${error}`, true)
+  }
+}
+
+async function checkExternalPath() {
+  const target = $('#ext-path').value.trim()
+  if (!target) return toast('请输入路径', true)
+  const note = $('#ext-check-note')
+  note.textContent = '检测中…'
+  try {
+    const result = await api('/api/external/check', { method: 'POST', body: { path: target } })
+    if (result.isHome) {
+      note.innerHTML = `是 DSH 配置目录(会话 ${result.home.sessions} · ${fmtSize(result.home.bytes)}${result.usage?.inUse ? ` · 运行中 pid ${result.usage.pid}` : ''}) <button onclick="importExternalPrompt('${escapeHtml(result.path)}')">保存为配置</button>`
+    } else if (result.isHarness) {
+      note.textContent = `这是 harness 源码检出(版本 ${result.harness.version || '未知'}),不是配置目录`
+    } else {
+      note.textContent = '既不是 DSH 配置目录,也不是 harness 检出'
+    }
+  } catch (error) {
+    note.textContent = `检测失败:${error}`
+  }
 }
 
 async function importExternalPrompt(sourcePath) {
@@ -1596,21 +1655,21 @@ async function importExternalPrompt(sourcePath) {
   } catch (error) { return toast(`无法读取该目录: ${error}`, true) }
   if (!check.isHome) return toast('该目录不是 DSH 配置目录(缺 settings.yaml / sessions / storages)', true)
   const running = check.usage?.inUse
-    ? `<p class="error-text">检测到该配置正在被 pid ${check.usage.pid} 使用 —— 建议先停止它,否则复制到的可能是写到一半的会话数据。</p>`
+    ? `<p class="error-text">检测到该配置正在被 pid ${check.usage.pid} 使用 —— 建议先停止它,否则保存到的可能是写到一半的会话数据。</p>`
     : ''
-  openModal('复制为备份', `
-    <p>把 <code>${escapeHtml(sourcePath)}</code> 复制一份到备份目录。</p>
+  openModal('保存为配置', `
+    <p>把 <code>${escapeHtml(sourcePath)}</code> 打包成一个配置文件放进配置目录。</p>
     ${running}
     <ul class="muted" style="line-height:22px">
-      <li>只做复制:源目录不会被修改,复制后两边各自独立</li>
+      <li>只做复制:源目录不会被修改,保存后两边各自独立</li>
       <li>本操作只在本机进行,不会上传任何内容</li>
-      <li>该配置含明文凭据(.credentials.yaml),备份目录请妥善保管</li>
+      <li>该配置含明文凭据(.credentials.yaml),配置文件请妥善保管</li>
       <li>会话数 ${check.home.sessions} · 大小 ${fmtSize(check.home.bytes)}${check.home.hasCredentials ? ' · 含凭据' : ''}</li>
     </ul>
     <label class="switch-wrap" style="margin-top:10px;display:flex"><input type="checkbox" id="im-ack"> 我确认该 DSH 已停止 / 我了解上述风险</label>
     <div class="row" style="margin-top:12px;justify-content:flex-end">
       <button onclick="closeModal()">取消</button>
-      <button class="primary" onclick="doImportExternal('${escapeHtml(sourcePath)}')">复制为备份</button>
+      <button class="primary" onclick="doImportExternal('${escapeHtml(sourcePath)}')">保存为配置</button>
     </div>`)
 }
 
@@ -1618,11 +1677,11 @@ async function doImportExternal(sourcePath) {
   const acknowledge = $('#im-ack').checked
   if (!acknowledge) return toast('请先勾选确认', true)
   try {
-    await api('/api/backups/import', { method: 'POST', body: { sourcePath, acknowledge: true } })
+    const result = await api('/api/configs', { method: 'POST', body: { sourcePath, acknowledge: true } })
     closeModal()
-    toast('已复制为备份(源目录未改动)')
+    toast(`已保存为配置文件 ${result.file}(源目录未改动)`)
     renderExternal()
-  } catch (error) { toast(`导入失败: ${error}`, true) }
+  } catch (error) { toast(`保存失败: ${error}`, true) }
 }
 
 // ── 设置 ──
