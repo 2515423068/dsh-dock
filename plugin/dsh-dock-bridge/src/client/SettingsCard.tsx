@@ -24,9 +24,9 @@ const EMPTY: DockSettings = {
   containerPortRange: '',
   autoOpenUiOnStart: true,
   skipFirstOpenPrompts: true,
-  backupEnabled: false,
-  backupDir: '',
-  backupKeep: 10,
+  configAutoSave: false,
+  configDir: '',
+  configKeep: 10,
 }
 
 /** Same shortcut chips the WebUI offers under the mirror fields. */

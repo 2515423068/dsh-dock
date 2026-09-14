@@ -520,7 +520,7 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* 外部 DSH 检测 / 备份卡:路径等机械文本走等宽字体,风险清单走 warn 色。 */
+/* 外部 DSH 检测 / 配置卡:路径等机械文本走等宽字体,风险清单走 warn 色。 */
 .mono {
   font-family: var(--ds-font-family-code);
   font-size: 12px;

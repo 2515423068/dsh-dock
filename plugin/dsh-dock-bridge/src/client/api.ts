@@ -82,12 +82,12 @@ export interface DockSettings {
   readonly autoOpenUiOnStart: boolean
   /** Suppress the container's first-open prompts (beta notice + API-key entry). */
   readonly skipFirstOpenPrompts: boolean
-  /** Automatic backup on container create/update (default off). */
-  readonly backupEnabled: boolean
-  /** Backup root directory; empty = `DATA_ROOT/backups`. */
-  readonly backupDir: string
-  /** Backups kept per container (`0` disables pruning). */
-  readonly backupKeep: number
+  /** Automatically save a configuration on container create/update (default off). */
+  readonly configAutoSave: boolean
+  /** Configuration-file directory; empty = `DATA_ROOT/configs`. */
+  readonly configDir: string
+  /** Configuration files kept per container (`0` disables pruning). */
+  readonly configKeep: number
 }
 
 /** New-container initial-config template (`GET/POST/DELETE /api/profile-template`). */
@@ -225,19 +225,21 @@ export interface ExternalContainer {
   readonly id: string
   readonly name: string
   readonly status: string
-  /** Backup id this container was restored from, else null. */
-  readonly backupSource: string | null
+  /** Configuration file this container was created from, else null. */
+  readonly configFile: string | null
 }
 
 /** `GET /api/external`: read-only detection of everything outside DSH Dock. */
 export interface ExternalView {
   readonly officialHome: string
-  readonly backupDir: string
-  readonly backupEnabled: boolean
+  readonly configDir: string
+  readonly configAutoSave: boolean
   readonly homes: readonly ExternalHome[]
   readonly checkouts: readonly ExternalCheckout[]
   readonly installed: readonly ExternalInstalled[]
   readonly running: readonly ExternalRunning[]
+  /** DSHBox's own container host processes filtered out of `running`. */
+  readonly managedRunning: number
   /** False on platforms that cannot read a process's DSH_HOME: ask the user. */
   readonly canDetectUsage: boolean
   readonly containers: readonly ExternalContainer[]
@@ -251,47 +253,58 @@ export interface ExternalCheck {
   readonly isHarness: boolean
   readonly harness: { readonly version: string; readonly prebuilt: boolean }
   readonly usage: { readonly known: boolean; readonly inUse: boolean; readonly pid: number | null }
-  /** What this path is good for: a config to back up, or a version to install. */
+  /** What this path is good for: a config to save, or a version to install. */
   readonly suggestion: 'config' | 'version' | null
 }
 
-/** One backup entry of `GET /api/backups`. */
-export interface BackupRow {
-  readonly id: string
+/**
+ * One configuration-file row of `GET /api/configs`. The `valid`/`error` pair
+ * describes whether the file could be read: an unreadable file still lists
+ * (name falls back to the file name) but can only be deleted.
+ */
+export interface ConfigRow {
+  /** Configuration file name; restore and delete both address it. */
+  readonly file: string
   readonly name: string
-  readonly containerId: string | null
-  readonly version: string | null
-  readonly profile: string
-  readonly port: number | null
-  readonly reason: string
-  readonly note: string
-  readonly createdAt: number | null
   readonly bytes: number
-  readonly files: number
-  readonly sessions: number
-  readonly hasCredentials: boolean
+  readonly modifiedAt: number
+  readonly valid: boolean
+  readonly error: string | null
+  readonly containerId?: string | null
+  readonly version?: string | null
+  readonly profile?: string
+  readonly port?: number | null
+  /** `manual | created | pre-update | pre-delete | import`. */
+  readonly reason?: string
+  readonly note?: string
+  readonly createdAt?: number | null
+  readonly files?: number
+  readonly sessions?: number
+  readonly hasCredentials?: boolean
+  /** Original DSH_HOME this configuration was packed from. */
+  readonly source?: string | null
 }
 
-/** `GET /api/backups` projection. */
-export interface BackupCatalog {
+/** `GET /api/configs` projection. */
+export interface ConfigCatalog {
   readonly dir: string
-  readonly enabled: boolean
+  readonly autoSave: boolean
   readonly keep: number
-  readonly items: readonly BackupRow[]
+  readonly items: readonly ConfigRow[]
 }
 
-/** `POST /api/backups` answer (no `containerId` = back up every container). */
-export interface BackupCreated {
+/** `POST /api/configs` answer for container targets (no `containerId` = save every container). */
+export interface ConfigSaved {
   readonly ok: boolean
   readonly created: readonly string[]
-  readonly items: readonly BackupRow[]
+  readonly items: readonly ConfigRow[]
 }
 
-/** `POST /api/backups/import` answer (copy semantics, never a symlink). */
-export interface BackupImport {
+/** `POST /api/configs` answer for an external source (copy semantics, never a symlink). */
+export interface ConfigImported {
   readonly ok: boolean
-  readonly id: string
-  readonly item: BackupRow
+  readonly file: string
+  readonly item: ConfigRow
   /** Server-side risk notes; the page shows its own list before submitting. */
   readonly risks: readonly string[]
 }

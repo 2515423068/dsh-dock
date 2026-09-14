@@ -21,7 +21,7 @@ const REST_ALLOWLIST = [
   '/api/model-configs',
   '/api/tasks',
   '/api/external',
-  '/api/backups',
+  '/api/configs',
 ]
 
 /** Endpoints that mutate a container and therefore need the self guard. */
@@ -69,10 +69,19 @@ export function createPageHandler({ request, baseUrl, profileDir, selfId }) {
           }
           const guard = selfGuard(pathname, method, body.body ?? {}, selfId)
           if (guard !== null) return fail(guard)
+          // 保存配置要把整个 DSH_HOME 打包成单个配置文件,大 profile 远超默认 15s;
+          // 其余接口沿用短超时(删除/停止另有各自的宽限)。
+          const timeoutMs = method === 'DELETE'
+            ? 60000
+            : method === 'POST' && /\/stop$/.test(pathname)
+              ? 30000
+              : method === 'POST' && pathname === '/api/configs'
+                ? 300000
+                : 15000
           try {
             const answer = await request(method, pathname, {
               body: body.body,
-              timeoutMs: method === 'DELETE' ? 60000 : (method === 'POST' && /\/stop$/.test(pathname) ? 30000 : 15000),
+              timeoutMs,
               signal,
             })
             return ok({ status: 200, body: answer })

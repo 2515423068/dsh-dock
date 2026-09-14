@@ -1,6 +1,6 @@
 /**
  * The "DSH Dock" top-level settings section: environment banner plus the
- * tabbed cards (containers / versions / external & backups / settings). When
+ * tabbed cards (containers / versions / external & configs / settings). When
  * the service is unreachable or this DSH is independent, service-backed cards
  * degrade into the guide.
  */
@@ -34,7 +34,7 @@ export type DockSectionProps =
 export function DockSection(props: DockSectionProps): ReactNode {
   const { call, t } = props
   const store = useDock(call)
-  const [activeTab, setActiveTab] = useState<'containers' | 'versions' | 'backup' | 'settings'>('containers')
+  const [activeTab, setActiveTab] = useState<'containers' | 'versions' | 'config' | 'settings'>('containers')
   const status = store.status
   const usable = store.serviceUp && status !== undefined
   const degradeHint = store.bound ? t('status.serviceDownHint') : t('status.independentHint')
@@ -66,7 +66,7 @@ export function DockSection(props: DockSectionProps): ReactNode {
         </p>
       )}
       <div className={css.tabs} role="tablist" aria-label={t('title')}>
-        {(['containers', 'versions', 'backup', 'settings'] as const).map(tab => (
+        {(['containers', 'versions', 'config', 'settings'] as const).map(tab => (
           <button
             key={tab}
             type="button"
@@ -87,9 +87,9 @@ export function DockSection(props: DockSectionProps): ReactNode {
         {activeTab === 'versions' && (usable
           ? <VersionsCard t={t} store={store} />
           : <DegradedCard title={t('versions.title')} hint={degradeHint} />)}
-        {activeTab === 'backup' && (usable
+        {activeTab === 'config' && (usable
           ? <ExternalCard t={t} store={store} />
-          : <DegradedCard title={t('backup.title')} hint={degradeHint} />)}
+          : <DegradedCard title={t('config.title')} hint={degradeHint} />)}
         {activeTab === 'settings' && (usable
           ? <SettingsCard t={t} store={store} />
           : <DegradedCard title={t('settings.title')} hint={degradeHint} />)}

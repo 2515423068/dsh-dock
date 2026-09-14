@@ -72,8 +72,8 @@ window.__ModuleLoader__.load({
 			const [modelConfigError, setModelConfigError] = (0, react.useState)();
 			const [external, setExternal] = (0, react.useState)();
 			const [externalError, setExternalError] = (0, react.useState)();
-			const [backups, setBackups] = (0, react.useState)();
-			const [backupsError, setBackupsError] = (0, react.useState)();
+			const [configs, setConfigs] = (0, react.useState)();
+			const [configsError, setConfigsError] = (0, react.useState)();
 			const [tasks, setTasks] = (0, react.useState)([]);
 			const [busyOps, setBusyOps] = (0, react.useState)(() => /* @__PURE__ */ new Set());
 			const [opError, setOpError] = (0, react.useState)();
@@ -187,12 +187,12 @@ window.__ModuleLoader__.load({
 					setExternalError(asOpError(error));
 				}
 			}, [rest]);
-			const refreshBackups = (0, react.useCallback)(async () => {
-				setBackupsError(void 0);
+			const refreshConfigs = (0, react.useCallback)(async () => {
+				setConfigsError(void 0);
 				try {
-					setBackups(await rest("GET", "/api/backups", void 0, "备份列表加载失败"));
+					setConfigs(await rest("GET", "/api/configs", void 0, "配置列表加载失败"));
 				} catch (error) {
-					setBackupsError(asOpError(error));
+					setConfigsError(asOpError(error));
 				}
 			}, [rest]);
 			(0, react.useCallback)(async () => {
@@ -252,7 +252,7 @@ window.__ModuleLoader__.load({
 					setTemplate(void 0);
 					setModelConfig(void 0);
 					setExternal(void 0);
-					setBackups(void 0);
+					setConfigs(void 0);
 					return;
 				}
 				refreshContainers();
@@ -261,7 +261,7 @@ window.__ModuleLoader__.load({
 				refreshTemplate();
 				refreshModelConfig();
 				refreshExternal();
-				refreshBackups();
+				refreshConfigs();
 			}, [
 				serviceUp,
 				refreshContainers,
@@ -270,7 +270,7 @@ window.__ModuleLoader__.load({
 				refreshTemplate,
 				refreshModelConfig,
 				refreshExternal,
-				refreshBackups
+				refreshConfigs
 			]);
 			const taskFor = (0, react.useCallback)((kind, refId) => tasks.find((entry) => entry.kind === kind && entry.refId === refId), [tasks]);
 			const pending = (0, react.useCallback)((kind, refId) => {
@@ -496,16 +496,16 @@ window.__ModuleLoader__.load({
 			}, [mutate, rest]);
 			const settingsRef = (0, react.useRef)();
 			settingsRef.current = settings;
-			const saveBackupSettings = (0, react.useCallback)(async (patch) => {
+			const saveConfigSettings = (0, react.useCallback)(async (patch) => {
 				const current = settingsRef.current;
 				if (current === void 0) return false;
 				try {
-					await mutate("backupSettings", () => rest("POST", "/api/settings", {
+					await mutate("configSettings", () => rest("POST", "/api/settings", {
 						...current,
 						...patch
-					}, "备份设置保存失败"));
+					}, "保存设置失败"));
 					refreshSettings();
-					refreshBackups();
+					refreshConfigs();
 					return true;
 				} catch {
 					return false;
@@ -514,13 +514,14 @@ window.__ModuleLoader__.load({
 				mutate,
 				rest,
 				refreshSettings,
-				refreshBackups
+				refreshConfigs
 			]);
-			/** 立即备份全部容器(不带 containerId)。 */
-			const backupNow = (0, react.useCallback)(async () => {
+			/** 保存配置:省略 containerId = 保存全部容器(服务端语义)。 */
+			const saveConfigNow = (0, react.useCallback)(async (containerId) => {
+				const body = containerId !== void 0 && containerId.length > 0 ? { containerId } : {};
 				try {
-					await mutate("backupNow", () => rest("POST", "/api/backups", void 0, "备份失败"));
-					refreshBackups();
+					await mutate("configSave", () => rest("POST", "/api/configs", body, "保存配置失败"));
+					refreshConfigs();
 					return true;
 				} catch {
 					return false;
@@ -528,11 +529,14 @@ window.__ModuleLoader__.load({
 			}, [
 				mutate,
 				rest,
-				refreshBackups
+				refreshConfigs
 			]);
-			const restoreBackup = (0, react.useCallback)(async (id, input) => {
+			const createFromConfig = (0, react.useCallback)(async (file, input) => {
 				try {
-					const answer = await mutate(`backupRestore:${id}`, () => rest("POST", `/api/backups/${encodeURIComponent(id)}/restore`, input, "从备份新建容器失败"));
+					const answer = await mutate(`configRestore:${file}`, () => rest("POST", "/api/configs/restore", {
+						file,
+						...input
+					}, "从配置创建容器失败"));
 					watch("container-create", answer.id);
 					return true;
 				} catch {
@@ -543,10 +547,10 @@ window.__ModuleLoader__.load({
 				rest,
 				watch
 			]);
-			const deleteBackup = (0, react.useCallback)(async (id) => {
+			const deleteConfig = (0, react.useCallback)(async (file) => {
 				try {
-					await mutate(`backupDelete:${id}`, () => rest("DELETE", `/api/backups/${encodeURIComponent(id)}`, void 0, "删除备份失败"));
-					refreshBackups();
+					await mutate(`configDelete:${file}`, () => rest("DELETE", `/api/configs/${encodeURIComponent(file)}`, void 0, "删除配置失败"));
+					refreshConfigs();
 					return true;
 				} catch {
 					return false;
@@ -554,16 +558,20 @@ window.__ModuleLoader__.load({
 			}, [
 				mutate,
 				rest,
-				refreshBackups
+				refreshConfigs
 			]);
 			/**
-			* 把外部 DSH 的配置复制为备份(POST /api/backups/import)。
+			* 把外部 DSH 的配置保存为配置文件(POST /api/configs + sourcePath)。
 			* 只复制、绝不软链;`acknowledge` 由页面勾选框给出,源在运行时服务端据此放行。
 			*/
-			const importExternal = (0, react.useCallback)(async (input) => {
+			const saveExternalAsConfig = (0, react.useCallback)(async (input) => {
 				try {
-					await mutate("externalImport", () => rest("POST", "/api/backups/import", input, "复制为备份失败"));
-					refreshBackups();
+					await mutate("externalConfig", () => rest("POST", "/api/configs", {
+						sourcePath: input.sourcePath,
+						name: input.name,
+						acknowledge: input.acknowledge
+					}, "保存为配置失败"));
+					refreshConfigs();
 					refreshExternal();
 					return true;
 				} catch {
@@ -572,7 +580,7 @@ window.__ModuleLoader__.load({
 			}, [
 				mutate,
 				rest,
-				refreshBackups,
+				refreshConfigs,
 				refreshExternal
 			]);
 			const setBaseUrl = (0, react.useCallback)(async (next) => {
@@ -599,8 +607,8 @@ window.__ModuleLoader__.load({
 				modelConfigError,
 				external,
 				externalError,
-				backups,
-				backupsError,
+				configs,
+				configsError,
 				serviceUp,
 				bound: status?.dshdockContainer === true,
 				tasks,
@@ -616,13 +624,13 @@ window.__ModuleLoader__.load({
 				refreshTemplate,
 				refreshModelConfig,
 				refreshExternal,
-				refreshBackups,
+				refreshConfigs,
 				checkExternal,
-				saveBackupSettings,
-				backupNow,
-				restoreBackup,
-				deleteBackup,
-				importExternal,
+				saveConfigSettings,
+				saveConfigNow,
+				createFromConfig,
+				deleteConfig,
+				saveExternalAsConfig,
 				saveModel,
 				deleteModel,
 				setDefaultModel,
@@ -657,102 +665,102 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"builtinBadge": "yFwJXq_builtinBadge",
-			"cardTitle": "yFwJXq_cardTitle",
-			"hintIcon": "yFwJXq_hintIcon",
-			"rangeInput": "yFwJXq_rangeInput",
-			"mono": "yFwJXq_mono",
 			"formRow": "yFwJXq_formRow",
-			"rowTitle": "yFwJXq_rowTitle",
-			"ddPanel": "yFwJXq_ddPanel",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"empty": "yFwJXq_empty",
-			"detailFrame": "yFwJXq_detailFrame",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"cardHead": "yFwJXq_cardHead",
-			"cardBody": "yFwJXq_cardBody",
-			"mutedCell": "yFwJXq_mutedCell",
-			"taskLine": "yFwJXq_taskLine",
-			"card": "yFwJXq_card",
-			"labelCol": "yFwJXq_labelCol",
-			"intro": "yFwJXq_intro",
-			"providerActions": "yFwJXq_providerActions",
-			"ddMeta": "yFwJXq_ddMeta",
-			"table": "yFwJXq_table",
-			"tabPanel": "yFwJXq_tabPanel",
-			"cardActions": "yFwJXq_cardActions",
-			"guide": "yFwJXq_guide",
-			"tabs": "yFwJXq_tabs",
-			"errorNote": "yFwJXq_errorNote",
-			"statusLabel": "yFwJXq_statusLabel",
-			"taskInline": "yFwJXq_taskInline",
-			"riskList": "yFwJXq_riskList",
-			"taskHead": "yFwJXq_taskHead",
-			"ddLabel": "yFwJXq_ddLabel",
-			"selfBadge": "yFwJXq_selfBadge",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"riskItem": "yFwJXq_riskItem",
-			"rowHead": "yFwJXq_rowHead",
-			"modelWarn": "yFwJXq_modelWarn",
-			"warnNote": "yFwJXq_warnNote",
-			"link": "yFwJXq_link",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"guideTitle": "yFwJXq_guideTitle",
-			"providerName": "yFwJXq_providerName",
-			"row": "yFwJXq_row",
-			"modelRow": "yFwJXq_modelRow",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"dotOk": "yFwJXq_dotOk",
-			"modelList": "yFwJXq_modelList",
-			"outputTail": "yFwJXq_outputTail",
-			"modelItem": "yFwJXq_modelItem",
-			"checkLine": "yFwJXq_checkLine",
-			"switchLine": "yFwJXq_switchLine",
-			"tab": "yFwJXq_tab",
-			"ddTag": "yFwJXq_ddTag",
-			"dot": "yFwJXq_dot",
-			"dotMiss": "yFwJXq_dotMiss",
-			"section": "yFwJXq_section",
-			"subTitle": "yFwJXq_subTitle",
-			"formLabel": "yFwJXq_formLabel",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"dd": "yFwJXq_dd",
-			"ddProv": "yFwJXq_ddProv",
-			"ddStar": "yFwJXq_ddStar",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"rowLine": "yFwJXq_rowLine",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"capInput": "yFwJXq_capInput",
-			"rows": "yFwJXq_rows",
-			"errorLine": "yFwJXq_errorLine",
-			"ddX": "yFwJXq_ddX",
-			"inlineForm": "yFwJXq_inlineForm",
+			"chipRow": "yFwJXq_chipRow",
+			"cardTitle": "yFwJXq_cardTitle",
 			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"link": "yFwJXq_link",
 			"rowActions": "yFwJXq_rowActions",
 			"grow": "yFwJXq_grow",
-			"narrow": "yFwJXq_narrow",
-			"ddCaret": "yFwJXq_ddCaret",
-			"title": "yFwJXq_title",
-			"spin": "yFwJXq_spin",
-			"formGrid": "yFwJXq_formGrid",
-			"verSelect": "yFwJXq_verSelect",
+			"ddTag": "yFwJXq_ddTag",
+			"formLabel": "yFwJXq_formLabel",
+			"rowTitle": "yFwJXq_rowTitle",
+			"rows": "yFwJXq_rows",
+			"taskLine": "yFwJXq_taskLine",
 			"providerRow": "yFwJXq_providerRow",
-			"taskFailed": "yFwJXq_taskFailed",
+			"dotOk": "yFwJXq_dotOk",
+			"selfBadge": "yFwJXq_selfBadge",
 			"rowMeta": "yFwJXq_rowMeta",
-			"saveRow": "yFwJXq_saveRow",
-			"guideBody": "yFwJXq_guideBody",
-			"modelField": "yFwJXq_modelField",
+			"cardActions": "yFwJXq_cardActions",
+			"modelRow": "yFwJXq_modelRow",
+			"providerName": "yFwJXq_providerName",
+			"ddCaret": "yFwJXq_ddCaret",
+			"ddStar": "yFwJXq_ddStar",
+			"tabPanel": "yFwJXq_tabPanel",
+			"ddPanel": "yFwJXq_ddPanel",
+			"modelList": "yFwJXq_modelList",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"ddProv": "yFwJXq_ddProv",
+			"guideTitle": "yFwJXq_guideTitle",
+			"modelItem": "yFwJXq_modelItem",
+			"taskFailed": "yFwJXq_taskFailed",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"narrow": "yFwJXq_narrow",
+			"ddLabel": "yFwJXq_ddLabel",
+			"dotMiss": "yFwJXq_dotMiss",
+			"card": "yFwJXq_card",
+			"intro": "yFwJXq_intro",
+			"taskHead": "yFwJXq_taskHead",
 			"footerNote": "yFwJXq_footerNote",
 			"ddName": "yFwJXq_ddName",
-			"chipRow": "yFwJXq_chipRow",
-			"ddItem": "yFwJXq_ddItem",
+			"modelField": "yFwJXq_modelField",
+			"capInput": "yFwJXq_capInput",
+			"tab": "yFwJXq_tab",
+			"guideBody": "yFwJXq_guideBody",
+			"outputTail": "yFwJXq_outputTail",
+			"tabs": "yFwJXq_tabs",
+			"title": "yFwJXq_title",
+			"saveRow": "yFwJXq_saveRow",
+			"rowHead": "yFwJXq_rowHead",
+			"errorLine": "yFwJXq_errorLine",
+			"taskInline": "yFwJXq_taskInline",
+			"labelCol": "yFwJXq_labelCol",
+			"section": "yFwJXq_section",
+			"inlineForm": "yFwJXq_inlineForm",
+			"ddTrigger": "yFwJXq_ddTrigger",
 			"cellAction": "yFwJXq_cellAction",
-			"logPath": "yFwJXq_logPath",
-			"rowUrl": "yFwJXq_rowUrl",
+			"empty": "yFwJXq_empty",
+			"mono": "yFwJXq_mono",
+			"riskList": "yFwJXq_riskList",
 			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"modelItemActive": "yFwJXq_modelItemActive"
+			"ddItem": "yFwJXq_ddItem",
+			"riskItem": "yFwJXq_riskItem",
+			"hintIcon": "yFwJXq_hintIcon",
+			"formGrid": "yFwJXq_formGrid",
+			"cardBody": "yFwJXq_cardBody",
+			"errorNote": "yFwJXq_errorNote",
+			"logPath": "yFwJXq_logPath",
+			"spin": "yFwJXq_spin",
+			"ddMeta": "yFwJXq_ddMeta",
+			"detailFrame": "yFwJXq_detailFrame",
+			"table": "yFwJXq_table",
+			"mutedCell": "yFwJXq_mutedCell",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"providerActions": "yFwJXq_providerActions",
+			"verSelect": "yFwJXq_verSelect",
+			"row": "yFwJXq_row",
+			"dot": "yFwJXq_dot",
+			"rangeInput": "yFwJXq_rangeInput",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"subTitle": "yFwJXq_subTitle",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"checkLine": "yFwJXq_checkLine",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"switchLine": "yFwJXq_switchLine",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"rowUrl": "yFwJXq_rowUrl",
+			"ddX": "yFwJXq_ddX",
+			"warnNote": "yFwJXq_warnNote",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"rowLine": "yFwJXq_rowLine",
+			"cardHead": "yFwJXq_cardHead",
+			"guide": "yFwJXq_guide",
+			"modelWarn": "yFwJXq_modelWarn",
+			"dd": "yFwJXq_dd",
+			"statusLabel": "yFwJXq_statusLabel",
+			"baseUrlRow": "yFwJXq_baseUrlRow"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1352,10 +1360,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/ExternalCard.tsx
 		/**
-		* "外部 DSH 与备份" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
-		* 安装、源码检出、正在运行的实例),唯一可做的动作是「复制为备份」;下半部是配置
-		* 备份(自动备份开关、目录与保留份数、立即备份全部、备份列表 + 从备份新建容器 /
-		* 删除)。检测只读:不改动任何外部实例,导入一律**只复制、绝不软链**。
+		* "外部 DSH 与配置" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
+		* 安装、源码检出、正在运行的实例),唯一可做的动作是「保存为配置」;下半部是配置
+		* (自动保存开关、目录与保留份数、保存配置 → 生成自包含配置文件、配置文件列表 +
+		* 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律**只复制、绝不软链**。
 		*/
 		/** 字节数 → 与服务端恢复指南同口径的易读大小。 */
 		function formatBytes(bytes) {
@@ -1363,41 +1371,50 @@ window.__ModuleLoader__.load({
 			if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 			return `${bytes} B`;
 		}
-		/** 备份原因 → 本机化文案(未知原因原样显示服务端的值)。 */
+		/** 配置原因 → 本机化文案(未知原因原样显示服务端的值)。 */
 		function reasonLabel(t, reason) {
 			switch (reason) {
-				case "manual": return t("backup.reason.manual");
-				case "import": return t("backup.reason.import");
-				case "created": return t("backup.reason.created");
-				case "pre-delete": return t("backup.reason.preDelete");
-				case "pre-update": return t("backup.reason.preUpdate");
+				case "manual": return t("config.reason.manual");
+				case "import": return t("config.reason.import");
+				case "created": return t("config.reason.created");
+				case "pre-delete": return t("config.reason.preDelete");
+				case "pre-update": return t("config.reason.preUpdate");
+				case void 0: return "-";
 				default: return reason;
 			}
 		}
-		/** 备份时间戳(秒)→ 本地时间;缺失时显示占位符。 */
-		function formatWhen(t, createdAt) {
-			return createdAt !== null ? (/* @__PURE__ */ new Date(createdAt * 1e3)).toLocaleString() : t("backup.unknownTime");
+		/** 来源:优先显示打包时的原始 DSH_HOME,缺失时退回来源容器 id。 */
+		function sourceLabel(item) {
+			const source = item.source;
+			if (source !== void 0 && source !== null && source.length > 0) return source;
+			const containerId = item.containerId;
+			if (containerId !== void 0 && containerId !== null && containerId.length > 0) return containerId;
+			return "-";
 		}
-		/** 备份名 → 合法的默认容器名(容器名只允许字母/数字/./_/-,≤64 字符)。 */
+		/** 配置时间戳(秒)→ 本地时间;缺失时显示占位符。 */
+		function formatWhen(t, createdAt) {
+			return createdAt !== void 0 && createdAt !== null ? (/* @__PURE__ */ new Date(createdAt * 1e3)).toLocaleString() : t("config.unknownTime");
+		}
+		/** 配置名 → 合法的默认容器名(容器名只允许字母/数字/./_/-,≤64 字符)。 */
 		function defaultContainerName(name) {
 			const sanitized = name.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "");
-			return `${(sanitized.length > 0 ? sanitized : "restored").slice(0, 56)}-restore`;
+			return `${(sanitized.length > 0 ? sanitized : "restored").slice(0, 56)}-new`;
 		}
-		/** 该容器 tab 的卡片主体:外部检测 + 配置备份两张卡。 */
+		/** 该容器 tab 的卡片主体:外部检测 + 配置两张卡。 */
 		function ExternalCard({ t, store }) {
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalDetectCard, {
 				t,
 				store
-			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BackupCard, {
+			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfigCard, {
 				t,
 				store
 			})] });
 		}
-		/** 外部 DSH 检测卡(只读;唯一动作 = 复制为备份)。 */
+		/** 外部 DSH 检测卡(只读;唯一动作 = 保存为配置)。 */
 		function ExternalDetectCard({ t, store }) {
-			const [importTarget, setImportTarget] = (0, react.useState)();
+			const [saveTarget, setSaveTarget] = (0, react.useState)();
 			const [acknowledged, setAcknowledged] = (0, react.useState)(false);
-			const [importNote, setImportNote] = (0, react.useState)();
+			const [saveNote, setSaveNote] = (0, react.useState)();
 			const [checkPath, setCheckPath] = (0, react.useState)("");
 			const [checked, setChecked] = (0, react.useState)();
 			const [checkNote, setCheckNote] = (0, react.useState)();
@@ -1407,23 +1424,23 @@ window.__ModuleLoader__.load({
 			const checkouts = external?.checkouts ?? [];
 			const installed = external?.installed ?? [];
 			const running = external?.running ?? [];
-			const openImport = (target) => {
-				setImportNote(void 0);
+			const openSave = (target) => {
+				setSaveNote(void 0);
 				setAcknowledged(false);
-				setImportTarget(target);
+				setSaveTarget(target);
 			};
-			const submitImport = async () => {
-				const target = importTarget;
+			const submitSave = async () => {
+				const target = saveTarget;
 				if (target === void 0) return;
-				if (await store.importExternal({
+				if (await store.saveExternalAsConfig({
 					sourcePath: target.path,
 					name: target.name,
 					acknowledge: true
 				})) {
-					setImportTarget(void 0);
+					setSaveTarget(void 0);
 					setAcknowledged(false);
-					setImportNote(t("external.imported", { name: target.name.length > 0 ? target.name : target.path }));
-				} else setImportNote(t("error.operationFailed"));
+					setSaveNote(t("external.savedConfig", { name: target.name.length > 0 ? target.name : target.path }));
+				} else setSaveNote(t("error.operationFailed"));
 			};
 			const submitCheck = async () => {
 				const path = checkPath.trim();
@@ -1461,9 +1478,9 @@ window.__ModuleLoader__.load({
 						detail: opError.detail,
 						output: opError.output
 					}),
-					importNote !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+					saveNote !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.footerNote,
-						children: importNote
+						children: saveNote
 					}),
 					external !== void 0 && external.canDetectUsage !== true && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
 						className: DockSection_module_css_default.warnNote,
@@ -1509,7 +1526,7 @@ window.__ModuleLoader__.load({
 									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 										size: "sm",
 										onClick: () => {
-											openImport({
+											openSave({
 												path: home.path,
 												name: home.path === external?.officialHome ? t("external.officialName") : "",
 												inUse: home.inUse,
@@ -1518,11 +1535,18 @@ window.__ModuleLoader__.load({
 												bytes: home.bytes
 											});
 										},
-										children: t("external.copyAsBackup")
+										children: t("external.saveAsConfig")
 									})
 								})
 							]
 						}, home.path))
+					}),
+					external !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: t("external.managedNote", {
+							containers: String(external.containers.length),
+							running: String(external.managedRunning)
+						})
 					}),
 					external !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.footerNote,
@@ -1634,7 +1658,7 @@ window.__ModuleLoader__.load({
 								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
 									onClick: () => {
-										openImport({
+										openSave({
 											path: checked.path,
 											name: "",
 											inUse: checked.usage.inUse,
@@ -1643,12 +1667,12 @@ window.__ModuleLoader__.load({
 											bytes: checked.home.bytes
 										});
 									},
-									children: t("external.copyAsBackup")
+									children: t("external.saveAsConfig")
 								})
 							})
 						]
 					}),
-					importTarget !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					saveTarget !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: DockSection_module_css_default.inlineForm,
 						children: [
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
@@ -1656,20 +1680,20 @@ window.__ModuleLoader__.load({
 								children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 									className: DockSection_module_css_default.formLabel,
 									children: [
-										t("external.importTitle"),
+										t("external.saveConfigTitle"),
 										" · ",
 										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
 											className: DockSection_module_css_default.mono,
-											children: importTarget.path
+											children: saveTarget.path
 										})
 									]
 								})
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 								className: DockSection_module_css_default.rowMeta,
-								children: t("external.importFacts", {
-									sessions: String(importTarget.sessions),
-									size: formatBytes(importTarget.bytes)
+								children: t("external.saveConfigFacts", {
+									sessions: String(saveTarget.sessions),
+									size: formatBytes(saveTarget.bytes)
 								})
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
@@ -1685,9 +1709,9 @@ window.__ModuleLoader__.load({
 									}),
 									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
 										className: DockSection_module_css_default.riskItem,
-										children: importTarget.inUse ? t("external.riskInUse") : t("external.riskStop")
+										children: saveTarget.inUse ? t("external.riskInUse") : t("external.riskStop")
 									}),
-									importTarget.hasCredentials && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+									saveTarget.hasCredentials && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
 										className: DockSection_module_css_default.riskItem,
 										children: t("external.riskPlaintext")
 									})
@@ -1709,18 +1733,18 @@ window.__ModuleLoader__.load({
 									size: "sm",
 									variant: "outline",
 									onClick: () => {
-										setImportTarget(void 0);
+										setSaveTarget(void 0);
 										setAcknowledged(false);
 									},
 									children: t("cancel")
 								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
 									variant: "primary",
-									disabled: !acknowledged || store.isBusy("externalImport"),
+									disabled: !acknowledged || store.isBusy("externalConfig"),
 									onClick: () => {
-										submitImport();
+										submitSave();
 									},
-									children: store.isBusy("externalImport") ? t("external.importing") : t("external.importConfirm")
+									children: store.isBusy("externalConfig") ? t("external.savingConfig") : t("external.saveConfigConfirm")
 								})]
 							})
 						]
@@ -1728,80 +1752,98 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		/** 配置备份卡:开关 / 目录 / 保留份数 + 立即备份全部 + 备份列表。 */
-		function BackupCard({ t, store }) {
+		/** 配置卡:开关 / 目录 / 保留份数 + 保存配置(全部或某个容器)+ 配置文件列表。 */
+		function ConfigCard({ t, store }) {
 			const [enabled, setEnabled] = (0, react.useState)(false);
 			const [dir, setDir] = (0, react.useState)("");
 			const [keep, setKeep] = (0, react.useState)("10");
+			const [saveFor, setSaveFor] = (0, react.useState)("");
 			const [note, setNote] = (0, react.useState)();
 			const [restoreFor, setRestoreFor] = (0, react.useState)();
 			const [restoreName, setRestoreName] = (0, react.useState)("");
 			const [restoreVersion, setRestoreVersion] = (0, react.useState)("");
 			const [deleteFor, setDeleteFor] = (0, react.useState)();
-			const opError = store.opErrorFor(["backup"]);
-			const items = store.backups?.items ?? [];
+			const opError = store.opErrorFor(["config"]);
+			const items = store.configs?.items ?? [];
 			const installedVersions = (store.versions?.versions ?? []).filter((entry) => entry.installed).map((entry) => entry.tag);
 			(0, react.useEffect)(() => {
 				if (store.settings !== void 0) {
-					setEnabled(store.settings.backupEnabled === true);
-					setDir(store.settings.backupDir ?? "");
-					setKeep(String(store.settings.backupKeep ?? 10));
+					setEnabled(store.settings.configAutoSave === true);
+					setDir(store.settings.configDir ?? "");
+					setKeep(String(store.settings.configKeep ?? 10));
 				}
 			}, [store.settings]);
-			const dirty = store.settings !== void 0 && (enabled !== (store.settings.backupEnabled === true) || dir.trim() !== (store.settings.backupDir ?? "") || keep.trim() !== String(store.settings.backupKeep ?? 10));
+			const dirty = store.settings !== void 0 && (enabled !== (store.settings.configAutoSave === true) || dir.trim() !== (store.settings.configDir ?? "") || keep.trim() !== String(store.settings.configKeep ?? 10));
 			const saveSettings = async () => {
 				setNote(void 0);
-				const saved = await store.saveBackupSettings({
-					backupEnabled: enabled,
-					backupDir: dir.trim(),
-					backupKeep: Math.max(0, Number(keep) || 0)
+				const saved = await store.saveConfigSettings({
+					configAutoSave: enabled,
+					configDir: dir.trim(),
+					configKeep: Math.max(0, Number(keep) || 0)
 				});
 				setNote(saved ? t("settings.saved") : t("error.operationFailed"));
 			};
-			const backupNow = async () => {
+			const saveNow = async () => {
 				setNote(void 0);
-				const done = await store.backupNow();
-				setNote(done ? t("backup.nowDone") : t("error.operationFailed"));
+				const done = await store.saveConfigNow(saveFor);
+				setNote(done ? t("config.saveNowDone") : t("error.operationFailed"));
 			};
 			const openRestore = (row) => {
 				setNote(void 0);
 				setRestoreFor(row);
 				setRestoreName(defaultContainerName(row.name));
-				setRestoreVersion(row.version !== null && row.version.length > 0 ? row.version : installedVersions[0] ?? "");
+				const rowVersion = row.version ?? "";
+				setRestoreVersion(rowVersion.length > 0 && installedVersions.includes(rowVersion) ? rowVersion : installedVersions[0] ?? "");
 			};
 			const submitRestore = async () => {
 				const row = restoreFor;
 				if (row === void 0) return;
 				const name = restoreName.trim();
 				if (name.length === 0 || restoreVersion.length === 0) return;
-				if (await store.restoreBackup(row.id, {
+				if (await store.createFromConfig(row.file, {
 					name,
 					version: restoreVersion,
 					profile: row.profile
 				})) {
 					setRestoreFor(void 0);
-					setNote(t("backup.restoreStarted", { name }));
+					setNote(t("config.createStarted", { name }));
 				} else setNote(t("error.operationFailed"));
 			};
 			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(SectionCard, {
-				title: t("backup.cardTitle"),
-				actions: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
-					size: "sm",
-					variant: "primary",
-					disabled: store.isBusy("backupNow"),
-					onClick: () => {
-						backupNow();
-					},
-					children: store.isBusy("backupNow") ? t("backup.nowRunning") : t("backup.now")
+				title: t("config.cardTitle"),
+				actions: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+					className: DockSection_module_css_default.inlineFormRow,
+					children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+						className: DockSection_module_css_default.narrow,
+						value: saveFor,
+						onChange: (event) => {
+							setSaveFor(event.target.value);
+						},
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: "",
+							children: t("config.saveTargetAll")
+						}), store.containers.map((row) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+							value: row.id,
+							children: row.name
+						}, row.id))]
+					}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						variant: "primary",
+						disabled: store.isBusy("configSave"),
+						onClick: () => {
+							saveNow();
+						},
+						children: store.isBusy("configSave") ? t("config.saveNowRunning") : t("config.saveNow")
+					})]
 				}),
 				children: [
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.intro,
-						children: t("backup.intro")
+						children: t("config.intro")
 					}),
-					store.backupsError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
-						title: store.backupsError.title,
-						detail: store.backupsError.detail
+					store.configsError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: store.configsError.title,
+						detail: store.configsError.detail
 					}),
 					store.settingsError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
 						title: store.settingsError.title,
@@ -1820,7 +1862,7 @@ window.__ModuleLoader__.load({
 						className: DockSection_module_css_default.rowLine,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: DockSection_module_css_default.labelCol,
-							children: t("backup.enable")
+							children: t("config.enable")
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
 							className: DockSection_module_css_default.checkboxRow,
 							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
@@ -1829,18 +1871,18 @@ window.__ModuleLoader__.load({
 								onChange: (event) => {
 									setEnabled(event.target.checked);
 								}
-							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("backup.enableHint") })]
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("config.enableHint") })]
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: DockSection_module_css_default.rowLine,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 							className: DockSection_module_css_default.labelCol,
-							children: t("backup.dir")
+							children: t("config.dir")
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
 							className: DockSection_module_css_default.grow,
 							value: dir,
-							placeholder: store.backups?.dir ?? "",
+							placeholder: store.configs?.dir ?? "",
 							onChange: (event) => {
 								setDir(event.target.value);
 							}
@@ -1851,7 +1893,7 @@ window.__ModuleLoader__.load({
 						children: [
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: DockSection_module_css_default.labelCol,
-								children: t("backup.keep")
+								children: t("config.keep")
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
 								className: DockSection_module_css_default.narrow,
@@ -1863,7 +1905,7 @@ window.__ModuleLoader__.load({
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: DockSection_module_css_default.footerNote,
-								children: t("backup.keepHint")
+								children: t("config.keepHint")
 							})
 						]
 					}),
@@ -1872,62 +1914,81 @@ window.__ModuleLoader__.load({
 						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
 							variant: "primary",
-							disabled: !dirty || store.isBusy("backupSettings"),
+							disabled: !dirty || store.isBusy("configSettings"),
 							onClick: () => {
 								saveSettings();
 							},
-							children: store.isBusy("backupSettings") ? t("settings.saving") : t("settings.save")
+							children: store.isBusy("configSettings") ? t("settings.saving") : t("settings.save")
 						})
 					}),
 					items.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 						className: DockSection_module_css_default.empty,
-						children: t("backup.empty")
+						children: t("config.empty")
 					}),
 					items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("table", {
 						className: DockSection_module_css_default.table,
 						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.name") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.version") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.sessions") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.size") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.createdAt") }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.reason") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.file") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.source") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.version") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.sessions") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.size") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.createdAt") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("config.reason") }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", {
 								className: DockSection_module_css_default.cellAction,
-								children: t("backup.action")
+								children: t("config.action")
 							})
 						] }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("tbody", { children: items.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: item.name }), item.hasCredentials && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
-								className: DockSection_module_css_default.mutedCell,
-								children: t("external.hasCredentials")
-							})] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: item.name }),
+								item.file !== item.name && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.mutedCell,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+										className: DockSection_module_css_default.mono,
+										children: item.file
+									})
+								}),
+								item.hasCredentials === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.mutedCell,
+									children: t("external.hasCredentials")
+								}),
+								item.valid !== true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.mutedCell,
+									children: item.error !== null && item.error !== void 0 ? `${t("config.invalid")}: ${item.error}` : t("config.invalid")
+								})
+							] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+								className: DockSection_module_css_default.mono,
+								children: sourceLabel(item)
+							}) }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.version ?? "-" }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.sessions }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.sessions ?? 0 }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: formatBytes(item.bytes) }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: formatWhen(t, item.createdAt) }),
-							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [reasonLabel(t, item.reason), item.note.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: formatWhen(t, item.createdAt ?? item.modifiedAt) }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [reasonLabel(t, item.reason), item.note !== void 0 && item.note.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
 								className: DockSection_module_css_default.mutedCell,
 								children: item.note
 							})] }),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", {
 								className: DockSection_module_css_default.cellAction,
-								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								children: [item.valid === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
-									disabled: store.isBusy(`backupRestore:${item.id}`),
+									disabled: store.isBusy(`configRestore:${item.file}`),
 									onClick: () => {
 										openRestore(item);
 									},
-									children: t("backup.restore")
+									children: t("config.create")
 								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
-									disabled: store.isBusy(`backupDelete:${item.id}`),
+									disabled: store.isBusy(`configDelete:${item.file}`),
 									onClick: () => {
 										setDeleteFor(item);
 									},
-									children: t("backup.delete")
+									children: t("config.delete")
 								})]
 							})
-						] }, item.id)) })]
+						] }, item.file)) })]
 					}),
 					restoreFor !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
 						className: DockSection_module_css_default.inlineForm,
@@ -1937,7 +1998,7 @@ window.__ModuleLoader__.load({
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
 									className: DockSection_module_css_default.formLabel,
 									children: [
-										t("backup.restore"),
+										t("config.create"),
 										" · ",
 										restoreFor.name
 									]
@@ -1947,7 +2008,7 @@ window.__ModuleLoader__.load({
 									value: restoreName,
 									placeholder: t("containers.namePlaceholder"),
 									onChange: (event) => {
-										setRestoreName(event.target.value);
+										setRestoreName(event.target.value.replace(/[^A-Za-z0-9._-]/g, ""));
 									}
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
@@ -1967,7 +2028,7 @@ window.__ModuleLoader__.load({
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 									size: "sm",
 									variant: "primary",
-									disabled: restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`backupRestore:${restoreFor.id}`),
+									disabled: restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreFor.file}`),
 									onClick: () => {
 										submitRestore();
 									},
@@ -1985,21 +2046,21 @@ window.__ModuleLoader__.load({
 							]
 						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
 							className: DockSection_module_css_default.footerNote,
-							children: t("backup.restoreHint")
+							children: t("config.createHint")
 						})]
 					}),
 					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfirmDialog, {
 						open: deleteFor !== void 0,
-						title: deleteFor !== void 0 ? `${t("backup.delete")} · ${deleteFor.name}` : "",
-						body: deleteFor !== void 0 ? t("backup.deleteConfirm", { name: deleteFor.name }) : "",
-						confirmLabel: t("backup.delete"),
+						title: deleteFor !== void 0 ? `${t("config.delete")} · ${deleteFor.name}` : "",
+						body: deleteFor !== void 0 ? t("config.deleteConfirm", { name: deleteFor.name }) : "",
+						confirmLabel: t("config.delete"),
 						cancelLabel: t("cancel"),
 						danger: true,
-						busy: deleteFor !== void 0 && store.isBusy(`backupDelete:${deleteFor.id}`),
+						busy: deleteFor !== void 0 && store.isBusy(`configDelete:${deleteFor.file}`),
 						onConfirm: () => {
 							const row = deleteFor;
 							setDeleteFor(void 0);
-							if (row !== void 0) store.deleteBackup(row.id);
+							if (row !== void 0) store.deleteConfig(row.file);
 						},
 						onClose: () => {
 							setDeleteFor(void 0);
@@ -2483,9 +2544,9 @@ window.__ModuleLoader__.load({
 			containerPortRange: "",
 			autoOpenUiOnStart: true,
 			skipFirstOpenPrompts: true,
-			backupEnabled: false,
-			backupDir: "",
-			backupKeep: 10
+			configAutoSave: false,
+			configDir: "",
+			configKeep: 10
 		};
 		/** Same shortcut chips the WebUI offers under the mirror fields. */
 		const GH_PRESETS = [
@@ -2955,7 +3016,7 @@ window.__ModuleLoader__.load({
 		//#region src/client/DockSection.tsx
 		/**
 		* The "DSH Dock" top-level settings section: environment banner plus the
-		* tabbed cards (containers / versions / external & backups / settings). When
+		* tabbed cards (containers / versions / external & configs / settings). When
 		* the service is unreachable or this DSH is independent, service-backed cards
 		* degrade into the guide.
 		*/
@@ -3010,7 +3071,7 @@ window.__ModuleLoader__.load({
 						children: [
 							"containers",
 							"versions",
-							"backup",
+							"config",
 							"settings"
 						].map((tab) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
@@ -3042,11 +3103,11 @@ window.__ModuleLoader__.load({
 								title: t("versions.title"),
 								hint: degradeHint
 							})),
-							activeTab === "backup" && (usable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalCard, {
+							activeTab === "config" && (usable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalCard, {
 								t,
 								store
 							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DegradedCard, {
-								title: t("backup.title"),
+								title: t("config.title"),
 								hint: degradeHint
 							})),
 							activeTab === "settings" && (usable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SettingsCard, {
@@ -3193,21 +3254,22 @@ window.__ModuleLoader__.load({
 			"versions.empty": "版本目录为空",
 			"versions.cachedAt": "目录更新于 {time}",
 			"versions.confirmDelete": "删除版本 {tag}?仅在本版本未被任何容器使用时允许。",
-			"backup.title": "外部与备份",
+			"config.title": "外部与配置",
 			"external.title": "外部 DSH 检测(只读)",
 			"external.refresh": "重新检测",
-			"external.intro": "检测 DSH Dock 之外已有的 DSH:官方 ~/.dsh、npx/全局安装、harness 源码检出,以及正在运行的实例。这里只检测并告知:不改动这些外部实例,也不建立任何链接;唯一可做的动作是把某份配置「复制为备份」。",
+			"external.intro": "检测 DSH Dock 之外已有的 DSH:官方 ~/.dsh、npx/全局安装、harness 源码检出,以及正在运行的实例。这里只检测并告知:不改动这些外部实例,也不建立任何链接;唯一可做的动作是把某份配置「保存为配置」。",
 			"external.usageUnknown": "当前平台读不到进程的 DSH_HOME:无法自动判断某个配置是否正在被使用,提交前请自行确认源 DSH 已停止。",
 			"external.homesTitle": "检测到的配置目录(DSH_HOME)",
-			"external.homesEmpty": "未检测到外部配置目录",
+			"external.homesEmpty": "未检测到外部 DSH(DSHBox 自己管理的容器不在此列)",
+			"external.managedNote": "DSHBox 自己管理的 {containers} 个容器不计入外部 DSH;本次检测过滤掉 {running} 个由它们产生的 host 进程。",
 			"external.inUse": "正在运行(pid {pid})",
 			"external.homeFacts": "{sessions} 个会话 · {files} 个文件 · {size}",
-			"external.importFacts": "{sessions} 个会话 · {size}",
+			"external.saveConfigFacts": "{sessions} 个会话 · {size}",
 			"external.hasCredentials": "含凭据文件",
 			"external.hasSettings": "含 settings.yaml",
 			"external.officialName": "官方 ~/.dsh",
 			"external.officialHomeNote": "官方路径:{path}(不存在时不列出)",
-			"external.copyAsBackup": "复制为备份",
+			"external.saveAsConfig": "保存为配置",
 			"external.versionsTitle": "检测到的 DSH 安装 / 检出",
 			"external.versionsEmpty": "未检测到外部 DSH 安装或 harness 检出",
 			"external.prebuilt": "已有构建产物",
@@ -3224,48 +3286,51 @@ window.__ModuleLoader__.load({
 			"external.checkLabel": "检测一个路径",
 			"external.checkPlaceholder": "绝对路径,例如 /home/you/.dsh",
 			"external.check": "检测",
-			"external.checkHome": "这是一个 DSH 配置目录({sessions} 个会话),可复制为备份。",
+			"external.checkHome": "这是一个 DSH 配置目录({sessions} 个会话),可保存为配置文件。",
 			"external.checkHarness": "这是一份 harness 检出(版本 {version})。",
 			"external.checkNone": "既不是 DSH 配置目录,也不是 harness 检出。",
-			"external.importTitle": "复制为备份",
+			"external.saveConfigTitle": "保存为配置",
 			"external.riskCopy": "只做复制:源目录不会被修改,复制完成后两边各自独立、互不影响;绝不使用软链。",
-			"external.riskCredentials": "配置里可能含明文凭据(.credentials.yaml):备份目录请视为敏感数据,不要提交到公开仓库或分享。",
+			"external.riskCredentials": "配置里可能含明文凭据(.credentials.yaml):配置文件请视为敏感数据,不要提交到公开仓库或分享。",
 			"external.riskStop": "请先停止源 DSH:运行中复制可能得到写到一半的会话文件。",
-			"external.riskInUse": "⚠️ 检测到源 DSH 仍在运行:复制到的可能只是某一刻的快照。",
-			"external.riskPlaintext": "⚠️ 该目录含 .credentials.yaml(明文 API Key),复制后在备份目录中仍以 0600 权限保存。",
+			"external.riskInUse": "⚠️ 检测到源 DSH 仍在运行:保存到的可能只是某一刻的快照。",
+			"external.riskPlaintext": "⚠️ 该目录含 .credentials.yaml(明文 API Key),保存成的配置文件里仍以 0600 权限保存。",
 			"external.acknowledge": "我确认该 DSH 已停止,并了解以上风险",
-			"external.importConfirm": "开始复制",
-			"external.importing": "复制中…",
-			"external.imported": "已复制为备份:{name}",
-			"backup.cardTitle": "配置备份",
-			"backup.intro": "把每个容器的 profile(该实例的 DSH_HOME)整份复制到备份目录;备份是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照备份目录内的指南手动恢复。",
-			"backup.enable": "自动备份",
-			"backup.enableHint": "开启后:创建容器、更新版本、删除容器前自动留一份配置",
-			"backup.dir": "备份目录",
-			"backup.keep": "保留份数",
-			"backup.keepHint": "每个容器最多保留多少份(0 = 不清理);目录留空则用默认 DATA_ROOT/backups",
-			"backup.now": "立即备份全部",
-			"backup.nowRunning": "备份中…",
-			"backup.nowDone": "备份完成",
-			"backup.empty": "暂无备份",
-			"backup.name": "名称",
-			"backup.version": "版本",
-			"backup.sessions": "会话",
-			"backup.size": "大小",
-			"backup.createdAt": "时间",
-			"backup.reason": "原因",
-			"backup.action": "操作",
-			"backup.restore": "从备份新建容器",
-			"backup.delete": "删除",
-			"backup.deleteConfirm": "删除备份 {name}?备份目录会被移除,不可恢复(源容器不受影响)。",
-			"backup.restoreHint": "新建容器会复制这份备份的配置(恢复 = 复制,不动备份本身);版本下拉复用「版本」分区的已安装版本。",
-			"backup.restoreStarted": "已开始从备份新建容器:{name}",
-			"backup.unknownTime": "未知",
-			"backup.reason.manual": "手动",
-			"backup.reason.import": "外部导入",
-			"backup.reason.created": "创建时自动",
-			"backup.reason.preDelete": "删除前自动",
-			"backup.reason.preUpdate": "更新前自动",
+			"external.saveConfigConfirm": "保存为配置",
+			"external.savingConfig": "保存中…",
+			"external.savedConfig": "已保存为配置文件:{name}",
+			"config.cardTitle": "配置",
+			"config.intro": "一次「保存配置」= 生成一个自包含的配置文件(<名字>-<版本>-<时间>.dshcfg,tar.gz,内含 meta.json 与 home/);恢复时只需要这个文件。配置文件是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照配置目录内的指南手动恢复。",
+			"config.enable": "自动保存",
+			"config.enableHint": "开启后:创建容器、更新版本、删除容器前自动保存一份配置",
+			"config.dir": "配置目录",
+			"config.keep": "保留份数",
+			"config.keepHint": "每个容器最多保留多少份(0 = 不清理);目录留空则用默认 DATA_ROOT/configs",
+			"config.saveNow": "保存配置",
+			"config.saveNowRunning": "保存中…",
+			"config.saveNowDone": "已保存配置",
+			"config.saveTargetAll": "全部容器",
+			"config.empty": "暂无配置文件",
+			"config.file": "文件名",
+			"config.source": "来源",
+			"config.version": "版本",
+			"config.sessions": "会话",
+			"config.size": "大小",
+			"config.createdAt": "时间",
+			"config.reason": "原因",
+			"config.action": "操作",
+			"config.invalid": "文件不可读",
+			"config.create": "从配置创建",
+			"config.delete": "删除",
+			"config.deleteConfirm": "删除配置文件 {name}?文件会被移除,不可恢复(源容器不受影响)。",
+			"config.createHint": "新建容器会复制这份配置(恢复 = 复制,不动配置文件本身);版本下拉复用「版本」分区的已安装版本。",
+			"config.createStarted": "已开始从配置创建容器:{name}",
+			"config.unknownTime": "未知",
+			"config.reason.manual": "手动",
+			"config.reason.import": "外部导入",
+			"config.reason.created": "创建时自动",
+			"config.reason.preDelete": "删除前自动",
+			"config.reason.preUpdate": "更新前自动",
 			"settings.title": "设置",
 			"settings.intro": "DSH Dock 服务端设置(网络 / 端口池 / 启动行为)与本插件的服务地址。",
 			"settings.network": "网络",
@@ -3438,21 +3503,22 @@ window.__ModuleLoader__.load({
 			"versions.empty": "The version catalog is empty",
 			"versions.cachedAt": "Catalog updated at {time}",
 			"versions.confirmDelete": "Delete version {tag}? Only allowed while no container uses it.",
-			"backup.title": "External & backups",
+			"config.title": "External & configs",
 			"external.title": "External DSH detection (read-only)",
 			"external.refresh": "Detect again",
-			"external.intro": "Detects DSH instances that already exist outside DSH Dock: the official ~/.dsh, npx/global installs, harness source checkouts, and running instances. This only detects and informs — external instances are never modified and no link is ever created; the single available action is to copy a configuration into a backup.",
+			"external.intro": "Detects DSH instances that already exist outside DSH Dock: the official ~/.dsh, npx/global installs, harness source checkouts, and running instances. This only detects and informs — external instances are never modified and no link is ever created; the single available action is \"Save as config\", which packs an existing DSH_HOME into one self-contained configuration file.",
 			"external.usageUnknown": "This platform cannot read a process's DSH_HOME, so it cannot tell whether a configuration is in use; confirm the source DSH is stopped before submitting.",
 			"external.homesTitle": "Detected config directories (DSH_HOME)",
-			"external.homesEmpty": "No external config directory detected",
+			"external.homesEmpty": "No external DSH detected (containers managed by DSHBox itself are not included)",
+			"external.managedNote": "The {containers} containers managed by DSHBox itself are not counted as external DSH; this detection filtered out {running} host processes they produced.",
 			"external.inUse": "Running (pid {pid})",
 			"external.homeFacts": "{sessions} sessions · {files} files · {size}",
-			"external.importFacts": "{sessions} sessions · {size}",
+			"external.saveConfigFacts": "{sessions} sessions · {size}",
 			"external.hasCredentials": "has credentials file",
 			"external.hasSettings": "has settings.yaml",
 			"external.officialName": "official ~/.dsh",
 			"external.officialHomeNote": "Official path: {path} (not listed while it does not exist)",
-			"external.copyAsBackup": "Copy as backup",
+			"external.saveAsConfig": "Save as config",
 			"external.versionsTitle": "Detected DSH installs / checkouts",
 			"external.versionsEmpty": "No external DSH install or harness checkout detected",
 			"external.prebuilt": "prebuilt",
@@ -3469,48 +3535,51 @@ window.__ModuleLoader__.load({
 			"external.checkLabel": "Check a path",
 			"external.checkPlaceholder": "Absolute path, e.g. /home/you/.dsh",
 			"external.check": "Check",
-			"external.checkHome": "This is a DSH config directory ({sessions} sessions); it can be copied into a backup.",
+			"external.checkHome": "This is a DSH config directory ({sessions} sessions); it can be saved as a configuration file.",
 			"external.checkHarness": "This is a harness checkout (version {version}).",
 			"external.checkNone": "Neither a DSH config directory nor a harness checkout.",
-			"external.importTitle": "Copy as backup",
+			"external.saveConfigTitle": "Save as config",
 			"external.riskCopy": "Copy only: the source directory is never modified, and both sides stay independent afterwards; symlinks are never used.",
-			"external.riskCredentials": "The config may hold plaintext credentials (.credentials.yaml): treat the backup directory as sensitive and never commit or share it.",
+			"external.riskCredentials": "The config may hold plaintext credentials (.credentials.yaml): treat the configuration file as sensitive and never commit or share it.",
 			"external.riskStop": "Stop the source DSH first: copying while it runs may capture half-written session files.",
-			"external.riskInUse": "⚠️ The source DSH is still running: what gets copied may only be a snapshot of one moment.",
-			"external.riskPlaintext": "⚠️ This directory holds .credentials.yaml (plaintext API keys); the copy keeps them in the backup directory under mode 0600.",
+			"external.riskInUse": "⚠️ The source DSH is still running: what gets saved may only be a snapshot of one moment.",
+			"external.riskPlaintext": "⚠️ This directory holds .credentials.yaml (plaintext API keys); the configuration file keeps them under mode 0600.",
 			"external.acknowledge": "I confirm that DSH is stopped and I understand the risks above",
-			"external.importConfirm": "Start copy",
-			"external.importing": "Copying…",
-			"external.imported": "Copied into a backup: {name}",
-			"backup.cardTitle": "Config backups",
-			"backup.intro": "Copies each container's profile (that instance's DSH_HOME) into the backup directory; every backup is an independent copy (copy only, never a link), so it can still be restored by hand from the guide in the backup directory even after DSH Dock is uninstalled.",
-			"backup.enable": "Auto backup",
-			"backup.enableHint": "While on: keep a copy before creating a container, updating a version, or deleting a container",
-			"backup.dir": "Backup directory",
-			"backup.keep": "Keep count",
-			"backup.keepHint": "Backups kept per container (0 = never prune); an empty directory means the default DATA_ROOT/backups",
-			"backup.now": "Back up everything now",
-			"backup.nowRunning": "Backing up…",
-			"backup.nowDone": "Backup complete",
-			"backup.empty": "No backups yet",
-			"backup.name": "Name",
-			"backup.version": "Version",
-			"backup.sessions": "Sessions",
-			"backup.size": "Size",
-			"backup.createdAt": "Time",
-			"backup.reason": "Reason",
-			"backup.action": "Actions",
-			"backup.restore": "New container from backup",
-			"backup.delete": "Delete",
-			"backup.deleteConfirm": "Delete backup {name}? Its directory is removed and cannot be recovered (the source container is unaffected).",
-			"backup.restoreHint": "The new container copies this backup's config (restoring = copying; the backup itself is untouched); the version list reuses the installed versions from the Versions tab.",
-			"backup.restoreStarted": "Creating a new container from the backup: {name}",
-			"backup.unknownTime": "unknown",
-			"backup.reason.manual": "manual",
-			"backup.reason.import": "external import",
-			"backup.reason.created": "auto on create",
-			"backup.reason.preDelete": "auto before delete",
-			"backup.reason.preUpdate": "auto before update",
+			"external.saveConfigConfirm": "Save as config",
+			"external.savingConfig": "Saving…",
+			"external.savedConfig": "Saved as a configuration file: {name}",
+			"config.cardTitle": "Configurations",
+			"config.intro": "One \"Save config\" creates one self-contained configuration file (<name>-<version>-<time>.dshcfg, a tar.gz holding meta.json and home/); restoring needs nothing but that file. Every configuration file is an independent copy (copy only, never a link), so it can still be restored by hand from the guide in the config directory even after DSH Dock is uninstalled.",
+			"config.enable": "Auto-save",
+			"config.enableHint": "While on: save a configuration before creating a container, updating a version, or deleting a container",
+			"config.dir": "Config directory",
+			"config.keep": "Keep count",
+			"config.keepHint": "Configuration files kept per container (0 = never prune); an empty directory means the default DATA_ROOT/configs",
+			"config.saveNow": "Save config",
+			"config.saveNowRunning": "Saving…",
+			"config.saveNowDone": "Configuration saved",
+			"config.saveTargetAll": "All containers",
+			"config.empty": "No configuration files yet",
+			"config.file": "File",
+			"config.source": "Source",
+			"config.version": "Version",
+			"config.sessions": "Sessions",
+			"config.size": "Size",
+			"config.createdAt": "Time",
+			"config.reason": "Reason",
+			"config.action": "Actions",
+			"config.invalid": "file unreadable",
+			"config.create": "Create from config",
+			"config.delete": "Delete",
+			"config.deleteConfirm": "Delete configuration file {name}? The file is removed and cannot be recovered (the source container is unaffected).",
+			"config.createHint": "The new container copies this configuration (restoring = copying; the file itself is untouched); the version list reuses the installed versions from the Versions tab.",
+			"config.createStarted": "Creating a container from the configuration: {name}",
+			"config.unknownTime": "unknown",
+			"config.reason.manual": "manual",
+			"config.reason.import": "external import",
+			"config.reason.created": "auto on create",
+			"config.reason.preDelete": "auto before delete",
+			"config.reason.preUpdate": "auto before update",
 			"settings.title": "Settings",
 			"settings.intro": "DSH Dock service settings (network / port pool / startup behavior) and this plugin's service address.",
 			"settings.network": "Network",

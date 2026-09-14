@@ -1,22 +1,22 @@
 /**
- * "外部 DSH 与备份" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
- * 安装、源码检出、正在运行的实例),唯一可做的动作是「复制为备份」;下半部是配置
- * 备份(自动备份开关、目录与保留份数、立即备份全部、备份列表 + 从备份新建容器 /
- * 删除)。检测只读:不改动任何外部实例,导入一律**只复制、绝不软链**。
+ * "外部 DSH 与配置" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
+ * 安装、源码检出、正在运行的实例),唯一可做的动作是「保存为配置」;下半部是配置
+ * (自动保存开关、目录与保留份数、保存配置 → 生成自包含配置文件、配置文件列表 +
+ * 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律**只复制、绝不软链**。
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   Button, IconRefreshOutline16, IconWarningOutline16, Input, Pill,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { BackupRow, ExternalCheck } from './api.ts'
+import type { ConfigRow, ExternalCheck } from './api.ts'
 import type { DockT } from './locales.ts'
 import type { DockStore } from './use-dock.ts'
 import css from './DockSection.module.css'
 import { ConfirmDialog, ErrorNote, SectionCard } from './parts.tsx'
 
-/** 外部检测卡里一份待复制为备份的 home(勾选确认后才允许提交)。 */
-interface ImportTarget {
+/** 外部检测卡里一份待保存为配置的 home(勾选确认后才允许提交)。 */
+interface SaveTarget {
   readonly path: string
   readonly name: string
   readonly inUse: boolean
@@ -32,30 +32,42 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`
 }
 
-/** 备份原因 → 本机化文案(未知原因原样显示服务端的值)。 */
-function reasonLabel(t: DockT, reason: string): string {
+/** 配置原因 → 本机化文案(未知原因原样显示服务端的值)。 */
+function reasonLabel(t: DockT, reason: string | undefined): string {
   switch (reason) {
-    case 'manual': return t('backup.reason.manual')
-    case 'import': return t('backup.reason.import')
-    case 'created': return t('backup.reason.created')
-    case 'pre-delete': return t('backup.reason.preDelete')
-    case 'pre-update': return t('backup.reason.preUpdate')
+    case 'manual': return t('config.reason.manual')
+    case 'import': return t('config.reason.import')
+    case 'created': return t('config.reason.created')
+    case 'pre-delete': return t('config.reason.preDelete')
+    case 'pre-update': return t('config.reason.preUpdate')
+    case undefined: return '-'
     default: return reason
   }
 }
 
-/** 备份时间戳(秒)→ 本地时间;缺失时显示占位符。 */
-function formatWhen(t: DockT, createdAt: number | null): string {
-  return createdAt !== null ? new Date(createdAt * 1000).toLocaleString() : t('backup.unknownTime')
+/** 来源:优先显示打包时的原始 DSH_HOME,缺失时退回来源容器 id。 */
+function sourceLabel(item: ConfigRow): string {
+  const source = item.source
+  if (source !== undefined && source !== null && source.length > 0) return source
+  const containerId = item.containerId
+  if (containerId !== undefined && containerId !== null && containerId.length > 0) return containerId
+  return '-'
 }
 
-/** 备份名 → 合法的默认容器名(容器名只允许字母/数字/./_/-,≤64 字符)。 */
+/** 配置时间戳(秒)→ 本地时间;缺失时显示占位符。 */
+function formatWhen(t: DockT, createdAt: number | null | undefined): string {
+  return createdAt !== undefined && createdAt !== null
+    ? new Date(createdAt * 1000).toLocaleString()
+    : t('config.unknownTime')
+}
+
+/** 配置名 → 合法的默认容器名(容器名只允许字母/数字/./_/-,≤64 字符)。 */
 function defaultContainerName(name: string): string {
   const sanitized = name.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '')
-  return `${(sanitized.length > 0 ? sanitized : 'restored').slice(0, 56)}-restore`
+  return `${(sanitized.length > 0 ? sanitized : 'restored').slice(0, 56)}-new`
 }
 
-/** 该容器 tab 的卡片主体:外部检测 + 配置备份两张卡。 */
+/** 该容器 tab 的卡片主体:外部检测 + 配置两张卡。 */
 export function ExternalCard({ t, store }: {
   t: DockT
   store: DockStore
@@ -63,19 +75,19 @@ export function ExternalCard({ t, store }: {
   return (
     <>
       <ExternalDetectCard t={t} store={store} />
-      <BackupCard t={t} store={store} />
+      <ConfigCard t={t} store={store} />
     </>
   )
 }
 
-/** 外部 DSH 检测卡(只读;唯一动作 = 复制为备份)。 */
+/** 外部 DSH 检测卡(只读;唯一动作 = 保存为配置)。 */
 function ExternalDetectCard({ t, store }: {
   t: DockT
   store: DockStore
 }): ReactNode {
-  const [importTarget, setImportTarget] = useState<ImportTarget>()
+  const [saveTarget, setSaveTarget] = useState<SaveTarget>()
   const [acknowledged, setAcknowledged] = useState(false)
-  const [importNote, setImportNote] = useState<string>()
+  const [saveNote, setSaveNote] = useState<string>()
   const [checkPath, setCheckPath] = useState('')
   const [checked, setChecked] = useState<ExternalCheck>()
   const [checkNote, setCheckNote] = useState<string>()
@@ -86,22 +98,22 @@ function ExternalDetectCard({ t, store }: {
   const installed = external?.installed ?? []
   const running = external?.running ?? []
 
-  const openImport = (target: ImportTarget): void => {
-    setImportNote(undefined)
+  const openSave = (target: SaveTarget): void => {
+    setSaveNote(undefined)
     setAcknowledged(false)
-    setImportTarget(target)
+    setSaveTarget(target)
   }
 
-  const submitImport = async (): Promise<void> => {
-    const target = importTarget
+  const submitSave = async (): Promise<void> => {
+    const target = saveTarget
     if (target === undefined) return
-    const imported = await store.importExternal({ sourcePath: target.path, name: target.name, acknowledge: true })
-    if (imported) {
-      setImportTarget(undefined)
+    const saved = await store.saveExternalAsConfig({ sourcePath: target.path, name: target.name, acknowledge: true })
+    if (saved) {
+      setSaveTarget(undefined)
       setAcknowledged(false)
-      setImportNote(t('external.imported', { name: target.name.length > 0 ? target.name : target.path }))
+      setSaveNote(t('external.savedConfig', { name: target.name.length > 0 ? target.name : target.path }))
     } else {
-      setImportNote(t('error.operationFailed'))
+      setSaveNote(t('error.operationFailed'))
     }
   }
 
@@ -142,7 +154,7 @@ function ExternalDetectCard({ t, store }: {
       {opError !== undefined && (
         <ErrorNote title={opError.title} detail={opError.detail} output={opError.output} />
       )}
-      {importNote !== undefined && <p className={css.footerNote}>{importNote}</p>}
+      {saveNote !== undefined && <p className={css.footerNote}>{saveNote}</p>}
       {external !== undefined && external.canDetectUsage !== true && (
         <p className={css.warnNote}>
           <IconWarningOutline16 size={14} />
@@ -174,7 +186,7 @@ function ExternalDetectCard({ t, store }: {
               <Button
                 size="sm"
                 onClick={() => {
-                  openImport({
+                  openSave({
                     path: home.path,
                     name: home.path === external?.officialHome ? t('external.officialName') : '',
                     inUse: home.inUse,
@@ -184,12 +196,20 @@ function ExternalDetectCard({ t, store }: {
                   })
                 }}
               >
-                {t('external.copyAsBackup')}
+                {t('external.saveAsConfig')}
               </Button>
             </div>
           </li>
         ))}
       </ul>
+      {external !== undefined && (
+        <p className={css.footerNote}>
+          {t('external.managedNote', {
+            containers: String(external.containers.length),
+            running: String(external.managedRunning),
+          })}
+        </p>
+      )}
       {external !== undefined && (
         <p className={css.footerNote}>{t('external.officialHomeNote', { path: external.officialHome })}</p>
       )}
@@ -271,7 +291,7 @@ function ExternalDetectCard({ t, store }: {
             <Button
               size="sm"
               onClick={() => {
-                openImport({
+                openSave({
                   path: checked.path,
                   name: '',
                   inUse: checked.usage.inUse,
@@ -281,28 +301,28 @@ function ExternalDetectCard({ t, store }: {
                 })
               }}
             >
-              {t('external.copyAsBackup')}
+              {t('external.saveAsConfig')}
             </Button>
           </div>
         )}
       </div>
 
-      {importTarget !== undefined && (
+      {saveTarget !== undefined && (
         <div className={css.inlineForm}>
           <div className={css.inlineFormRow}>
-            <span className={css.formLabel}>{t('external.importTitle')} · <code className={css.mono}>{importTarget.path}</code></span>
+            <span className={css.formLabel}>{t('external.saveConfigTitle')} · <code className={css.mono}>{saveTarget.path}</code></span>
           </div>
           <div className={css.rowMeta}>
-            {t('external.importFacts', {
-              sessions: String(importTarget.sessions),
-              size: formatBytes(importTarget.bytes),
+            {t('external.saveConfigFacts', {
+              sessions: String(saveTarget.sessions),
+              size: formatBytes(saveTarget.bytes),
             })}
           </div>
           <ul className={css.riskList}>
             <li className={css.riskItem}>{t('external.riskCopy')}</li>
             <li className={css.riskItem}>{t('external.riskCredentials')}</li>
-            <li className={css.riskItem}>{importTarget.inUse ? t('external.riskInUse') : t('external.riskStop')}</li>
-            {importTarget.hasCredentials && <li className={css.riskItem}>{t('external.riskPlaintext')}</li>}
+            <li className={css.riskItem}>{saveTarget.inUse ? t('external.riskInUse') : t('external.riskStop')}</li>
+            {saveTarget.hasCredentials && <li className={css.riskItem}>{t('external.riskPlaintext')}</li>}
           </ul>
           <label className={css.checkboxRow}>
             <input
@@ -316,17 +336,17 @@ function ExternalDetectCard({ t, store }: {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => { setImportTarget(undefined); setAcknowledged(false) }}
+              onClick={() => { setSaveTarget(undefined); setAcknowledged(false) }}
             >
               {t('cancel')}
             </Button>
             <Button
               size="sm"
               variant="primary"
-              disabled={!acknowledged || store.isBusy('externalImport')}
-              onClick={() => { void submitImport() }}
+              disabled={!acknowledged || store.isBusy('externalConfig')}
+              onClick={() => { void submitSave() }}
             >
-              {store.isBusy('externalImport') ? t('external.importing') : t('external.importConfirm')}
+              {store.isBusy('externalConfig') ? t('external.savingConfig') : t('external.saveConfigConfirm')}
             </Button>
           </div>
         </div>
@@ -335,59 +355,61 @@ function ExternalDetectCard({ t, store }: {
   )
 }
 
-/** 配置备份卡:开关 / 目录 / 保留份数 + 立即备份全部 + 备份列表。 */
-function BackupCard({ t, store }: {
+/** 配置卡:开关 / 目录 / 保留份数 + 保存配置(全部或某个容器)+ 配置文件列表。 */
+function ConfigCard({ t, store }: {
   t: DockT
   store: DockStore
 }): ReactNode {
   const [enabled, setEnabled] = useState(false)
   const [dir, setDir] = useState('')
   const [keep, setKeep] = useState('10')
+  const [saveFor, setSaveFor] = useState('')
   const [note, setNote] = useState<string>()
-  const [restoreFor, setRestoreFor] = useState<BackupRow>()
+  const [restoreFor, setRestoreFor] = useState<ConfigRow>()
   const [restoreName, setRestoreName] = useState('')
   const [restoreVersion, setRestoreVersion] = useState('')
-  const [deleteFor, setDeleteFor] = useState<BackupRow>()
-  const opError = store.opErrorFor(['backup'])
-  const items = store.backups?.items ?? []
+  const [deleteFor, setDeleteFor] = useState<ConfigRow>()
+  const opError = store.opErrorFor(['config'])
+  const items = store.configs?.items ?? []
   const installedVersions = (store.versions?.versions ?? [])
     .filter(entry => entry.installed)
     .map(entry => entry.tag)
 
   useEffect(() => {
     if (store.settings !== undefined) {
-      setEnabled(store.settings.backupEnabled === true)
-      setDir(store.settings.backupDir ?? '')
-      setKeep(String(store.settings.backupKeep ?? 10))
+      setEnabled(store.settings.configAutoSave === true)
+      setDir(store.settings.configDir ?? '')
+      setKeep(String(store.settings.configKeep ?? 10))
     }
   }, [store.settings])
 
   const dirty = store.settings !== undefined && (
-    enabled !== (store.settings.backupEnabled === true)
-    || dir.trim() !== (store.settings.backupDir ?? '')
-    || keep.trim() !== String(store.settings.backupKeep ?? 10))
+    enabled !== (store.settings.configAutoSave === true)
+    || dir.trim() !== (store.settings.configDir ?? '')
+    || keep.trim() !== String(store.settings.configKeep ?? 10))
 
   const saveSettings = async (): Promise<void> => {
     setNote(undefined)
-    const saved = await store.saveBackupSettings({
-      backupEnabled: enabled,
-      backupDir: dir.trim(),
-      backupKeep: Math.max(0, Number(keep) || 0),
+    const saved = await store.saveConfigSettings({
+      configAutoSave: enabled,
+      configDir: dir.trim(),
+      configKeep: Math.max(0, Number(keep) || 0),
     })
     setNote(saved ? t('settings.saved') : t('error.operationFailed'))
   }
 
-  const backupNow = async (): Promise<void> => {
+  const saveNow = async (): Promise<void> => {
     setNote(undefined)
-    const done = await store.backupNow()
-    setNote(done ? t('backup.nowDone') : t('error.operationFailed'))
+    const done = await store.saveConfigNow(saveFor)
+    setNote(done ? t('config.saveNowDone') : t('error.operationFailed'))
   }
 
-  const openRestore = (row: BackupRow): void => {
+  const openRestore = (row: ConfigRow): void => {
     setNote(undefined)
     setRestoreFor(row)
     setRestoreName(defaultContainerName(row.name))
-    setRestoreVersion(row.version !== null && row.version.length > 0 ? row.version : installedVersions[0] ?? '')
+    const rowVersion = row.version ?? ''
+    setRestoreVersion(rowVersion.length > 0 && installedVersions.includes(rowVersion) ? rowVersion : installedVersions[0] ?? '')
   }
 
   const submitRestore = async (): Promise<void> => {
@@ -395,10 +417,10 @@ function BackupCard({ t, store }: {
     if (row === undefined) return
     const name = restoreName.trim()
     if (name.length === 0 || restoreVersion.length === 0) return
-    const started = await store.restoreBackup(row.id, { name, version: restoreVersion, profile: row.profile })
+    const started = await store.createFromConfig(row.file, { name, version: restoreVersion, profile: row.profile })
     if (started) {
       setRestoreFor(undefined)
-      setNote(t('backup.restoreStarted', { name }))
+      setNote(t('config.createStarted', { name }))
     } else {
       setNote(t('error.operationFailed'))
     }
@@ -406,16 +428,22 @@ function BackupCard({ t, store }: {
 
   return (
     <SectionCard
-      title={t('backup.cardTitle')}
+      title={t('config.cardTitle')}
       actions={(
-        <Button size="sm" variant="primary" disabled={store.isBusy('backupNow')} onClick={() => { void backupNow() }}>
-          {store.isBusy('backupNow') ? t('backup.nowRunning') : t('backup.now')}
-        </Button>
+        <div className={css.inlineFormRow}>
+          <select className={css.narrow} value={saveFor} onChange={event => { setSaveFor(event.target.value) }}>
+            <option value="">{t('config.saveTargetAll')}</option>
+            {store.containers.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+          </select>
+          <Button size="sm" variant="primary" disabled={store.isBusy('configSave')} onClick={() => { void saveNow() }}>
+            {store.isBusy('configSave') ? t('config.saveNowRunning') : t('config.saveNow')}
+          </Button>
+        </div>
       )}
     >
-      <p className={css.intro}>{t('backup.intro')}</p>
-      {store.backupsError !== undefined && (
-        <ErrorNote title={store.backupsError.title} detail={store.backupsError.detail} />
+      <p className={css.intro}>{t('config.intro')}</p>
+      {store.configsError !== undefined && (
+        <ErrorNote title={store.configsError.title} detail={store.configsError.detail} />
       )}
       {store.settingsError !== undefined && (
         <ErrorNote title={store.settingsError.title} detail={store.settingsError.detail} />
@@ -426,72 +454,82 @@ function BackupCard({ t, store }: {
       {note !== undefined && <p className={css.footerNote}>{note}</p>}
 
       <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('backup.enable')}</span>
+        <span className={css.labelCol}>{t('config.enable')}</span>
         <label className={css.checkboxRow}>
           <input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked) }} />
-          <span>{t('backup.enableHint')}</span>
+          <span>{t('config.enableHint')}</span>
         </label>
       </div>
       <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('backup.dir')}</span>
+        <span className={css.labelCol}>{t('config.dir')}</span>
         <Input
           className={css.grow}
           value={dir}
-          placeholder={store.backups?.dir ?? ''}
+          placeholder={store.configs?.dir ?? ''}
           onChange={event => { setDir(event.target.value) }}
         />
       </div>
       <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('backup.keep')}</span>
+        <span className={css.labelCol}>{t('config.keep')}</span>
         <Input
           className={css.narrow}
           value={keep}
           inputMode="numeric"
           onChange={event => { setKeep(event.target.value) }}
         />
-        <span className={css.footerNote}>{t('backup.keepHint')}</span>
+        <span className={css.footerNote}>{t('config.keepHint')}</span>
       </div>
       <div className={css.saveRow}>
-        <Button size="sm" variant="primary" disabled={!dirty || store.isBusy('backupSettings')} onClick={() => { void saveSettings() }}>
-          {store.isBusy('backupSettings') ? t('settings.saving') : t('settings.save')}
+        <Button size="sm" variant="primary" disabled={!dirty || store.isBusy('configSettings')} onClick={() => { void saveSettings() }}>
+          {store.isBusy('configSettings') ? t('settings.saving') : t('settings.save')}
         </Button>
       </div>
 
-      {items.length === 0 && <p className={css.empty}>{t('backup.empty')}</p>}
+      {items.length === 0 && <p className={css.empty}>{t('config.empty')}</p>}
       {items.length > 0 && (
         <table className={css.table}>
           <thead>
             <tr>
-              <th>{t('backup.name')}</th>
-              <th>{t('backup.version')}</th>
-              <th>{t('backup.sessions')}</th>
-              <th>{t('backup.size')}</th>
-              <th>{t('backup.createdAt')}</th>
-              <th>{t('backup.reason')}</th>
-              <th className={css.cellAction}>{t('backup.action')}</th>
+              <th>{t('config.file')}</th>
+              <th>{t('config.source')}</th>
+              <th>{t('config.version')}</th>
+              <th>{t('config.sessions')}</th>
+              <th>{t('config.size')}</th>
+              <th>{t('config.createdAt')}</th>
+              <th>{t('config.reason')}</th>
+              <th className={css.cellAction}>{t('config.action')}</th>
             </tr>
           </thead>
           <tbody>
             {items.map(item => (
-              <tr key={item.id}>
+              <tr key={item.file}>
                 <td>
                   <b>{item.name}</b>
-                  {item.hasCredentials && <div className={css.mutedCell}>{t('external.hasCredentials')}</div>}
+                  {item.file !== item.name && <div className={css.mutedCell}><code className={css.mono}>{item.file}</code></div>}
+                  {item.hasCredentials === true && <div className={css.mutedCell}>{t('external.hasCredentials')}</div>}
+                  {item.valid !== true && (
+                    <div className={css.mutedCell}>
+                      {item.error !== null && item.error !== undefined ? `${t('config.invalid')}: ${item.error}` : t('config.invalid')}
+                    </div>
+                  )}
                 </td>
+                <td><code className={css.mono}>{sourceLabel(item)}</code></td>
                 <td>{item.version ?? '-'}</td>
-                <td>{item.sessions}</td>
+                <td>{item.sessions ?? 0}</td>
                 <td>{formatBytes(item.bytes)}</td>
-                <td>{formatWhen(t, item.createdAt)}</td>
+                <td>{formatWhen(t, item.createdAt ?? item.modifiedAt)}</td>
                 <td>
                   {reasonLabel(t, item.reason)}
-                  {item.note.length > 0 && <div className={css.mutedCell}>{item.note}</div>}
+                  {item.note !== undefined && item.note.length > 0 && <div className={css.mutedCell}>{item.note}</div>}
                 </td>
                 <td className={css.cellAction}>
-                  <Button size="sm" disabled={store.isBusy(`backupRestore:${item.id}`)} onClick={() => { openRestore(item) }}>
-                    {t('backup.restore')}
-                  </Button>
-                  <Button size="sm" disabled={store.isBusy(`backupDelete:${item.id}`)} onClick={() => { setDeleteFor(item) }}>
-                    {t('backup.delete')}
+                  {item.valid === true && (
+                    <Button size="sm" disabled={store.isBusy(`configRestore:${item.file}`)} onClick={() => { openRestore(item) }}>
+                      {t('config.create')}
+                    </Button>
+                  )}
+                  <Button size="sm" disabled={store.isBusy(`configDelete:${item.file}`)} onClick={() => { setDeleteFor(item) }}>
+                    {t('config.delete')}
                   </Button>
                 </td>
               </tr>
@@ -503,12 +541,12 @@ function BackupCard({ t, store }: {
       {restoreFor !== undefined && (
         <div className={css.inlineForm}>
           <div className={css.inlineFormRow}>
-            <span className={css.formLabel}>{t('backup.restore')} · {restoreFor.name}</span>
+            <span className={css.formLabel}>{t('config.create')} · {restoreFor.name}</span>
             <Input
               className={css.grow}
               value={restoreName}
               placeholder={t('containers.namePlaceholder')}
-              onChange={event => { setRestoreName(event.target.value) }}
+              onChange={event => { setRestoreName(event.target.value.replace(/[^A-Za-z0-9._-]/g, '')) }}
             />
             <select className={css.narrow} value={restoreVersion} onChange={event => { setRestoreVersion(event.target.value) }}>
               <option value="">{t('containers.versionLabel')}</option>
@@ -517,29 +555,29 @@ function BackupCard({ t, store }: {
             <Button
               size="sm"
               variant="primary"
-              disabled={restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`backupRestore:${restoreFor.id}`)}
+              disabled={restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`configRestore:${restoreFor.file}`)}
               onClick={() => { void submitRestore() }}
             >
               {t('containers.confirm')}
             </Button>
             <Button size="sm" variant="outline" aria-label={t('cancel')} onClick={() => { setRestoreFor(undefined) }}>×</Button>
           </div>
-          <p className={css.footerNote}>{t('backup.restoreHint')}</p>
+          <p className={css.footerNote}>{t('config.createHint')}</p>
         </div>
       )}
 
       <ConfirmDialog
         open={deleteFor !== undefined}
-        title={deleteFor !== undefined ? `${t('backup.delete')} · ${deleteFor.name}` : ''}
-        body={deleteFor !== undefined ? t('backup.deleteConfirm', { name: deleteFor.name }) : ''}
-        confirmLabel={t('backup.delete')}
+        title={deleteFor !== undefined ? `${t('config.delete')} · ${deleteFor.name}` : ''}
+        body={deleteFor !== undefined ? t('config.deleteConfirm', { name: deleteFor.name }) : ''}
+        confirmLabel={t('config.delete')}
         cancelLabel={t('cancel')}
         danger
-        busy={deleteFor !== undefined && store.isBusy(`backupDelete:${deleteFor.id}`)}
+        busy={deleteFor !== undefined && store.isBusy(`configDelete:${deleteFor.file}`)}
         onConfirm={() => {
           const row = deleteFor
           setDeleteFor(undefined)
-          if (row !== undefined) void store.deleteBackup(row.id)
+          if (row !== undefined) void store.deleteConfig(row.file)
         }}
         onClose={() => { setDeleteFor(undefined) }}
       />
