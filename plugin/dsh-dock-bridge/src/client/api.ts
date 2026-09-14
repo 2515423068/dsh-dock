@@ -86,8 +86,6 @@ export interface DockSettings {
   readonly configAutoSave: boolean
   /** Configuration-file directory; empty = `DATA_ROOT/configs`. */
   readonly configDir: string
-  /** Configuration files kept per container (`0` disables pruning). */
-  readonly configKeep: number
 }
 
 /** New-container initial-config template (`GET/POST/DELETE /api/profile-template`). */
@@ -289,8 +287,17 @@ export interface ConfigRow {
 export interface ConfigCatalog {
   readonly dir: string
   readonly autoSave: boolean
-  readonly keep: number
   readonly items: readonly ConfigRow[]
+}
+
+/**
+ * `POST /api/pick-directory` answer: the host's native folder chooser. The
+ * call blocks until the user picks a directory or cancels; a cancelled or
+ * failed chooser carries `path: null`, and a platform failure adds `error`.
+ */
+export interface DirectoryPick {
+  readonly path: string | null
+  readonly error?: string
 }
 
 /** `POST /api/configs` answer for container targets (no `containerId` = save every container). */

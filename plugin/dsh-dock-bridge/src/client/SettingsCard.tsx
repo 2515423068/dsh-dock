@@ -26,7 +26,6 @@ const EMPTY: DockSettings = {
   skipFirstOpenPrompts: true,
   configAutoSave: false,
   configDir: '',
-  configKeep: 10,
 }
 
 /** Same shortcut chips the WebUI offers under the mirror fields. */

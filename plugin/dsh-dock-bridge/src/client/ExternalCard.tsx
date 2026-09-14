@@ -1,8 +1,9 @@
 /**
  * "外部 DSH 与配置" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
  * 安装、源码检出、正在运行的实例),唯一可做的动作是「保存为配置」;下半部是配置
- * (自动保存开关、目录与保留份数、保存配置 → 生成自包含配置文件、配置文件列表 +
- * 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律**只复制、绝不软链**。
+ * (自动保存开关、目录[可调用宿主机文件夹选择器]、保存配置 → 生成自包含配置文件、
+ * 配置文件列表 + 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律
+ * **只复制、绝不软链**。
  */
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -355,14 +356,13 @@ function ExternalDetectCard({ t, store }: {
   )
 }
 
-/** 配置卡:开关 / 目录 / 保留份数 + 保存配置(全部或某个容器)+ 配置文件列表。 */
+/** 配置卡:开关 / 目录(含文件夹选择器)+ 保存配置(全部或某个容器)+ 配置文件列表。 */
 function ConfigCard({ t, store }: {
   t: DockT
   store: DockStore
 }): ReactNode {
   const [enabled, setEnabled] = useState(false)
   const [dir, setDir] = useState('')
-  const [keep, setKeep] = useState('10')
   const [saveFor, setSaveFor] = useState('')
   const [note, setNote] = useState<string>()
   const [restoreFor, setRestoreFor] = useState<ConfigRow>()
@@ -379,23 +379,37 @@ function ConfigCard({ t, store }: {
     if (store.settings !== undefined) {
       setEnabled(store.settings.configAutoSave === true)
       setDir(store.settings.configDir ?? '')
-      setKeep(String(store.settings.configKeep ?? 10))
     }
   }, [store.settings])
 
   const dirty = store.settings !== undefined && (
     enabled !== (store.settings.configAutoSave === true)
-    || dir.trim() !== (store.settings.configDir ?? '')
-    || keep.trim() !== String(store.settings.configKeep ?? 10))
+    || dir.trim() !== (store.settings.configDir ?? ''))
 
   const saveSettings = async (): Promise<void> => {
     setNote(undefined)
     const saved = await store.saveConfigSettings({
       configAutoSave: enabled,
       configDir: dir.trim(),
-      configKeep: Math.max(0, Number(keep) || 0),
     })
     setNote(saved ? t('settings.saved') : t('error.operationFailed'))
+  }
+
+  /** 打开宿主机的文件夹选择器:选中后填入输入框并立即保存;取消/失败给出提示。 */
+  const pickDir = async (): Promise<void> => {
+    setNote(undefined)
+    const picked = await store.pickDirectory()
+    if (picked === undefined) {
+      setNote(t('error.operationFailed'))
+      return
+    }
+    if (picked.path === null) {
+      setNote(picked.error !== undefined ? picked.error : t('config.dirPickCancelled'))
+      return
+    }
+    setDir(picked.path)
+    const saved = await store.saveConfigSettings({ configDir: picked.path })
+    setNote(saved ? t('config.dirPicked', { path: picked.path }) : t('error.operationFailed'))
   }
 
   const saveNow = async (): Promise<void> => {
@@ -468,16 +482,13 @@ function ConfigCard({ t, store }: {
           placeholder={store.configs?.dir ?? ''}
           onChange={event => { setDir(event.target.value) }}
         />
-      </div>
-      <div className={css.rowLine}>
-        <span className={css.labelCol}>{t('config.keep')}</span>
-        <Input
-          className={css.narrow}
-          value={keep}
-          inputMode="numeric"
-          onChange={event => { setKeep(event.target.value) }}
-        />
-        <span className={css.footerNote}>{t('config.keepHint')}</span>
+        <Button
+          size="sm"
+          disabled={store.isBusy('configPick')}
+          onClick={() => { void pickDir() }}
+        >
+          {store.isBusy('configPick') ? t('config.dirPicking') : t('config.dirPick')}
+        </Button>
       </div>
       <div className={css.saveRow}>
         <Button size="sm" variant="primary" disabled={!dirty || store.isBusy('configSettings')} onClick={() => { void saveSettings() }}>

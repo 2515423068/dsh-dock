@@ -8,8 +8,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ConfigCatalog, ConfigImported, ConfigSaved, ContainerRow, DockSettings, DockStatus, DockTask, ExternalCheck,
-  ExternalView, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  ConfigCatalog, ConfigImported, ConfigSaved, ContainerRow, DirectoryPick, DockSettings, DockStatus, DockTask,
+  ExternalCheck, ExternalView, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -458,7 +458,7 @@ export function useDock(call: DockCall): DockStore {
   // 会按空串覆盖,因此提交前必须与当前设置合并,避免只改配置开关却清掉网络配置。
   const settingsRef = useRef<DockSettings>()
   settingsRef.current = settings
-  const saveConfigSettings = useCallback(async (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir' | 'configKeep'>>) => {
+  const saveConfigSettings = useCallback(async (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir'>>) => {
     const current = settingsRef.current
     if (current === undefined) return false
     try {
@@ -470,6 +470,23 @@ export function useDock(call: DockCall): DockStore {
       return false
     }
   }, [mutate, rest, refreshSettings, refreshConfigs])
+
+  /**
+   * 打开宿主机的系统目录选择对话框(POST /api/pick-directory,阻塞直到用户选择或
+   * 取消)。取消时服务端回 `path: null`;平台失败回 `{path: null, error}`,按失败处理。
+   */
+  const pickDirectory = useCallback(async (): Promise<DirectoryPick | undefined> => {
+    try {
+      const answer = await mutate('configPick', () =>
+        rest<DirectoryPick>('POST', '/api/pick-directory', undefined, '打开目录选择器失败'))
+      return {
+        path: typeof answer?.path === 'string' && answer.path.length > 0 ? answer.path : null,
+        ...(typeof answer?.error === 'string' && answer.error.length > 0 ? { error: answer.error } : {}),
+      }
+    } catch {
+      return undefined
+    }
+  }, [mutate, rest])
 
   /** 保存配置:省略 containerId = 保存全部容器(服务端语义)。 */
   const saveConfigNow = useCallback(async (containerId?: string) => {
@@ -567,6 +584,7 @@ export function useDock(call: DockCall): DockStore {
     refreshConfigs,
     checkExternal,
     saveConfigSettings,
+    pickDirectory,
     saveConfigNow,
     createFromConfig,
     deleteConfig,
@@ -632,7 +650,9 @@ export interface DockStore {
   /** Check one path (read-only); undefined on failure (see `opErrorFor`). */
   checkExternal: (path: string) => Promise<ExternalCheck | undefined>
   /** Persist the configuration groups of `/api/settings` (merged with current values). */
-  saveConfigSettings: (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir' | 'configKeep'>>) => Promise<boolean>
+  saveConfigSettings: (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir'>>) => Promise<boolean>
+  /** Open the host's native folder chooser; undefined on failure (see `opErrorFor`), `path: null` when cancelled. */
+  pickDirectory: () => Promise<DirectoryPick | undefined>
   /** Save a configuration file for one container, or for every container when omitted. */
   saveConfigNow: (containerId?: string) => Promise<boolean>
   /** Create a new container from a configuration file (copy semantics) and watch the task. */
