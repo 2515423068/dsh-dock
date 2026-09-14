@@ -1,7 +1,8 @@
 /**
- * The "DSH Dock" top-level settings section: environment banner plus three
- * cards (containers / versions / settings). When the service is unreachable
- * or this DSH is independent, service-backed cards degrade into the guide.
+ * The "DSH Dock" top-level settings section: environment banner plus the
+ * tabbed cards (containers / versions / external & backups / settings). When
+ * the service is unreachable or this DSH is independent, service-backed cards
+ * degrade into the guide.
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -9,6 +10,7 @@ import { Button, IconWarningOutline16, Input } from '@deepseek-ai/dsh-client-ui-
 import type { PropsLocale, PropsRuntime, InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DockT } from './locales.ts'
 import { ContainersCard } from './ContainersCard.tsx'
+import { ExternalCard } from './ExternalCard.tsx'
 import { SettingsCard } from './SettingsCard.tsx'
 import { VersionsCard } from './VersionsCard.tsx'
 import css from './DockSection.module.css'
@@ -32,7 +34,7 @@ export type DockSectionProps =
 export function DockSection(props: DockSectionProps): ReactNode {
   const { call, t } = props
   const store = useDock(call)
-  const [activeTab, setActiveTab] = useState<'containers' | 'versions' | 'settings'>('containers')
+  const [activeTab, setActiveTab] = useState<'containers' | 'versions' | 'backup' | 'settings'>('containers')
   const status = store.status
   const usable = store.serviceUp && status !== undefined
   const degradeHint = store.bound ? t('status.serviceDownHint') : t('status.independentHint')
@@ -64,7 +66,7 @@ export function DockSection(props: DockSectionProps): ReactNode {
         </p>
       )}
       <div className={css.tabs} role="tablist" aria-label={t('title')}>
-        {(['containers', 'versions', 'settings'] as const).map(tab => (
+        {(['containers', 'versions', 'backup', 'settings'] as const).map(tab => (
           <button
             key={tab}
             type="button"
@@ -85,6 +87,9 @@ export function DockSection(props: DockSectionProps): ReactNode {
         {activeTab === 'versions' && (usable
           ? <VersionsCard t={t} store={store} />
           : <DegradedCard title={t('versions.title')} hint={degradeHint} />)}
+        {activeTab === 'backup' && (usable
+          ? <ExternalCard t={t} store={store} />
+          : <DegradedCard title={t('backup.title')} hint={degradeHint} />)}
         {activeTab === 'settings' && (usable
           ? <SettingsCard t={t} store={store} />
           : <DegradedCard title={t('settings.title')} hint={degradeHint} />)}

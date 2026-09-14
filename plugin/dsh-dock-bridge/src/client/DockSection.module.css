@@ -520,6 +520,37 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
+/* 外部 DSH 检测 / 备份卡:路径等机械文本走等宽字体,风险清单走 warn 色。 */
+.mono {
+  font-family: var(--ds-font-family-code);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.warnNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.riskList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.riskItem {
+  overflow-wrap: anywhere;
+}
+
 .stoppedDot {
   flex: none;
   width: 10px;

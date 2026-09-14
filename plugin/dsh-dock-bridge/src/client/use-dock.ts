@@ -8,7 +8,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ContainerRow, DockSettings, DockStatus, DockTask, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
+  BackupCatalog, BackupCreated, BackupImport, BackupRow, ContainerRow, DockSettings, DockStatus, DockTask, ExternalCheck,
+  ExternalView, ModelConfigView, OpError, ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
 /** RPC face injected into the section (closed over the client ctx). */
@@ -86,6 +87,10 @@ export function useDock(call: DockCall): DockStore {
   const [templateError, setTemplateError] = useState<OpError>()
   const [modelConfig, setModelConfig] = useState<ModelConfigView>()
   const [modelConfigError, setModelConfigError] = useState<OpError>()
+  const [external, setExternal] = useState<ExternalView>()
+  const [externalError, setExternalError] = useState<OpError>()
+  const [backups, setBackups] = useState<BackupCatalog>()
+  const [backupsError, setBackupsError] = useState<OpError>()
   const [tasks, setTasks] = useState<readonly DockTask[]>([])
   const [busyOps, setBusyOps] = useState<ReadonlySet<string>>(() => new Set())
   const [opError, setOpError] = useState<OpError & { key: string }>()
@@ -188,6 +193,24 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [rest])
 
+  const refreshExternal = useCallback(async () => {
+    setExternalError(undefined)
+    try {
+      setExternal(await rest<ExternalView>('GET', '/api/external', undefined, '外部 DSH 检测失败'))
+    } catch (error) {
+      setExternalError(asOpError(error))
+    }
+  }, [rest])
+
+  const refreshBackups = useCallback(async () => {
+    setBackupsError(undefined)
+    try {
+      setBackups(await rest<BackupCatalog>('GET', '/api/backups', undefined, '备份列表加载失败'))
+    } catch (error) {
+      setBackupsError(asOpError(error))
+    }
+  }, [rest])
+
 
   const refreshTasks = useCallback(async () => {
     try {
@@ -244,6 +267,8 @@ export function useDock(call: DockCall): DockStore {
       setSettings(undefined)
       setTemplate(undefined)
       setModelConfig(undefined)
+      setExternal(undefined)
+      setBackups(undefined)
       return
     }
     void refreshContainers()
@@ -251,7 +276,9 @@ export function useDock(call: DockCall): DockStore {
     void refreshSettings()
     void refreshTemplate()
     void refreshModelConfig()
-  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings, refreshTemplate, refreshModelConfig])
+    void refreshExternal()
+    void refreshBackups()
+  }, [serviceUp, refreshContainers, refreshVersions, refreshSettings, refreshTemplate, refreshModelConfig, refreshExternal, refreshBackups])
 
   const taskFor = useCallback((kind: string, refId: string): DockTask | undefined =>
     tasks.find(entry => entry.kind === kind && entry.refId === refId), [tasks])
@@ -418,6 +445,80 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshModelConfig])
 
+  /** 检测一个外部路径是 DSH 配置目录还是 harness 检出(只读)。 */
+  const checkExternal = useCallback(async (path: string): Promise<ExternalCheck | undefined> => {
+    try {
+      return await mutate('externalCheck', () => rest<ExternalCheck>('POST', '/api/external/check', { path }, '外部路径检测失败'))
+    } catch {
+      return undefined
+    }
+  }, [mutate, rest])
+
+  // 备份设置走同一个 /api/settings:服务端对未传字段保留现值,但 proxy 等字段
+  // 会按空串覆盖,因此提交前必须与当前设置合并,避免只改备份开关却清掉网络配置。
+  const settingsRef = useRef<DockSettings>()
+  settingsRef.current = settings
+  const saveBackupSettings = useCallback(async (patch: Partial<Pick<DockSettings, 'backupEnabled' | 'backupDir' | 'backupKeep'>>) => {
+    const current = settingsRef.current
+    if (current === undefined) return false
+    try {
+      await mutate('backupSettings', () => rest('POST', '/api/settings', { ...current, ...patch }, '备份设置保存失败'))
+      void refreshSettings()
+      void refreshBackups()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshSettings, refreshBackups])
+
+  /** 立即备份全部容器(不带 containerId)。 */
+  const backupNow = useCallback(async () => {
+    try {
+      await mutate('backupNow', () => rest<BackupCreated>('POST', '/api/backups', undefined, '备份失败'))
+      void refreshBackups()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshBackups])
+
+  // 从备份新建容器:服务端返回新容器 id,复用现有 container-create 任务轮询。
+  const restoreBackup = useCallback(async (id: string, input: { name: string; version: string; profile?: string }) => {
+    try {
+      const answer = await mutate(`backupRestore:${id}`, () =>
+        rest<{ id: string }>('POST', `/api/backups/${encodeURIComponent(id)}/restore`, input, '从备份新建容器失败'))
+      watch('container-create', answer.id)
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, watch])
+
+  const deleteBackup = useCallback(async (id: string) => {
+    try {
+      await mutate(`backupDelete:${id}`, () => rest('DELETE', `/api/backups/${encodeURIComponent(id)}`, undefined, '删除备份失败'))
+      void refreshBackups()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshBackups])
+
+  /**
+   * 把外部 DSH 的配置复制为备份(POST /api/backups/import)。
+   * 只复制、绝不软链;`acknowledge` 由页面勾选框给出,源在运行时服务端据此放行。
+   */
+  const importExternal = useCallback(async (input: { sourcePath: string; name?: string; acknowledge: boolean }) => {
+    try {
+      await mutate('externalImport', () => rest<BackupImport>('POST', '/api/backups/import', input, '复制为备份失败'))
+      void refreshBackups()
+      void refreshExternal()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshBackups, refreshExternal])
+
   const setBaseUrl = useCallback(async (next: string) => {
     try {
       await mutate('baseUrl', () => callRef.current('dock.baseUrl', { baseUrl: next }))
@@ -441,6 +542,10 @@ export function useDock(call: DockCall): DockStore {
     templateError,
     modelConfig,
     modelConfigError,
+    external,
+    externalError,
+    backups,
+    backupsError,
     serviceUp,
     bound: status?.dshdockContainer === true,
     tasks,
@@ -456,6 +561,14 @@ export function useDock(call: DockCall): DockStore {
     refreshSettings,
     refreshTemplate,
     refreshModelConfig,
+    refreshExternal,
+    refreshBackups,
+    checkExternal,
+    saveBackupSettings,
+    backupNow,
+    restoreBackup,
+    deleteBackup,
+    importExternal,
     saveModel,
     deleteModel,
     setDefaultModel,
@@ -493,6 +606,12 @@ export interface DockStore {
   readonly templateError: OpError | undefined
   readonly modelConfig: ModelConfigView | undefined
   readonly modelConfigError: OpError | undefined
+  /** Read-only external DSH detection (`GET /api/external`). */
+  readonly external: ExternalView | undefined
+  readonly externalError: OpError | undefined
+  /** Backup catalog (`GET /api/backups`). */
+  readonly backups: BackupCatalog | undefined
+  readonly backupsError: OpError | undefined
   readonly serviceUp: boolean
   readonly bound: boolean
   readonly tasks: readonly DockTask[]
@@ -506,6 +625,19 @@ export interface DockStore {
   refreshSettings: () => Promise<void>
   refreshTemplate: () => Promise<void>
   refreshModelConfig: () => Promise<void>
+  refreshExternal: () => Promise<void>
+  refreshBackups: () => Promise<void>
+  /** Check one path (read-only); undefined on failure (see `opErrorFor`). */
+  checkExternal: (path: string) => Promise<ExternalCheck | undefined>
+  /** Persist the backup groups of `/api/settings` (merged with current values). */
+  saveBackupSettings: (patch: Partial<Pick<DockSettings, 'backupEnabled' | 'backupDir' | 'backupKeep'>>) => Promise<boolean>
+  /** Back up every container right now. */
+  backupNow: () => Promise<boolean>
+  /** Create a new container from a backup (copy semantics) and watch the task. */
+  restoreBackup: (id: string, input: { name: string; version: string; profile?: string }) => Promise<boolean>
+  deleteBackup: (id: string) => Promise<boolean>
+  /** Copy an external DSH home into the backup directory (never a symlink). */
+  importExternal: (input: { sourcePath: string; name?: string; acknowledge: boolean }) => Promise<boolean>
   saveModel: (targetUid: string, model: Readonly<Record<string, unknown>>, apiKey: string) => Promise<boolean>
   deleteModel: (uid: string) => Promise<boolean>
   setDefaultModel: (uid: string) => Promise<boolean>

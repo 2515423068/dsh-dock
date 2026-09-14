@@ -70,6 +70,10 @@ window.__ModuleLoader__.load({
 			const [templateError, setTemplateError] = (0, react.useState)();
 			const [modelConfig, setModelConfig] = (0, react.useState)();
 			const [modelConfigError, setModelConfigError] = (0, react.useState)();
+			const [external, setExternal] = (0, react.useState)();
+			const [externalError, setExternalError] = (0, react.useState)();
+			const [backups, setBackups] = (0, react.useState)();
+			const [backupsError, setBackupsError] = (0, react.useState)();
 			const [tasks, setTasks] = (0, react.useState)([]);
 			const [busyOps, setBusyOps] = (0, react.useState)(() => /* @__PURE__ */ new Set());
 			const [opError, setOpError] = (0, react.useState)();
@@ -175,6 +179,22 @@ window.__ModuleLoader__.load({
 					setModelConfigError(asOpError(error));
 				}
 			}, [rest]);
+			const refreshExternal = (0, react.useCallback)(async () => {
+				setExternalError(void 0);
+				try {
+					setExternal(await rest("GET", "/api/external", void 0, "外部 DSH 检测失败"));
+				} catch (error) {
+					setExternalError(asOpError(error));
+				}
+			}, [rest]);
+			const refreshBackups = (0, react.useCallback)(async () => {
+				setBackupsError(void 0);
+				try {
+					setBackups(await rest("GET", "/api/backups", void 0, "备份列表加载失败"));
+				} catch (error) {
+					setBackupsError(asOpError(error));
+				}
+			}, [rest]);
 			(0, react.useCallback)(async () => {
 				try {
 					setTasks(await rest("GET", "/api/tasks", void 0, "任务列表加载失败"));
@@ -231,6 +251,8 @@ window.__ModuleLoader__.load({
 					setSettings(void 0);
 					setTemplate(void 0);
 					setModelConfig(void 0);
+					setExternal(void 0);
+					setBackups(void 0);
 					return;
 				}
 				refreshContainers();
@@ -238,13 +260,17 @@ window.__ModuleLoader__.load({
 				refreshSettings();
 				refreshTemplate();
 				refreshModelConfig();
+				refreshExternal();
+				refreshBackups();
 			}, [
 				serviceUp,
 				refreshContainers,
 				refreshVersions,
 				refreshSettings,
 				refreshTemplate,
-				refreshModelConfig
+				refreshModelConfig,
+				refreshExternal,
+				refreshBackups
 			]);
 			const taskFor = (0, react.useCallback)((kind, refId) => tasks.find((entry) => entry.kind === kind && entry.refId === refId), [tasks]);
 			const pending = (0, react.useCallback)((kind, refId) => {
@@ -460,6 +486,95 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshModelConfig
 			]);
+			/** 检测一个外部路径是 DSH 配置目录还是 harness 检出(只读)。 */
+			const checkExternal = (0, react.useCallback)(async (path) => {
+				try {
+					return await mutate("externalCheck", () => rest("POST", "/api/external/check", { path }, "外部路径检测失败"));
+				} catch {
+					return;
+				}
+			}, [mutate, rest]);
+			const settingsRef = (0, react.useRef)();
+			settingsRef.current = settings;
+			const saveBackupSettings = (0, react.useCallback)(async (patch) => {
+				const current = settingsRef.current;
+				if (current === void 0) return false;
+				try {
+					await mutate("backupSettings", () => rest("POST", "/api/settings", {
+						...current,
+						...patch
+					}, "备份设置保存失败"));
+					refreshSettings();
+					refreshBackups();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshSettings,
+				refreshBackups
+			]);
+			/** 立即备份全部容器(不带 containerId)。 */
+			const backupNow = (0, react.useCallback)(async () => {
+				try {
+					await mutate("backupNow", () => rest("POST", "/api/backups", void 0, "备份失败"));
+					refreshBackups();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshBackups
+			]);
+			const restoreBackup = (0, react.useCallback)(async (id, input) => {
+				try {
+					const answer = await mutate(`backupRestore:${id}`, () => rest("POST", `/api/backups/${encodeURIComponent(id)}/restore`, input, "从备份新建容器失败"));
+					watch("container-create", answer.id);
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				watch
+			]);
+			const deleteBackup = (0, react.useCallback)(async (id) => {
+				try {
+					await mutate(`backupDelete:${id}`, () => rest("DELETE", `/api/backups/${encodeURIComponent(id)}`, void 0, "删除备份失败"));
+					refreshBackups();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshBackups
+			]);
+			/**
+			* 把外部 DSH 的配置复制为备份(POST /api/backups/import)。
+			* 只复制、绝不软链;`acknowledge` 由页面勾选框给出,源在运行时服务端据此放行。
+			*/
+			const importExternal = (0, react.useCallback)(async (input) => {
+				try {
+					await mutate("externalImport", () => rest("POST", "/api/backups/import", input, "复制为备份失败"));
+					refreshBackups();
+					refreshExternal();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshBackups,
+				refreshExternal
+			]);
 			const setBaseUrl = (0, react.useCallback)(async (next) => {
 				try {
 					await mutate("baseUrl", () => callRef.current("dock.baseUrl", { baseUrl: next }));
@@ -482,6 +597,10 @@ window.__ModuleLoader__.load({
 				templateError,
 				modelConfig,
 				modelConfigError,
+				external,
+				externalError,
+				backups,
+				backupsError,
 				serviceUp,
 				bound: status?.dshdockContainer === true,
 				tasks,
@@ -496,6 +615,14 @@ window.__ModuleLoader__.load({
 				refreshSettings,
 				refreshTemplate,
 				refreshModelConfig,
+				refreshExternal,
+				refreshBackups,
+				checkExternal,
+				saveBackupSettings,
+				backupNow,
+				restoreBackup,
+				deleteBackup,
+				importExternal,
 				saveModel,
 				deleteModel,
 				setDefaultModel,
@@ -520,7 +647,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_mono{font-family:var(--ds-font-family-code);word-break:break-all;font-size:12px}.yFwJXq_warnNote{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:12px;display:flex}.yFwJXq_riskList{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:12px;line-height:18px;display:flex}.yFwJXq_riskItem{overflow-wrap:anywhere}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -530,98 +657,102 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"section": "yFwJXq_section",
-			"taskLine": "yFwJXq_taskLine",
-			"formGrid": "yFwJXq_formGrid",
-			"narrow": "yFwJXq_narrow",
-			"subTitle": "yFwJXq_subTitle",
-			"providerName": "yFwJXq_providerName",
-			"checkLine": "yFwJXq_checkLine",
-			"guideTitle": "yFwJXq_guideTitle",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"inlineForm": "yFwJXq_inlineForm",
-			"ddTag": "yFwJXq_ddTag",
-			"spin": "yFwJXq_spin",
-			"ddName": "yFwJXq_ddName",
-			"logPath": "yFwJXq_logPath",
-			"saveRow": "yFwJXq_saveRow",
 			"builtinBadge": "yFwJXq_builtinBadge",
-			"providerActions": "yFwJXq_providerActions",
-			"detailFrame": "yFwJXq_detailFrame",
-			"modelWarn": "yFwJXq_modelWarn",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"ddStar": "yFwJXq_ddStar",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"cardBody": "yFwJXq_cardBody",
-			"rows": "yFwJXq_rows",
-			"chipRow": "yFwJXq_chipRow",
-			"dotOk": "yFwJXq_dotOk",
-			"taskInline": "yFwJXq_taskInline",
-			"modelList": "yFwJXq_modelList",
-			"empty": "yFwJXq_empty",
-			"formLabel": "yFwJXq_formLabel",
-			"tab": "yFwJXq_tab",
-			"ddTrigger": "yFwJXq_ddTrigger",
-			"link": "yFwJXq_link",
-			"rowUrl": "yFwJXq_rowUrl",
-			"rangeInput": "yFwJXq_rangeInput",
-			"card": "yFwJXq_card",
-			"verSelect": "yFwJXq_verSelect",
-			"statusLabel": "yFwJXq_statusLabel",
-			"cardActions": "yFwJXq_cardActions",
-			"guideBody": "yFwJXq_guideBody",
-			"modelRow": "yFwJXq_modelRow",
-			"grow": "yFwJXq_grow",
-			"providerRow": "yFwJXq_providerRow",
-			"intro": "yFwJXq_intro",
-			"taskHead": "yFwJXq_taskHead",
+			"cardTitle": "yFwJXq_cardTitle",
 			"hintIcon": "yFwJXq_hintIcon",
-			"title": "yFwJXq_title",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"tabs": "yFwJXq_tabs",
-			"ddX": "yFwJXq_ddX",
-			"mutedCell": "yFwJXq_mutedCell",
-			"selfBadge": "yFwJXq_selfBadge",
-			"switchLine": "yFwJXq_switchLine",
-			"rowLine": "yFwJXq_rowLine",
-			"cardHead": "yFwJXq_cardHead",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"ddCaret": "yFwJXq_ddCaret",
-			"dotMiss": "yFwJXq_dotMiss",
-			"tabPanel": "yFwJXq_tabPanel",
-			"rowActions": "yFwJXq_rowActions",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"rowMeta": "yFwJXq_rowMeta",
-			"row": "yFwJXq_row",
-			"dd": "yFwJXq_dd",
-			"ddPanel": "yFwJXq_ddPanel",
-			"ddMeta": "yFwJXq_ddMeta",
-			"capInput": "yFwJXq_capInput",
-			"taskFailed": "yFwJXq_taskFailed",
-			"labelCol": "yFwJXq_labelCol",
-			"dot": "yFwJXq_dot",
-			"outputTail": "yFwJXq_outputTail",
-			"footerNote": "yFwJXq_footerNote",
-			"rowHead": "yFwJXq_rowHead",
-			"rowTitle": "yFwJXq_rowTitle",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"errorNote": "yFwJXq_errorNote",
-			"ddProv": "yFwJXq_ddProv",
-			"modelItem": "yFwJXq_modelItem",
-			"cellAction": "yFwJXq_cellAction",
-			"table": "yFwJXq_table",
-			"errorLine": "yFwJXq_errorLine",
-			"ddLabel": "yFwJXq_ddLabel",
-			"guide": "yFwJXq_guide",
-			"modelField": "yFwJXq_modelField",
+			"rangeInput": "yFwJXq_rangeInput",
+			"mono": "yFwJXq_mono",
 			"formRow": "yFwJXq_formRow",
+			"rowTitle": "yFwJXq_rowTitle",
+			"ddPanel": "yFwJXq_ddPanel",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"empty": "yFwJXq_empty",
+			"detailFrame": "yFwJXq_detailFrame",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"cardHead": "yFwJXq_cardHead",
+			"cardBody": "yFwJXq_cardBody",
+			"mutedCell": "yFwJXq_mutedCell",
+			"taskLine": "yFwJXq_taskLine",
+			"card": "yFwJXq_card",
+			"labelCol": "yFwJXq_labelCol",
+			"intro": "yFwJXq_intro",
+			"providerActions": "yFwJXq_providerActions",
+			"ddMeta": "yFwJXq_ddMeta",
+			"table": "yFwJXq_table",
+			"tabPanel": "yFwJXq_tabPanel",
+			"cardActions": "yFwJXq_cardActions",
+			"guide": "yFwJXq_guide",
+			"tabs": "yFwJXq_tabs",
+			"errorNote": "yFwJXq_errorNote",
+			"statusLabel": "yFwJXq_statusLabel",
+			"taskInline": "yFwJXq_taskInline",
+			"riskList": "yFwJXq_riskList",
+			"taskHead": "yFwJXq_taskHead",
+			"ddLabel": "yFwJXq_ddLabel",
+			"selfBadge": "yFwJXq_selfBadge",
 			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"riskItem": "yFwJXq_riskItem",
+			"rowHead": "yFwJXq_rowHead",
+			"modelWarn": "yFwJXq_modelWarn",
+			"warnNote": "yFwJXq_warnNote",
+			"link": "yFwJXq_link",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"guideTitle": "yFwJXq_guideTitle",
+			"providerName": "yFwJXq_providerName",
+			"row": "yFwJXq_row",
+			"modelRow": "yFwJXq_modelRow",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"dotOk": "yFwJXq_dotOk",
+			"modelList": "yFwJXq_modelList",
+			"outputTail": "yFwJXq_outputTail",
+			"modelItem": "yFwJXq_modelItem",
+			"checkLine": "yFwJXq_checkLine",
+			"switchLine": "yFwJXq_switchLine",
+			"tab": "yFwJXq_tab",
+			"ddTag": "yFwJXq_ddTag",
+			"dot": "yFwJXq_dot",
+			"dotMiss": "yFwJXq_dotMiss",
+			"section": "yFwJXq_section",
+			"subTitle": "yFwJXq_subTitle",
+			"formLabel": "yFwJXq_formLabel",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"dd": "yFwJXq_dd",
+			"ddProv": "yFwJXq_ddProv",
+			"ddStar": "yFwJXq_ddStar",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"rowLine": "yFwJXq_rowLine",
 			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"capInput": "yFwJXq_capInput",
+			"rows": "yFwJXq_rows",
+			"errorLine": "yFwJXq_errorLine",
+			"ddX": "yFwJXq_ddX",
+			"inlineForm": "yFwJXq_inlineForm",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"rowActions": "yFwJXq_rowActions",
+			"grow": "yFwJXq_grow",
+			"narrow": "yFwJXq_narrow",
+			"ddCaret": "yFwJXq_ddCaret",
+			"title": "yFwJXq_title",
+			"spin": "yFwJXq_spin",
+			"formGrid": "yFwJXq_formGrid",
+			"verSelect": "yFwJXq_verSelect",
+			"providerRow": "yFwJXq_providerRow",
+			"taskFailed": "yFwJXq_taskFailed",
+			"rowMeta": "yFwJXq_rowMeta",
+			"saveRow": "yFwJXq_saveRow",
+			"guideBody": "yFwJXq_guideBody",
+			"modelField": "yFwJXq_modelField",
+			"footerNote": "yFwJXq_footerNote",
+			"ddName": "yFwJXq_ddName",
+			"chipRow": "yFwJXq_chipRow",
 			"ddItem": "yFwJXq_ddItem",
-			"cardTitle": "yFwJXq_cardTitle"
+			"cellAction": "yFwJXq_cellAction",
+			"logPath": "yFwJXq_logPath",
+			"rowUrl": "yFwJXq_rowUrl",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"modelItemActive": "yFwJXq_modelItemActive"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1219,6 +1350,665 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/ExternalCard.tsx
+		/**
+		* "外部 DSH 与备份" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
+		* 安装、源码检出、正在运行的实例),唯一可做的动作是「复制为备份」;下半部是配置
+		* 备份(自动备份开关、目录与保留份数、立即备份全部、备份列表 + 从备份新建容器 /
+		* 删除)。检测只读:不改动任何外部实例,导入一律**只复制、绝不软链**。
+		*/
+		/** 字节数 → 与服务端恢复指南同口径的易读大小。 */
+		function formatBytes(bytes) {
+			if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+			if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+			return `${bytes} B`;
+		}
+		/** 备份原因 → 本机化文案(未知原因原样显示服务端的值)。 */
+		function reasonLabel(t, reason) {
+			switch (reason) {
+				case "manual": return t("backup.reason.manual");
+				case "import": return t("backup.reason.import");
+				case "created": return t("backup.reason.created");
+				case "pre-delete": return t("backup.reason.preDelete");
+				case "pre-update": return t("backup.reason.preUpdate");
+				default: return reason;
+			}
+		}
+		/** 备份时间戳(秒)→ 本地时间;缺失时显示占位符。 */
+		function formatWhen(t, createdAt) {
+			return createdAt !== null ? (/* @__PURE__ */ new Date(createdAt * 1e3)).toLocaleString() : t("backup.unknownTime");
+		}
+		/** 备份名 → 合法的默认容器名(容器名只允许字母/数字/./_/-,≤64 字符)。 */
+		function defaultContainerName(name) {
+			const sanitized = name.trim().replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "");
+			return `${(sanitized.length > 0 ? sanitized : "restored").slice(0, 56)}-restore`;
+		}
+		/** 该容器 tab 的卡片主体:外部检测 + 配置备份两张卡。 */
+		function ExternalCard({ t, store }) {
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalDetectCard, {
+				t,
+				store
+			}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(BackupCard, {
+				t,
+				store
+			})] });
+		}
+		/** 外部 DSH 检测卡(只读;唯一动作 = 复制为备份)。 */
+		function ExternalDetectCard({ t, store }) {
+			const [importTarget, setImportTarget] = (0, react.useState)();
+			const [acknowledged, setAcknowledged] = (0, react.useState)(false);
+			const [importNote, setImportNote] = (0, react.useState)();
+			const [checkPath, setCheckPath] = (0, react.useState)("");
+			const [checked, setChecked] = (0, react.useState)();
+			const [checkNote, setCheckNote] = (0, react.useState)();
+			const external = store.external;
+			const opError = store.opErrorFor(["external"]);
+			const homes = external?.homes ?? [];
+			const checkouts = external?.checkouts ?? [];
+			const installed = external?.installed ?? [];
+			const running = external?.running ?? [];
+			const openImport = (target) => {
+				setImportNote(void 0);
+				setAcknowledged(false);
+				setImportTarget(target);
+			};
+			const submitImport = async () => {
+				const target = importTarget;
+				if (target === void 0) return;
+				if (await store.importExternal({
+					sourcePath: target.path,
+					name: target.name,
+					acknowledge: true
+				})) {
+					setImportTarget(void 0);
+					setAcknowledged(false);
+					setImportNote(t("external.imported", { name: target.name.length > 0 ? target.name : target.path }));
+				} else setImportNote(t("error.operationFailed"));
+			};
+			const submitCheck = async () => {
+				const path = checkPath.trim();
+				if (path.length === 0) return;
+				setCheckNote(void 0);
+				const result = await store.checkExternal(path);
+				setChecked(result);
+				if (result === void 0) {
+					setCheckNote(t("error.operationFailed"));
+					return;
+				}
+				setCheckNote(result.isHome ? t("external.checkHome", { sessions: String(result.home.sessions) }) : result.isHarness ? t("external.checkHarness", { version: result.harness.version.length > 0 ? result.harness.version : "-" }) : t("external.checkNone"));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(SectionCard, {
+				title: t("external.title"),
+				actions: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					icon: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutline16, { size: 14 }),
+					onClick: () => {
+						store.refreshExternal();
+					},
+					children: t("external.refresh")
+				}),
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.intro,
+						children: t("external.intro")
+					}),
+					store.externalError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: store.externalError.title,
+						detail: store.externalError.detail
+					}),
+					opError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: opError.title,
+						detail: opError.detail,
+						output: opError.output
+					}),
+					importNote !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: importNote
+					}),
+					external !== void 0 && external.canDetectUsage !== true && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("p", {
+						className: DockSection_module_css_default.warnNote,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconWarningOutline16, { size: 14 }), t("external.usageUnknown")]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
+						className: DockSection_module_css_default.subTitle,
+						children: t("external.homesTitle")
+					}),
+					homes.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.empty,
+						children: t("external.homesEmpty")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("ul", {
+						className: DockSection_module_css_default.rows,
+						children: homes.map((home) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+							className: DockSection_module_css_default.row,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: DockSection_module_css_default.rowHead,
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: DockSection_module_css_default.rowTitle,
+										children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+											className: DockSection_module_css_default.mono,
+											children: home.path
+										})
+									}), home.inUse && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Pill, { children: t("external.inUse", { pid: home.pid !== null ? String(home.pid) : "-" }) })]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+									className: DockSection_module_css_default.rowMeta,
+									children: [
+										t("external.homeFacts", {
+											sessions: String(home.sessions),
+											files: String(home.files),
+											size: formatBytes(home.bytes)
+										}),
+										home.hasCredentials ? ` · ${t("external.hasCredentials")}` : "",
+										home.hasSettings ? ` · ${t("external.hasSettings")}` : ""
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+									className: DockSection_module_css_default.rowActions,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+										size: "sm",
+										onClick: () => {
+											openImport({
+												path: home.path,
+												name: home.path === external?.officialHome ? t("external.officialName") : "",
+												inUse: home.inUse,
+												hasCredentials: home.hasCredentials,
+												sessions: home.sessions,
+												bytes: home.bytes
+											});
+										},
+										children: t("external.copyAsBackup")
+									})
+								})
+							]
+						}, home.path))
+					}),
+					external !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: t("external.officialHomeNote", { path: external.officialHome })
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
+						className: DockSection_module_css_default.subTitle,
+						children: t("external.versionsTitle")
+					}),
+					checkouts.length === 0 && installed.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.empty,
+						children: t("external.versionsEmpty")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
+						className: DockSection_module_css_default.rows,
+						children: [checkouts.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+							className: DockSection_module_css_default.row,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: DockSection_module_css_default.rowHead,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DockSection_module_css_default.rowTitle,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+										className: DockSection_module_css_default.mono,
+										children: item.path
+									})
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Pill, { children: item.prebuilt ? t("external.prebuilt") : t("external.notPrebuilt") })]
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.rowMeta,
+								children: t("external.checkoutVersion", { version: item.version.length > 0 ? item.version : "-" })
+							})]
+						}, item.path)), installed.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("li", {
+							className: DockSection_module_css_default.row,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: DockSection_module_css_default.rowHead,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+									className: DockSection_module_css_default.rowTitle,
+									children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+										className: DockSection_module_css_default.mono,
+										children: item.path
+									})
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Pill, { children: t(`external.kind.${item.kind}`) })]
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.rowMeta,
+								children: t("external.installedVersion", { version: item.version.length > 0 ? item.version : "-" })
+							})]
+						}, `${item.kind}:${item.path}`))]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("h4", {
+						className: DockSection_module_css_default.subTitle,
+						children: t("external.runningTitle")
+					}),
+					running.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.empty,
+						children: t("external.runningEmpty")
+					}),
+					running.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("table", {
+						className: DockSection_module_css_default.table,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("external.pid") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("external.port") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("external.home") })
+						] }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("tbody", { children: running.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.pid }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.port !== null ? item.port : "-" }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+								className: DockSection_module_css_default.mono,
+								children: item.home ?? "-"
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.mutedCell,
+								children: item.cmdline
+							})] })
+						] }, item.pid)) })]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.inlineForm,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: DockSection_module_css_default.inlineFormRow,
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: DockSection_module_css_default.formLabel,
+										children: t("external.checkLabel")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+										className: DockSection_module_css_default.grow,
+										value: checkPath,
+										placeholder: t("external.checkPlaceholder"),
+										onChange: (event) => {
+											setCheckPath(event.target.value);
+										}
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+										size: "sm",
+										variant: "primary",
+										disabled: checkPath.trim().length === 0 || store.isBusy("externalCheck"),
+										onClick: () => {
+											submitCheck();
+										},
+										children: t("external.check")
+									})
+								]
+							}),
+							checkNote !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: DockSection_module_css_default.footerNote,
+								children: checkNote
+							}),
+							checked?.isHome === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.inlineFormActions,
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									onClick: () => {
+										openImport({
+											path: checked.path,
+											name: "",
+											inUse: checked.usage.inUse,
+											hasCredentials: checked.home.hasCredentials,
+											sessions: checked.home.sessions,
+											bytes: checked.home.bytes
+										});
+									},
+									children: t("external.copyAsBackup")
+								})
+							})
+						]
+					}),
+					importTarget !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.inlineForm,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.inlineFormRow,
+								children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+									className: DockSection_module_css_default.formLabel,
+									children: [
+										t("external.importTitle"),
+										" · ",
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("code", {
+											className: DockSection_module_css_default.mono,
+											children: importTarget.path
+										})
+									]
+								})
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.rowMeta,
+								children: t("external.importFacts", {
+									sessions: String(importTarget.sessions),
+									size: formatBytes(importTarget.bytes)
+								})
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("ul", {
+								className: DockSection_module_css_default.riskList,
+								children: [
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+										className: DockSection_module_css_default.riskItem,
+										children: t("external.riskCopy")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+										className: DockSection_module_css_default.riskItem,
+										children: t("external.riskCredentials")
+									}),
+									/* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+										className: DockSection_module_css_default.riskItem,
+										children: importTarget.inUse ? t("external.riskInUse") : t("external.riskStop")
+									}),
+									importTarget.hasCredentials && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("li", {
+										className: DockSection_module_css_default.riskItem,
+										children: t("external.riskPlaintext")
+									})
+								]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+								className: DockSection_module_css_default.checkboxRow,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+									type: "checkbox",
+									checked: acknowledged,
+									onChange: (event) => {
+										setAcknowledged(event.target.checked);
+									}
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("external.acknowledge") })]
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+								className: DockSection_module_css_default.inlineFormActions,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									variant: "outline",
+									onClick: () => {
+										setImportTarget(void 0);
+										setAcknowledged(false);
+									},
+									children: t("cancel")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									variant: "primary",
+									disabled: !acknowledged || store.isBusy("externalImport"),
+									onClick: () => {
+										submitImport();
+									},
+									children: store.isBusy("externalImport") ? t("external.importing") : t("external.importConfirm")
+								})]
+							})
+						]
+					})
+				]
+			});
+		}
+		/** 配置备份卡:开关 / 目录 / 保留份数 + 立即备份全部 + 备份列表。 */
+		function BackupCard({ t, store }) {
+			const [enabled, setEnabled] = (0, react.useState)(false);
+			const [dir, setDir] = (0, react.useState)("");
+			const [keep, setKeep] = (0, react.useState)("10");
+			const [note, setNote] = (0, react.useState)();
+			const [restoreFor, setRestoreFor] = (0, react.useState)();
+			const [restoreName, setRestoreName] = (0, react.useState)("");
+			const [restoreVersion, setRestoreVersion] = (0, react.useState)("");
+			const [deleteFor, setDeleteFor] = (0, react.useState)();
+			const opError = store.opErrorFor(["backup"]);
+			const items = store.backups?.items ?? [];
+			const installedVersions = (store.versions?.versions ?? []).filter((entry) => entry.installed).map((entry) => entry.tag);
+			(0, react.useEffect)(() => {
+				if (store.settings !== void 0) {
+					setEnabled(store.settings.backupEnabled === true);
+					setDir(store.settings.backupDir ?? "");
+					setKeep(String(store.settings.backupKeep ?? 10));
+				}
+			}, [store.settings]);
+			const dirty = store.settings !== void 0 && (enabled !== (store.settings.backupEnabled === true) || dir.trim() !== (store.settings.backupDir ?? "") || keep.trim() !== String(store.settings.backupKeep ?? 10));
+			const saveSettings = async () => {
+				setNote(void 0);
+				const saved = await store.saveBackupSettings({
+					backupEnabled: enabled,
+					backupDir: dir.trim(),
+					backupKeep: Math.max(0, Number(keep) || 0)
+				});
+				setNote(saved ? t("settings.saved") : t("error.operationFailed"));
+			};
+			const backupNow = async () => {
+				setNote(void 0);
+				const done = await store.backupNow();
+				setNote(done ? t("backup.nowDone") : t("error.operationFailed"));
+			};
+			const openRestore = (row) => {
+				setNote(void 0);
+				setRestoreFor(row);
+				setRestoreName(defaultContainerName(row.name));
+				setRestoreVersion(row.version !== null && row.version.length > 0 ? row.version : installedVersions[0] ?? "");
+			};
+			const submitRestore = async () => {
+				const row = restoreFor;
+				if (row === void 0) return;
+				const name = restoreName.trim();
+				if (name.length === 0 || restoreVersion.length === 0) return;
+				if (await store.restoreBackup(row.id, {
+					name,
+					version: restoreVersion,
+					profile: row.profile
+				})) {
+					setRestoreFor(void 0);
+					setNote(t("backup.restoreStarted", { name }));
+				} else setNote(t("error.operationFailed"));
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(SectionCard, {
+				title: t("backup.cardTitle"),
+				actions: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+					size: "sm",
+					variant: "primary",
+					disabled: store.isBusy("backupNow"),
+					onClick: () => {
+						backupNow();
+					},
+					children: store.isBusy("backupNow") ? t("backup.nowRunning") : t("backup.now")
+				}),
+				children: [
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.intro,
+						children: t("backup.intro")
+					}),
+					store.backupsError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: store.backupsError.title,
+						detail: store.backupsError.detail
+					}),
+					store.settingsError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: store.settingsError.title,
+						detail: store.settingsError.detail
+					}),
+					opError !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: opError.title,
+						detail: opError.detail,
+						output: opError.output
+					}),
+					note !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: note
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.rowLine,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("backup.enable")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+							className: DockSection_module_css_default.checkboxRow,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+								type: "checkbox",
+								checked: enabled,
+								onChange: (event) => {
+									setEnabled(event.target.checked);
+								}
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("backup.enableHint") })]
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.rowLine,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+							className: DockSection_module_css_default.labelCol,
+							children: t("backup.dir")
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+							className: DockSection_module_css_default.grow,
+							value: dir,
+							placeholder: store.backups?.dir ?? "",
+							onChange: (event) => {
+								setDir(event.target.value);
+							}
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.rowLine,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.labelCol,
+								children: t("backup.keep")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.narrow,
+								value: keep,
+								inputMode: "numeric",
+								onChange: (event) => {
+									setKeep(event.target.value);
+								}
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.footerNote,
+								children: t("backup.keepHint")
+							})
+						]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+						className: DockSection_module_css_default.saveRow,
+						children: /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+							size: "sm",
+							variant: "primary",
+							disabled: !dirty || store.isBusy("backupSettings"),
+							onClick: () => {
+								saveSettings();
+							},
+							children: store.isBusy("backupSettings") ? t("settings.saving") : t("settings.save")
+						})
+					}),
+					items.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.empty,
+						children: t("backup.empty")
+					}),
+					items.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("table", {
+						className: DockSection_module_css_default.table,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.name") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.version") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.sessions") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.size") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.createdAt") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", { children: t("backup.reason") }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("th", {
+								className: DockSection_module_css_default.cellAction,
+								children: t("backup.action")
+							})
+						] }) }), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("tbody", { children: items.map((item) => /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("tr", { children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("b", { children: item.name }), item.hasCredentials && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.mutedCell,
+								children: t("external.hasCredentials")
+							})] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.version ?? "-" }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: item.sessions }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: formatBytes(item.bytes) }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("td", { children: formatWhen(t, item.createdAt) }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", { children: [reasonLabel(t, item.reason), item.note.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+								className: DockSection_module_css_default.mutedCell,
+								children: item.note
+							})] }),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("td", {
+								className: DockSection_module_css_default.cellAction,
+								children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									disabled: store.isBusy(`backupRestore:${item.id}`),
+									onClick: () => {
+										openRestore(item);
+									},
+									children: t("backup.restore")
+								}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									disabled: store.isBusy(`backupDelete:${item.id}`),
+									onClick: () => {
+										setDeleteFor(item);
+									},
+									children: t("backup.delete")
+								})]
+							})
+						] }, item.id)) })]
+					}),
+					restoreFor !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.inlineForm,
+						children: [/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.inlineFormRow,
+							children: [
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("span", {
+									className: DockSection_module_css_default.formLabel,
+									children: [
+										t("backup.restore"),
+										" · ",
+										restoreFor.name
+									]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+									className: DockSection_module_css_default.grow,
+									value: restoreName,
+									placeholder: t("containers.namePlaceholder"),
+									onChange: (event) => {
+										setRestoreName(event.target.value);
+									}
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("select", {
+									className: DockSection_module_css_default.narrow,
+									value: restoreVersion,
+									onChange: (event) => {
+										setRestoreVersion(event.target.value);
+									},
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+										value: "",
+										children: t("containers.versionLabel")
+									}), installedVersions.map((tag) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("option", {
+										value: tag,
+										children: tag
+									}, tag))]
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									variant: "primary",
+									disabled: restoreName.trim().length === 0 || restoreVersion.length === 0 || store.isBusy(`backupRestore:${restoreFor.id}`),
+									onClick: () => {
+										submitRestore();
+									},
+									children: t("containers.confirm")
+								}),
+								/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+									size: "sm",
+									variant: "outline",
+									"aria-label": t("cancel"),
+									onClick: () => {
+										setRestoreFor(void 0);
+									},
+									children: "×"
+								})
+							]
+						}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+							className: DockSection_module_css_default.footerNote,
+							children: t("backup.restoreHint")
+						})]
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(ConfirmDialog, {
+						open: deleteFor !== void 0,
+						title: deleteFor !== void 0 ? `${t("backup.delete")} · ${deleteFor.name}` : "",
+						body: deleteFor !== void 0 ? t("backup.deleteConfirm", { name: deleteFor.name }) : "",
+						confirmLabel: t("backup.delete"),
+						cancelLabel: t("cancel"),
+						danger: true,
+						busy: deleteFor !== void 0 && store.isBusy(`backupDelete:${deleteFor.id}`),
+						onConfirm: () => {
+							const row = deleteFor;
+							setDeleteFor(void 0);
+							if (row !== void 0) store.deleteBackup(row.id);
+						},
+						onClose: () => {
+							setDeleteFor(void 0);
+						}
+					})
+				]
+			});
+		}
+		//#endregion
 		//#region src/client/ModelConfigGroup.tsx
 		/**
 		* Model-config group of the settings card: the new-container initial config as a
@@ -1692,7 +2482,10 @@ window.__ModuleLoader__.load({
 			npmRegistry: "",
 			containerPortRange: "",
 			autoOpenUiOnStart: true,
-			skipFirstOpenPrompts: true
+			skipFirstOpenPrompts: true,
+			backupEnabled: false,
+			backupDir: "",
+			backupKeep: 10
 		};
 		/** Same shortcut chips the WebUI offers under the mirror fields. */
 		const GH_PRESETS = [
@@ -2161,9 +2954,10 @@ window.__ModuleLoader__.load({
 		//#endregion
 		//#region src/client/DockSection.tsx
 		/**
-		* The "DSH Dock" top-level settings section: environment banner plus three
-		* cards (containers / versions / settings). When the service is unreachable
-		* or this DSH is independent, service-backed cards degrade into the guide.
+		* The "DSH Dock" top-level settings section: environment banner plus the
+		* tabbed cards (containers / versions / external & backups / settings). When
+		* the service is unreachable or this DSH is independent, service-backed cards
+		* degrade into the guide.
 		*/
 		/** The section root. */
 		function DockSection(props) {
@@ -2216,6 +3010,7 @@ window.__ModuleLoader__.load({
 						children: [
 							"containers",
 							"versions",
+							"backup",
 							"settings"
 						].map((tab) => /* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
 							type: "button",
@@ -2245,6 +3040,13 @@ window.__ModuleLoader__.load({
 								store
 							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DegradedCard, {
 								title: t("versions.title"),
+								hint: degradeHint
+							})),
+							activeTab === "backup" && (usable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ExternalCard, {
+								t,
+								store
+							}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(DegradedCard, {
+								title: t("backup.title"),
 								hint: degradeHint
 							})),
 							activeTab === "settings" && (usable ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(SettingsCard, {
@@ -2391,6 +3193,79 @@ window.__ModuleLoader__.load({
 			"versions.empty": "版本目录为空",
 			"versions.cachedAt": "目录更新于 {time}",
 			"versions.confirmDelete": "删除版本 {tag}?仅在本版本未被任何容器使用时允许。",
+			"backup.title": "外部与备份",
+			"external.title": "外部 DSH 检测(只读)",
+			"external.refresh": "重新检测",
+			"external.intro": "检测 DSH Dock 之外已有的 DSH:官方 ~/.dsh、npx/全局安装、harness 源码检出,以及正在运行的实例。这里只检测并告知:不改动这些外部实例,也不建立任何链接;唯一可做的动作是把某份配置「复制为备份」。",
+			"external.usageUnknown": "当前平台读不到进程的 DSH_HOME:无法自动判断某个配置是否正在被使用,提交前请自行确认源 DSH 已停止。",
+			"external.homesTitle": "检测到的配置目录(DSH_HOME)",
+			"external.homesEmpty": "未检测到外部配置目录",
+			"external.inUse": "正在运行(pid {pid})",
+			"external.homeFacts": "{sessions} 个会话 · {files} 个文件 · {size}",
+			"external.importFacts": "{sessions} 个会话 · {size}",
+			"external.hasCredentials": "含凭据文件",
+			"external.hasSettings": "含 settings.yaml",
+			"external.officialName": "官方 ~/.dsh",
+			"external.officialHomeNote": "官方路径:{path}(不存在时不列出)",
+			"external.copyAsBackup": "复制为备份",
+			"external.versionsTitle": "检测到的 DSH 安装 / 检出",
+			"external.versionsEmpty": "未检测到外部 DSH 安装或 harness 检出",
+			"external.prebuilt": "已有构建产物",
+			"external.notPrebuilt": "未构建",
+			"external.checkoutVersion": "检出 {version}",
+			"external.installedVersion": "版本 {version}",
+			"external.kind.npx": "npx 缓存",
+			"external.kind.global": "npm 全局",
+			"external.runningTitle": "正在运行的 DSH 进程",
+			"external.runningEmpty": "未检测到正在运行的 DSH 进程",
+			"external.pid": "PID",
+			"external.port": "端口",
+			"external.home": "DSH_HOME",
+			"external.checkLabel": "检测一个路径",
+			"external.checkPlaceholder": "绝对路径,例如 /home/you/.dsh",
+			"external.check": "检测",
+			"external.checkHome": "这是一个 DSH 配置目录({sessions} 个会话),可复制为备份。",
+			"external.checkHarness": "这是一份 harness 检出(版本 {version})。",
+			"external.checkNone": "既不是 DSH 配置目录,也不是 harness 检出。",
+			"external.importTitle": "复制为备份",
+			"external.riskCopy": "只做复制:源目录不会被修改,复制完成后两边各自独立、互不影响;绝不使用软链。",
+			"external.riskCredentials": "配置里可能含明文凭据(.credentials.yaml):备份目录请视为敏感数据,不要提交到公开仓库或分享。",
+			"external.riskStop": "请先停止源 DSH:运行中复制可能得到写到一半的会话文件。",
+			"external.riskInUse": "⚠️ 检测到源 DSH 仍在运行:复制到的可能只是某一刻的快照。",
+			"external.riskPlaintext": "⚠️ 该目录含 .credentials.yaml(明文 API Key),复制后在备份目录中仍以 0600 权限保存。",
+			"external.acknowledge": "我确认该 DSH 已停止,并了解以上风险",
+			"external.importConfirm": "开始复制",
+			"external.importing": "复制中…",
+			"external.imported": "已复制为备份:{name}",
+			"backup.cardTitle": "配置备份",
+			"backup.intro": "把每个容器的 profile(该实例的 DSH_HOME)整份复制到备份目录;备份是独立副本(只复制、不链接),即使卸载 DSH Dock,也能照备份目录内的指南手动恢复。",
+			"backup.enable": "自动备份",
+			"backup.enableHint": "开启后:创建容器、更新版本、删除容器前自动留一份配置",
+			"backup.dir": "备份目录",
+			"backup.keep": "保留份数",
+			"backup.keepHint": "每个容器最多保留多少份(0 = 不清理);目录留空则用默认 DATA_ROOT/backups",
+			"backup.now": "立即备份全部",
+			"backup.nowRunning": "备份中…",
+			"backup.nowDone": "备份完成",
+			"backup.empty": "暂无备份",
+			"backup.name": "名称",
+			"backup.version": "版本",
+			"backup.sessions": "会话",
+			"backup.size": "大小",
+			"backup.createdAt": "时间",
+			"backup.reason": "原因",
+			"backup.action": "操作",
+			"backup.restore": "从备份新建容器",
+			"backup.delete": "删除",
+			"backup.deleteConfirm": "删除备份 {name}?备份目录会被移除,不可恢复(源容器不受影响)。",
+			"backup.restoreHint": "新建容器会复制这份备份的配置(恢复 = 复制,不动备份本身);版本下拉复用「版本」分区的已安装版本。",
+			"backup.restoreStarted": "已开始从备份新建容器:{name}",
+			"backup.unknownTime": "未知",
+			"backup.reason.manual": "手动",
+			"backup.reason.import": "外部导入",
+			"backup.reason.created": "创建时自动",
+			"backup.reason.preDelete": "删除前自动",
+			"backup.reason.preUpdate": "更新前自动",
 			"settings.title": "设置",
 			"settings.intro": "DSH Dock 服务端设置(网络 / 端口池 / 启动行为)与本插件的服务地址。",
 			"settings.network": "网络",
@@ -2563,6 +3438,79 @@ window.__ModuleLoader__.load({
 			"versions.empty": "The version catalog is empty",
 			"versions.cachedAt": "Catalog updated at {time}",
 			"versions.confirmDelete": "Delete version {tag}? Only allowed while no container uses it.",
+			"backup.title": "External & backups",
+			"external.title": "External DSH detection (read-only)",
+			"external.refresh": "Detect again",
+			"external.intro": "Detects DSH instances that already exist outside DSH Dock: the official ~/.dsh, npx/global installs, harness source checkouts, and running instances. This only detects and informs — external instances are never modified and no link is ever created; the single available action is to copy a configuration into a backup.",
+			"external.usageUnknown": "This platform cannot read a process's DSH_HOME, so it cannot tell whether a configuration is in use; confirm the source DSH is stopped before submitting.",
+			"external.homesTitle": "Detected config directories (DSH_HOME)",
+			"external.homesEmpty": "No external config directory detected",
+			"external.inUse": "Running (pid {pid})",
+			"external.homeFacts": "{sessions} sessions · {files} files · {size}",
+			"external.importFacts": "{sessions} sessions · {size}",
+			"external.hasCredentials": "has credentials file",
+			"external.hasSettings": "has settings.yaml",
+			"external.officialName": "official ~/.dsh",
+			"external.officialHomeNote": "Official path: {path} (not listed while it does not exist)",
+			"external.copyAsBackup": "Copy as backup",
+			"external.versionsTitle": "Detected DSH installs / checkouts",
+			"external.versionsEmpty": "No external DSH install or harness checkout detected",
+			"external.prebuilt": "prebuilt",
+			"external.notPrebuilt": "not built",
+			"external.checkoutVersion": "checkout {version}",
+			"external.installedVersion": "version {version}",
+			"external.kind.npx": "npx cache",
+			"external.kind.global": "npm global",
+			"external.runningTitle": "Running DSH processes",
+			"external.runningEmpty": "No running DSH process detected",
+			"external.pid": "PID",
+			"external.port": "Port",
+			"external.home": "DSH_HOME",
+			"external.checkLabel": "Check a path",
+			"external.checkPlaceholder": "Absolute path, e.g. /home/you/.dsh",
+			"external.check": "Check",
+			"external.checkHome": "This is a DSH config directory ({sessions} sessions); it can be copied into a backup.",
+			"external.checkHarness": "This is a harness checkout (version {version}).",
+			"external.checkNone": "Neither a DSH config directory nor a harness checkout.",
+			"external.importTitle": "Copy as backup",
+			"external.riskCopy": "Copy only: the source directory is never modified, and both sides stay independent afterwards; symlinks are never used.",
+			"external.riskCredentials": "The config may hold plaintext credentials (.credentials.yaml): treat the backup directory as sensitive and never commit or share it.",
+			"external.riskStop": "Stop the source DSH first: copying while it runs may capture half-written session files.",
+			"external.riskInUse": "⚠️ The source DSH is still running: what gets copied may only be a snapshot of one moment.",
+			"external.riskPlaintext": "⚠️ This directory holds .credentials.yaml (plaintext API keys); the copy keeps them in the backup directory under mode 0600.",
+			"external.acknowledge": "I confirm that DSH is stopped and I understand the risks above",
+			"external.importConfirm": "Start copy",
+			"external.importing": "Copying…",
+			"external.imported": "Copied into a backup: {name}",
+			"backup.cardTitle": "Config backups",
+			"backup.intro": "Copies each container's profile (that instance's DSH_HOME) into the backup directory; every backup is an independent copy (copy only, never a link), so it can still be restored by hand from the guide in the backup directory even after DSH Dock is uninstalled.",
+			"backup.enable": "Auto backup",
+			"backup.enableHint": "While on: keep a copy before creating a container, updating a version, or deleting a container",
+			"backup.dir": "Backup directory",
+			"backup.keep": "Keep count",
+			"backup.keepHint": "Backups kept per container (0 = never prune); an empty directory means the default DATA_ROOT/backups",
+			"backup.now": "Back up everything now",
+			"backup.nowRunning": "Backing up…",
+			"backup.nowDone": "Backup complete",
+			"backup.empty": "No backups yet",
+			"backup.name": "Name",
+			"backup.version": "Version",
+			"backup.sessions": "Sessions",
+			"backup.size": "Size",
+			"backup.createdAt": "Time",
+			"backup.reason": "Reason",
+			"backup.action": "Actions",
+			"backup.restore": "New container from backup",
+			"backup.delete": "Delete",
+			"backup.deleteConfirm": "Delete backup {name}? Its directory is removed and cannot be recovered (the source container is unaffected).",
+			"backup.restoreHint": "The new container copies this backup's config (restoring = copying; the backup itself is untouched); the version list reuses the installed versions from the Versions tab.",
+			"backup.restoreStarted": "Creating a new container from the backup: {name}",
+			"backup.unknownTime": "unknown",
+			"backup.reason.manual": "manual",
+			"backup.reason.import": "external import",
+			"backup.reason.created": "auto on create",
+			"backup.reason.preDelete": "auto before delete",
+			"backup.reason.preUpdate": "auto before update",
 			"settings.title": "Settings",
 			"settings.intro": "DSH Dock service settings (network / port pool / startup behavior) and this plugin's service address.",
 			"settings.network": "Network",

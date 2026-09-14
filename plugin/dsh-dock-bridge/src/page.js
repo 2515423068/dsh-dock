@@ -20,6 +20,8 @@ const REST_ALLOWLIST = [
   '/api/profile-template',
   '/api/model-configs',
   '/api/tasks',
+  '/api/external',
+  '/api/backups',
 ]
 
 /** Endpoints that mutate a container and therefore need the self guard. */
