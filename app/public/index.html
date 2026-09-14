@@ -1300,6 +1300,8 @@ async function renderContainers() {
     actions.push(`<button class="danger" onclick="removeContainer('${c.id}','${escapeHtml(c.name)}', ${c.devProtect ? 'true' : 'false'})">删除</button>`)
     // 开发保护开关:置于操作末尾,switch 样式;开启后服务关闭/重启时保留此容器进程,删除需弹窗确认
     actions.push(`<span class="switch-wrap" title="开启后:服务关闭/重启时保留此容器进程(下次启动自动接管);删除需弹窗确认">保护<label class="switch"><input type="checkbox" ${c.devProtect ? 'checked' : ''} onchange="toggleProtect('${c.id}', this.checked)"><span class="slider"></span></label></span>`)
+    // 自动启动开关:开启后 DSH Dock 服务启动时自动拉起此容器(进程已存活的走"接管",不会重复启动)
+    actions.push(`<span class="switch-wrap" title="开启后:DSH Dock 服务启动时自动启动此容器(宿主机重启后也会自动拉起);进程仍存活的容器走自动接管,不会重复启动">自启<label class="switch"><input type="checkbox" ${c.autoStart ? 'checked' : ''} onchange="toggleAutoStart('${c.id}', this.checked)"><span class="slider"></span></label></span>`)
     // 版本选择框:替代原「更新」按钮与版本文本位;默认当前版本,切换并确认后触发更新
     const versions = [...new Set([...(catalog.installed ?? []), c.version])]
     const versionSelect = `<select class="ver-select" data-current="${escapeHtml(c.version)}" ${busy ? 'disabled' : ''} onchange="confirmUpdate('${c.id}', this)">${versions.map((v) => `<option value="${escapeHtml(v)}" ${v === c.version ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}</select>`
@@ -1388,6 +1390,14 @@ async function toggleProtect(id, enabled) {
   try {
     const r = await api(`/api/containers/${id}/protect`, { method: 'POST', body: { enabled } })
     toast(r.devProtect ? '已开启开发保护:服务关闭时保留此容器,删除需弹窗确认' : '已关闭开发保护')
+    renderContainers()
+  } catch (error) { toast(`操作失败: ${error}`, true) }
+}
+// 自动启动开关:开启后 DSH Dock 服务每次启动都会自动拉起此容器
+async function toggleAutoStart(id, enabled) {
+  try {
+    const r = await api(`/api/containers/${id}/autostart`, { method: 'POST', body: { enabled } })
+    toast(r.autoStart ? '已开启自动启动:DSH Dock 服务启动时将会启动此容器' : '已关闭自动启动')
     renderContainers()
   } catch (error) { toast(`操作失败: ${error}`, true) }
 }

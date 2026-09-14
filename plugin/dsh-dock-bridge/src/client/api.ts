@@ -40,6 +40,8 @@ export interface ContainerRow {
   readonly profile?: string
   readonly port?: number
   readonly devProtect?: boolean
+  /** Starts automatically whenever the DSH Dock service starts. */
+  readonly autoStart?: boolean
   readonly status: 'running' | 'starting' | 'stopped' | 'failed'
   readonly url?: string
   readonly createdAt?: number

@@ -1,10 +1,10 @@
 /**
  * Containers card: one WebUI-shaped card per container (head with name and
  * status pill; meta with the inline version select, port chip, profile and
- * creation time; log path; url; flat actions plus the protect checkbox),
- * the new-container inline form, per-row task progress, and the destructive
- * confirmations (delete always, and the self-container strong path for
- * stop/update/delete with an acknowledge step).
+ * creation time; log path; url; flat actions plus the protect and auto-start
+ * checkboxes), the new-container inline form, per-row task progress, and the
+ * destructive confirmations (delete always, and the self-container strong path
+ * for stop/update/delete with an acknowledge step).
  */
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -54,7 +54,7 @@ export function ContainersCard({ t, store }: {
   const installedVersions = (store.versions?.versions ?? [])
     .filter(entry => entry.installed)
     .map(entry => entry.tag)
-  const opError = store.opErrorFor(['create', 'start:', 'stop:', 'update:', 'delete:', 'port:', 'protect:'])
+  const opError = store.opErrorFor(['create', 'start:', 'stop:', 'update:', 'delete:', 'port:', 'protect:', 'autostart:'])
 
   const submitCreate = async (input: { name: string; version: string; profile: string }): Promise<void> => {
     try {
@@ -245,6 +245,15 @@ export function ContainersCard({ t, store }: {
                     }}
                   />
                   <span>{t('containers.protect')}</span>
+                </label>
+                <label className={css.checkboxRow} title={t('containers.autoStartHint')}>
+                  <input
+                    type="checkbox"
+                    checked={row.autoStart === true}
+                    disabled={store.isBusy(`autostart:${row.id}`)}
+                    onChange={() => { void store.setAutoStart(row.id, row.autoStart !== true) }}
+                  />
+                  <span>{t('containers.autoStart')}</span>
                 </label>
               </div>
               {task !== undefined && (

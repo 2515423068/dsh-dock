@@ -320,6 +320,16 @@ export function useDock(call: DockCall): DockStore {
     }
   }, [mutate, rest, refreshContainers])
 
+  const setAutoStart = useCallback(async (id: string, enabled: boolean) => {
+    try {
+      await mutate(`autostart:${id}`, () => rest('POST', `/api/containers/${id}/autostart`, { enabled }, '自动启动开关失败'))
+      void refreshContainers()
+      return true
+    } catch {
+      return false
+    }
+  }, [mutate, rest, refreshContainers])
+
   // A container running this plugin is a dev container by definition: default
   // the self row to devProtect, at most once per container. A manual choice
   // (recorded by markProtectChoice, including the checkbox below) wins
@@ -458,6 +468,7 @@ export function useDock(call: DockCall): DockStore {
     deleteContainer,
     setPort,
     setProtect,
+    setAutoStart,
     installVersion,
     deleteVersion,
     saveSettings,
@@ -507,6 +518,7 @@ export interface DockStore {
   deleteContainer: (id: string, force?: boolean) => Promise<void>
   setPort: (id: string, port: number) => Promise<boolean>
   setProtect: (id: string, enabled: boolean) => Promise<boolean>
+  setAutoStart: (id: string, enabled: boolean) => Promise<boolean>
   installVersion: (tag: string) => Promise<void>
   deleteVersion: (tag: string) => Promise<void>
   saveSettings: (next: DockSettings) => Promise<boolean>

@@ -2329,6 +2329,7 @@ async function handleApi(request, response, url) {
         profile: meta.profile,
         port: meta.port ?? null,
         devProtect: !!meta.devProtect,
+        autoStart: !!meta.autoStart,
         createdAt: meta.createdAt,
         status,
         url: status === 'running' ? runningHosts.get(id)?.url ?? record.url : null,
@@ -2421,6 +2422,16 @@ async function handleApi(request, response, url) {
       saveContainer(id, container)
       log(`容器 ${container.name} 开发保护: ${container.devProtect ? '开启' : '关闭'}`)
       return send(200, { ok: true, devProtect: container.devProtect })
+    }
+
+    // 自动启动开关:开启后 DSH Dock 服务启动时自动拉起该容器(持久化在 container.json)
+    if (route === `POST /api/containers/${id}/autostart`) {
+      const { enabled } = await readJsonBody(request)
+      const container = getContainer(id)
+      container.autoStart = !!enabled
+      saveContainer(id, container)
+      log(`容器 ${container.name} 自动启动: ${container.autoStart ? '开启' : '关闭'}`)
+      return send(200, { ok: true, autoStart: container.autoStart })
     }
 
     // 修改容器固定端口:仅停止状态可改(运行中改端口会与监听中的 host 脱节),
@@ -2669,6 +2680,31 @@ function reconcileRunningHosts() {
   }
 }
 
+// 启动时自动拉起开了「自动启动」开关的容器:与 devProtect 的接管互补 ——
+// 接管管的是进程仍存活的,这里补上真正已经停掉的(如宿主机重启后)。
+// 逐个启动:并发拉起多个 host 会争抢构建/探测资源;整段异步执行,不阻塞服务对外可用。
+function autoStartContainers() {
+  const meta = (id) => readJson(path.join(CONTAINERS_DIR, id, 'container.json'), {})
+  const targets = listContainerIds().filter((id) => !runningHosts.has(id) && meta(id).autoStart === true)
+  if (targets.length === 0) return
+  log(`自动启动 ${targets.length} 个容器: ${targets.map((id) => meta(id).name ?? id).join(', ')}`)
+  void (async () => {
+    for (const id of targets) {
+      if (runningHosts.has(id)) continue
+      const name = meta(id).name ?? id
+      try {
+        await runTask('container-start', id, `自动启动 ${name}`, async ({ line }) => {
+          line('服务启动:该容器开启了「自动启动」')
+          const url = await startContainer(id)
+          line(`就绪: ${url}`)
+        })
+      } catch (error) {
+        log(`自动启动容器 ${name} 失败: ${String(error).split('\n')[0]}`)
+      }
+    }
+  })()
+}
+
 // supervisor 不能因未捕获异常退出:记录并继续
 process.on('uncaughtException', (error) => log(`未捕获异常(已忽略): ${error?.stack ?? error}`))
 process.on('unhandledRejection', (error) => log(`未处理的 Promise 拒绝(已忽略): ${error?.stack ?? error}`))
@@ -2735,6 +2771,7 @@ server.listen(PORT, '127.0.0.1', () => {
   if (resolved.root) {
     initPaths(resolved.root)
     reconcileRunningHosts()
+    autoStartContainers()
     refreshCatalogOnBoot()
     fs.writeFileSync(PID_FILE, String(process.pid))
     if (DATA_ROOT === path.join(os.homedir(), 'DSHBox')) {

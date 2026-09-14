@@ -334,6 +334,19 @@ window.__ModuleLoader__.load({
 				rest,
 				refreshContainers
 			]);
+			const setAutoStart = (0, react.useCallback)(async (id, enabled) => {
+				try {
+					await mutate(`autostart:${id}`, () => rest("POST", `/api/containers/${id}/autostart`, { enabled }, "自动启动开关失败"));
+					refreshContainers();
+					return true;
+				} catch {
+					return false;
+				}
+			}, [
+				mutate,
+				rest,
+				refreshContainers
+			]);
 			const protectAttempted = (0, react.useRef)();
 			(0, react.useEffect)(() => {
 				if (!serviceUp) return;
@@ -495,6 +508,7 @@ window.__ModuleLoader__.load({
 				deleteContainer,
 				setPort,
 				setProtect,
+				setAutoStart,
 				installVersion,
 				deleteVersion,
 				saveSettings,
@@ -516,98 +530,98 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"rowUrl": "yFwJXq_rowUrl",
-			"dot": "yFwJXq_dot",
-			"taskHead": "yFwJXq_taskHead",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"errorLine": "yFwJXq_errorLine",
-			"providerActions": "yFwJXq_providerActions",
-			"grow": "yFwJXq_grow",
-			"outputTail": "yFwJXq_outputTail",
-			"ddX": "yFwJXq_ddX",
-			"modelRow": "yFwJXq_modelRow",
-			"taskInline": "yFwJXq_taskInline",
-			"rowLine": "yFwJXq_rowLine",
-			"hintIcon": "yFwJXq_hintIcon",
-			"statusLabel": "yFwJXq_statusLabel",
-			"tabs": "yFwJXq_tabs",
-			"modelList": "yFwJXq_modelList",
-			"formRow": "yFwJXq_formRow",
-			"chipRow": "yFwJXq_chipRow",
-			"card": "yFwJXq_card",
-			"providerName": "yFwJXq_providerName",
-			"guide": "yFwJXq_guide",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"inlineForm": "yFwJXq_inlineForm",
-			"intro": "yFwJXq_intro",
+			"section": "yFwJXq_section",
 			"taskLine": "yFwJXq_taskLine",
-			"logPath": "yFwJXq_logPath",
-			"labelCol": "yFwJXq_labelCol",
 			"formGrid": "yFwJXq_formGrid",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"modelField": "yFwJXq_modelField",
-			"checkLine": "yFwJXq_checkLine",
-			"switchLine": "yFwJXq_switchLine",
-			"rowTitle": "yFwJXq_rowTitle",
-			"ddMeta": "yFwJXq_ddMeta",
-			"footerNote": "yFwJXq_footerNote",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"ddTag": "yFwJXq_ddTag",
-			"saveRow": "yFwJXq_saveRow",
+			"narrow": "yFwJXq_narrow",
 			"subTitle": "yFwJXq_subTitle",
+			"providerName": "yFwJXq_providerName",
+			"checkLine": "yFwJXq_checkLine",
 			"guideTitle": "yFwJXq_guideTitle",
-			"title": "yFwJXq_title",
 			"inlineFormActions": "yFwJXq_inlineFormActions",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"inlineForm": "yFwJXq_inlineForm",
+			"ddTag": "yFwJXq_ddTag",
+			"spin": "yFwJXq_spin",
+			"ddName": "yFwJXq_ddName",
+			"logPath": "yFwJXq_logPath",
+			"saveRow": "yFwJXq_saveRow",
 			"builtinBadge": "yFwJXq_builtinBadge",
+			"providerActions": "yFwJXq_providerActions",
+			"detailFrame": "yFwJXq_detailFrame",
+			"modelWarn": "yFwJXq_modelWarn",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"ddStar": "yFwJXq_ddStar",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"cardBody": "yFwJXq_cardBody",
+			"rows": "yFwJXq_rows",
+			"chipRow": "yFwJXq_chipRow",
+			"dotOk": "yFwJXq_dotOk",
+			"taskInline": "yFwJXq_taskInline",
+			"modelList": "yFwJXq_modelList",
+			"empty": "yFwJXq_empty",
+			"formLabel": "yFwJXq_formLabel",
 			"tab": "yFwJXq_tab",
 			"ddTrigger": "yFwJXq_ddTrigger",
-			"cellAction": "yFwJXq_cellAction",
-			"ddCaret": "yFwJXq_ddCaret",
-			"capInput": "yFwJXq_capInput",
-			"cardHead": "yFwJXq_cardHead",
-			"ddProv": "yFwJXq_ddProv",
-			"dd": "yFwJXq_dd",
-			"row": "yFwJXq_row",
-			"guideBody": "yFwJXq_guideBody",
-			"tabPanel": "yFwJXq_tabPanel",
-			"cardBody": "yFwJXq_cardBody",
-			"rowHead": "yFwJXq_rowHead",
-			"rowActions": "yFwJXq_rowActions",
-			"spin": "yFwJXq_spin",
 			"link": "yFwJXq_link",
-			"formLabel": "yFwJXq_formLabel",
-			"ddStar": "yFwJXq_ddStar",
-			"ddName": "yFwJXq_ddName",
-			"narrow": "yFwJXq_narrow",
-			"ddItem": "yFwJXq_ddItem",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"cardActions": "yFwJXq_cardActions",
+			"rowUrl": "yFwJXq_rowUrl",
 			"rangeInput": "yFwJXq_rangeInput",
-			"dotMiss": "yFwJXq_dotMiss",
-			"modelItem": "yFwJXq_modelItem",
-			"ddLabel": "yFwJXq_ddLabel",
-			"table": "yFwJXq_table",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"ddPanel": "yFwJXq_ddPanel",
-			"selfBadge": "yFwJXq_selfBadge",
-			"empty": "yFwJXq_empty",
-			"modelWarn": "yFwJXq_modelWarn",
-			"section": "yFwJXq_section",
-			"errorNote": "yFwJXq_errorNote",
-			"rows": "yFwJXq_rows",
-			"cardTitle": "yFwJXq_cardTitle",
-			"dotOk": "yFwJXq_dotOk",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"rowMeta": "yFwJXq_rowMeta",
-			"detailFrame": "yFwJXq_detailFrame",
-			"mutedCell": "yFwJXq_mutedCell",
+			"card": "yFwJXq_card",
 			"verSelect": "yFwJXq_verSelect",
+			"statusLabel": "yFwJXq_statusLabel",
+			"cardActions": "yFwJXq_cardActions",
+			"guideBody": "yFwJXq_guideBody",
+			"modelRow": "yFwJXq_modelRow",
+			"grow": "yFwJXq_grow",
 			"providerRow": "yFwJXq_providerRow",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"taskFailed": "yFwJXq_taskFailed",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"intro": "yFwJXq_intro",
+			"taskHead": "yFwJXq_taskHead",
+			"hintIcon": "yFwJXq_hintIcon",
+			"title": "yFwJXq_title",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"tabs": "yFwJXq_tabs",
+			"ddX": "yFwJXq_ddX",
+			"mutedCell": "yFwJXq_mutedCell",
+			"selfBadge": "yFwJXq_selfBadge",
+			"switchLine": "yFwJXq_switchLine",
+			"rowLine": "yFwJXq_rowLine",
+			"cardHead": "yFwJXq_cardHead",
 			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"ddStarOn": "yFwJXq_ddStarOn"
+			"ddCaret": "yFwJXq_ddCaret",
+			"dotMiss": "yFwJXq_dotMiss",
+			"tabPanel": "yFwJXq_tabPanel",
+			"rowActions": "yFwJXq_rowActions",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"rowMeta": "yFwJXq_rowMeta",
+			"row": "yFwJXq_row",
+			"dd": "yFwJXq_dd",
+			"ddPanel": "yFwJXq_ddPanel",
+			"ddMeta": "yFwJXq_ddMeta",
+			"capInput": "yFwJXq_capInput",
+			"taskFailed": "yFwJXq_taskFailed",
+			"labelCol": "yFwJXq_labelCol",
+			"dot": "yFwJXq_dot",
+			"outputTail": "yFwJXq_outputTail",
+			"footerNote": "yFwJXq_footerNote",
+			"rowHead": "yFwJXq_rowHead",
+			"rowTitle": "yFwJXq_rowTitle",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"errorNote": "yFwJXq_errorNote",
+			"ddProv": "yFwJXq_ddProv",
+			"modelItem": "yFwJXq_modelItem",
+			"cellAction": "yFwJXq_cellAction",
+			"table": "yFwJXq_table",
+			"errorLine": "yFwJXq_errorLine",
+			"ddLabel": "yFwJXq_ddLabel",
+			"guide": "yFwJXq_guide",
+			"modelField": "yFwJXq_modelField",
+			"formRow": "yFwJXq_formRow",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"ddItem": "yFwJXq_ddItem",
+			"cardTitle": "yFwJXq_cardTitle"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -741,10 +755,10 @@ window.__ModuleLoader__.load({
 		/**
 		* Containers card: one WebUI-shaped card per container (head with name and
 		* status pill; meta with the inline version select, port chip, profile and
-		* creation time; log path; url; flat actions plus the protect checkbox),
-		* the new-container inline form, per-row task progress, and the destructive
-		* confirmations (delete always, and the self-container strong path for
-		* stop/update/delete with an acknowledge step).
+		* creation time; log path; url; flat actions plus the protect and auto-start
+		* checkboxes), the new-container inline form, per-row task progress, and the
+		* destructive confirmations (delete always, and the self-container strong path
+		* for stop/update/delete with an acknowledge step).
 		*/
 		/** localStorage key for the last version used in a create (shared with the DSH Dock web UI). */
 		const LAST_VERSION_KEY = "dshdock-last-version";
@@ -774,7 +788,8 @@ window.__ModuleLoader__.load({
 				"update:",
 				"delete:",
 				"port:",
-				"protect:"
+				"protect:",
+				"autostart:"
 			]);
 			const submitCreate = async (input) => {
 				try {
@@ -986,6 +1001,18 @@ window.__ModuleLoader__.load({
 														store.setProtect(row.id, row.devProtect !== true);
 													}
 												}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("containers.protect") })]
+											}),
+											/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("label", {
+												className: DockSection_module_css_default.checkboxRow,
+												title: t("containers.autoStartHint"),
+												children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("input", {
+													type: "checkbox",
+													checked: row.autoStart === true,
+													disabled: store.isBusy(`autostart:${row.id}`),
+													onChange: () => {
+														store.setAutoStart(row.id, row.autoStart !== true);
+													}
+												}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { children: t("containers.autoStart") })]
 											})
 										]
 									}),
@@ -2339,6 +2366,8 @@ window.__ModuleLoader__.load({
 			"containers.portUnset": "未分配",
 			"containers.protect": "保护",
 			"containers.protectHint": "开启后:服务关闭/重启时保留此容器进程(下次启动自动接管);删除需弹窗确认",
+			"containers.autoStart": "自启",
+			"containers.autoStartHint": "开启后:DSH Dock 服务启动时自动启动此容器(宿主机重启后也会自动拉起);进程仍存活的容器走自动接管,不会重复启动",
 			"containers.createdAt": "创建于 {time}",
 			"containers.logPath": "日志:",
 			"containers.viewLog": "查看日志",
@@ -2509,6 +2538,8 @@ window.__ModuleLoader__.load({
 			"containers.portUnset": "unassigned",
 			"containers.protect": "Protect",
 			"containers.protectHint": "While on: the container process survives service shutdown/restart (reattached on next start); deletion asks for confirmation",
+			"containers.autoStart": "Auto-start",
+			"containers.autoStartHint": "While on: this container starts automatically whenever the DSH Dock service starts (host reboots included). Containers whose process is still alive are reattached instead, so they never start twice",
 			"containers.createdAt": "Created at {time}",
 			"containers.logPath": "Log:",
 			"containers.viewLog": "View log",
