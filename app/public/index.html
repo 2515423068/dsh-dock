@@ -1603,7 +1603,7 @@ function openRestoreModal(target, label, currentVersion, installed) {
   const versions = [...new Set([...(installed ?? []), ...(currentVersion ? [currentVersion] : [])])]
   const options = versions.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === currentVersion ? 'selected' : ''}>${escapeHtml(tag)}</option>`).join('')
   openModal('从配置创建', `
-    <p class="muted">用 <code>${escapeHtml(label)}</code> 里的配置**复制**出一个新容器;配置文件本身不受影响。</p>
+    <p class="muted">从 <code>${escapeHtml(label)}</code> 创建新容器(复制,原文件不受影响)。</p>
     <div class="row" style="margin-top:12px">
       <input id="cc-name" placeholder="新容器名称" style="width:220px">
       <select id="cc-version" class="ver-select" style="width:190px">${options || '<option value="">无已安装版本</option>'}</select>
