@@ -3,7 +3,8 @@
 DSH Dock 桥接插件:把 DSH Dock(https://127.0.0.1:7940)的容器/版本管理能力装进任意 DSH 容器。
 
 - **Host 半**(`src/`,零构建纯 ESM):9 个 `dshdock_*` 模型工具 + `dshdock` 技能 + `/dshdock-plugins` 页面通道。唯一运行时依赖:`@deepseek-ai/dsh-tools` 的 `defineTool`。
-- **浏览器半**(`src/client/`,构建产物 `lib/client.js` 已入库):DSH web 设置里的顶级分区 **"DSH Dock"**(四卡:容器 / 版本 / 插件管理 / 设置),zh/en 双语。
+- **浏览器半**(`src/client/`,构建产物 `lib/client.js` 已入库):DSH web 设置里的顶级分区 **"DSH Dock"**(五卡:容器 / 版本 / 插件管理 / 设置 / 外部与备份),zh/en 双语。
+  - 「外部与备份」卡:只读检测机器上已有的 DSH(配置目录 / CLI 安装 / harness 检出 / 运行中实例),并提供**只复制**的配置备份(开关 / 列表 / 立即备份 / 从备份新建容器 / 复制外部配置为备份)。DSHBox **不接管**外部实例、**不使用软链**;把外部配置复制进来必须先在弹窗里勾选确认风险。
 
 设计要点:Host 半零依赖纯 ESM;单一激活路径(只走 profile 的 patch 行,包内不声明 `dsh.bundle`);页面通道自己挂 `webServer` 前缀路由并复用 connection 的浏览器信任围栏;分层自保护(devProtect + self 识别)。
 
