@@ -858,7 +858,7 @@ function writeConfigGuide() {
     '',
     '```powershell',
     'mkdir $env:USERPROFILE\\dsh-restore -Force',
-    `tar -xzf "${dir}\\${sample}" -C $env:USERPROFILE\\dsh-restore`,
+    'tar -xzf "C:\\path\\to\\<配置文件>.dshcfg" -C $env:USERPROFILE\\dsh-restore',
     'dir $env:USERPROFILE\\dsh-restore\\home',
     '```',
     '',
