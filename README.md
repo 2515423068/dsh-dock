@@ -153,4 +153,4 @@ cd plugin/dsh-dock-bridge && pnpm install && pnpm run build   # 产物 lib/clien
 
 ## 许可
 
-本仓库尚未添加许可证文件(未选择许可证 = 保留所有权利);`plugin/dsh-dock-bridge` 包为 MIT。DSH 本体 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 为 MIT,由本应用按需克隆并在独立容器中运行,仓库内不含其代码副本。
+[MIT](LICENSE)。DSH 本体 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 同为 MIT,由本应用按需克隆并在独立容器中运行,仓库内不含其代码副本。
