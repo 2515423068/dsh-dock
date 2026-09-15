@@ -1,7 +1,7 @@
 /**
  * "外部 DSH 与配置" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
  * 安装、源码检出、正在运行的实例),唯一可做的动作是「保存为配置」;下半部是配置
- * (自动保存开关、目录[可调用宿主机文件夹选择器]、保存配置 → 生成自包含配置文件、
+ * (自动保存开关、目录[页面内选择器]、保存配置 → 生成自包含配置文件、
  * 配置文件列表 + 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律
  * **只复制、绝不软链**。
  */
@@ -12,8 +12,9 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConfigInspectItem, ConfigRow, ExternalCheck } from './api.ts'
 import type { DockT } from './locales.ts'
-import type { DockStore } from './use-dock.ts'
+import type { DockStore, PathPickerMode } from './use-dock.ts'
 import css from './DockSection.module.css'
+import { PathPickerDialog } from './PathPicker.tsx'
 import { ConfirmDialog, ErrorNote, SectionCard } from './parts.tsx'
 
 /** 外部检测卡里一份待保存为配置的 home(勾选确认后才允许提交)。 */
@@ -75,7 +76,7 @@ function defaultContainerName(name: string): string {
 interface RestoreTarget {
   readonly file?: string
   readonly path?: string
-  /** 表单标题里显示的目标(列表行用配置名,系统对话框选的带原始文件名)。 */
+  /** 表单标题里显示的目标(列表行用配置名,选择器选的带原始文件名)。 */
   readonly label: string
   readonly profile?: string
 }
@@ -379,7 +380,7 @@ function ExternalDetectCard({ t, store }: {
   )
 }
 
-/** 配置卡:开关 / 目录(含文件夹选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
+/** 配置卡:开关 / 目录(含页面内选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
 function ConfigCard({ t, store }: {
   t: DockT
   store: DockStore
@@ -387,6 +388,7 @@ function ConfigCard({ t, store }: {
   const [enabled, setEnabled] = useState(false)
   const [saveFor, setSaveFor] = useState('')
   const [note, setNote] = useState<string>()
+  const [pickerFor, setPickerFor] = useState<PathPickerMode>()
   const [restoreFor, setRestoreFor] = useState<RestoreTarget>()
   const [restoreName, setRestoreName] = useState('')
   const [restoreVersion, setRestoreVersion] = useState('')
@@ -414,37 +416,19 @@ function ConfigCard({ t, store }: {
       : t('error.operationFailed'))
   }
 
-  /**
-   * 打开宿主机的文件夹选择器:选中后立即保存(路径只读,不能手输);取消/失败给出提示。
-   */
-  const pickDir = async (): Promise<void> => {
+  /** 页面内选择器选定目录后立即保存(路径只读,不能手输)。 */
+  const applyPickedDir = async (path: string): Promise<void> => {
+    setPickerFor(undefined)
     setNote(undefined)
-    const picked = await store.pickDirectory()
-    if (picked === undefined) {
-      setNote(t('error.operationFailed'))
-      return
-    }
-    if (picked.path === null) {
-      setNote(picked.error !== undefined ? picked.error : t('config.dirPickCancelled'))
-      return
-    }
-    const saved = await store.saveConfigSettings({ configDir: picked.path })
-    setNote(saved ? t('config.dirSet', { path: picked.path }) : t('error.operationFailed'))
+    const saved = await store.saveConfigSettings({ configDir: path })
+    setNote(saved ? t('config.dirSet', { path }) : t('error.operationFailed'))
   }
 
-  /** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
-  const pickConfigFile = async (): Promise<void> => {
+  /** 页面内选择器选定配置文件后读取元信息,进入「从配置创建」表单。 */
+  const applyPickedFile = async (path: string): Promise<void> => {
+    setPickerFor(undefined)
     setNote(undefined)
-    const picked = await store.pickFile()
-    if (picked === undefined) {
-      setNote(t('error.operationFailed'))
-      return
-    }
-    if (picked.path === null) {
-      setNote(picked.error !== undefined ? picked.error : t('config.createFromFileCancelled'))
-      return
-    }
-    const item = await store.inspectConfig({ path: picked.path })
+    const item = await store.inspectConfig({ path })
     if (item === undefined) {
       setNote(t('error.operationFailed'))
       return
@@ -466,7 +450,7 @@ function ConfigCard({ t, store }: {
     setRestoreVersion(defaultVersion(row.version, installedVersions))
   }
 
-  /** 系统对话框选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
+  /** 选择器选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
   const openPicked = (item: ConfigInspectItem): void => {
     setNote(undefined)
     setRestoreFor({ path: item.path, label: `${item.name}(${item.file})`, profile: item.profile })
@@ -512,10 +496,10 @@ function ConfigCard({ t, store }: {
           <Button
             size="sm"
             title={t('config.createFromFileTitle')}
-            disabled={store.isBusy('configFilePick') || store.isBusy('configInspect')}
-            onClick={() => { void pickConfigFile() }}
+            disabled={store.isBusy('configInspect')}
+            onClick={() => { setNote(undefined); setPickerFor('file') }}
           >
-            {store.isBusy('configFilePick') || store.isBusy('configInspect')
+            {store.isBusy('configInspect')
               ? t('config.createFromFilePicking')
               : t('config.createFromFile')}
           </Button>
@@ -550,10 +534,9 @@ function ConfigCard({ t, store }: {
         <Button
           size="sm"
           title={t('config.dirTitle')}
-          disabled={store.isBusy('configPick')}
-          onClick={() => { void pickDir() }}
+          onClick={() => { setNote(undefined); setPickerFor('dir') }}
         >
-          {store.isBusy('configPick') ? t('config.dirPicking') : t('config.dirPick')}
+          {t('config.dirPick')}
         </Button>
         <span className={css.pathText} title={dirPath}>{dirPath.length > 0 ? dirPath : '-'}</span>
       </div>
@@ -654,6 +637,18 @@ function ConfigCard({ t, store }: {
         }}
         onClose={() => { setDeleteFor(undefined) }}
       />
+
+      {pickerFor !== undefined && (
+        <PathPickerDialog
+          key={pickerFor}
+          t={t}
+          store={store}
+          mode={pickerFor}
+          startPath={store.pickerStartPath(pickerFor)}
+          onPick={(path) => { void (pickerFor === 'dir' ? applyPickedDir(path) : applyPickedFile(path)) }}
+          onClose={() => { setPickerFor(undefined) }}
+        />
+      )}
     </SectionCard>
   )
 }

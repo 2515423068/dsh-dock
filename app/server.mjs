@@ -244,7 +244,7 @@ async function runTask(kind, refId, label, work) {
 
 function execFileAsync(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { timeout: 600_000, ...options }, (error, stdout, stderr) => {
+    execFile(command, args, { timeout: 600_000, windowsHide: true, ...options }, (error, stdout, stderr) => {
       if (error) reject(new Error(`${command} failed: ${stderr || stdout || error.message}`))
       else resolve({ stdout, stderr })
     })
@@ -644,6 +644,7 @@ function sanitizeCopiedGit(harnessDir) {
 //   - 配置目录默认 DATA_ROOT/configs,**不在 uninstall-data 的删除范围内**
 
 const CONFIG_EXT = '.dshcfg'
+const CONFIG_FILE_PATTERN = /\.(dshcfg|tar\.gz|tgz)$/i
 const CONFIG_STORE = () => {
   const configured = readSettings().configDir?.trim()
   return configured && configured.length > 0 ? configured : path.join(DATA_ROOT, 'configs')
@@ -2514,97 +2515,6 @@ function beginContainerCreate({ name, version, profile = 'web', config = null })
 
 // ── API 处理器 ──────────────────────────────────────────────────────────────
 
-// 系统目录选择对话框:跨平台,全部使用各 OS 内置机制,无需安装第三方依赖。
-//   Windows: PowerShell FolderBrowserDialog(系统自带)
-//   macOS:   osascript choose folder(系统自带)
-//   Linux:   zenity → kdialog → yad 链式回退(Linux 无保证预装的 GUI 工具,需装其一)
-// 用户取消返回 {path:null};工具缺失自动尝试下一个。
-/**
- * 原生「选择路径」对话框(目录与文件走同一套实现,所以两种选择体验一致)。
- *
- *   Windows: PowerShell 的 FolderBrowserDialog / OpenFileDialog
- *   macOS:   osascript 的 choose folder / choose file
- *   Linux:   zenity → kdialog → yad 链式回退(哪个装了用哪个)
- *
- * @param options.kind - `'directory'` 选目录,`'file'` 选文件
- * @returns `{ path }` 选中,`{ path: null }` 用户取消,`{ path: null, error }` 工具缺失/失败
- */
-function pickNative({ kind = 'directory', title = '选择路径' } = {}) {
-  const isFile = kind === 'file'
-  const filterLabel = 'DSH Dock 配置'
-  const filterPattern = '*.dshcfg *.tar.gz'
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      const script = isFile
-        ? [
-            'Add-Type -AssemblyName System.Windows.Forms | Out-Null',
-            '$d = New-Object System.Windows.Forms.OpenFileDialog',
-            `$d.Title = '${title}'`,
-            `$d.Filter = '${filterLabel} (${filterPattern})|${filterPattern.replace(/ /g, ';')}|所有文件 (*.*)|*.*'`,
-            'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }',
-          ].join('; ')
-        : [
-            'Add-Type -AssemblyName System.Windows.Forms | Out-Null',
-            '$d = New-Object System.Windows.Forms.FolderBrowserDialog',
-            `$d.Description = '${title}'`,
-            'if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }',
-          ].join('; ')
-      return execFile('powershell', ['-NoProfile', '-STA', '-Command', script], (error, stdout) => {
-        if (error) return resolve({ path: null, error: `PowerShell 对话框失败: ${String(error.message).split('\n')[0]}` })
-        const picked = String(stdout).trim()
-        resolve(picked ? { path: picked } : { path: null })
-      })
-    }
-    if (process.platform === 'darwin') {
-      const apple = isFile
-        ? `POSIX path of (choose file with prompt "${title}")`
-        : `POSIX path of (choose folder with prompt "${title}")`
-      return execFile('osascript', ['-e', apple], (error, stdout) => {
-        if (error) {
-          if (error.code === 1) return resolve({ path: null }) // 用户取消
-          return resolve({ path: null, error: String(error.message).split('\n')[0] })
-        }
-        const picked = String(stdout).trim()
-        resolve(picked ? { path: picked } : { path: null })
-      })
-    }
-    // Linux:zenity → kdialog → yad
-    const candidates = isFile
-      ? [
-          ['zenity', ['--file-selection', `--file-filter=${filterLabel} | ${filterPattern}`, `--filename=${os.homedir()}/`, '--title', title]],
-          ['kdialog', ['--getopenfilename', `${os.homedir()}/`, `${filterPattern}|${filterLabel}`, '--title', title]],
-          ['yad', ['--file', `--file-filter=${filterLabel} | ${filterPattern}`, `--filename=${os.homedir()}/`, '--title', title, '--geometry', '900x600']],
-        ]
-      : [
-          ['zenity', ['--file-selection', '--directory', `--filename=${os.homedir()}/`, '--title', title]],
-          ['kdialog', ['--getexistingdirectory', `${os.homedir()}/`, '--title', title]],
-          ['yad', ['--file', '--directory', `--filename=${os.homedir()}/`, '--title', title, '--geometry', '900x600']],
-        ]
-    const attempt = (index) => {
-      if (index >= candidates.length) {
-        return resolve({
-          path: null,
-          error: '未找到图形选择工具。请安装任一:sudo pacman -S zenity(或 kdialog/yad),或直接在输入框手动填写路径',
-        })
-      }
-      const [bin, args] = candidates[index]
-      execFile(bin, args, (error, stdout) => {
-        if (error) {
-          if (error.code === 'ENOENT') return attempt(index + 1)
-          if (error.code === 1 || error.code === 2) return resolve({ path: null }) // 用户取消
-          return resolve({ path: null, error: `${bin} 失败: ${error.message}` })
-        }
-        const picked = String(stdout).trim()
-        resolve(picked ? { path: picked } : { path: null })
-      })
-    }
-    attempt(0)
-  })
-}
-
-const pickDirectoryNative = () => pickNative({ kind: 'directory', title: '选择 DSH Dock 部署目录' })
-const pickConfigFileNative = () => pickNative({ kind: 'file', title: '选择 DSH Dock 配置文件(.dshcfg)' })
-
 async function handleApi(request, response, url) {
   const route = `${request.method} ${url.pathname}`
   const send = (status, body) => {
@@ -2617,15 +2527,103 @@ async function handleApi(request, response, url) {
   if (route === 'GET /api/onboarding') {
     return send(200, { needed: onboardingNeeded, suggestion: path.join(os.homedir(), 'DSHDock-data') })
   }
-  // 拉起系统目录/文件选择对话框(zenity/kdialog/yad 链式回退),阻塞直至用户选择或取消
-  if (route === 'POST /api/pick-directory') {
-    const result = await pickDirectoryNative()
-    return send(200, result)
+
+  // 目录列举 / 新建目录:给页面内的选择器用(对齐 DSH 的 directoryPicker browse 形状:
+  //   { path, home, crumbs[], entries[], files[], truncated } + createDirectory)
+  //   只读列举 + 只能新建空目录,不出回环、不写其他任何东西。
+  if (route === 'GET /api/fs/list') {
+    const mode = url.searchParams.get('mode') === 'file' ? 'file' : 'dir'
+    const requested = String(url.searchParams.get('path') ?? '').trim()
+    const home = os.homedir()
+    const target = requested.length > 0 ? requested : home
+    if (!path.isAbsolute(target)) return send(400, { error: '需要绝对路径' })
+    let dir
+    try {
+      dir = fs.realpathSync(target)
+    } catch {
+      return send(404, { error: `目录不存在: ${target}` })
+    }
+    let stat
+    try {
+      stat = fs.statSync(dir)
+    } catch (error) {
+      return send(403, { error: `无法访问: ${dir}(${String(error?.code ?? error)})` })
+    }
+    if (!stat.isDirectory()) return send(400, { error: '不是目录' })
+    let dirents
+    try {
+      dirents = fs.readdirSync(dir, { withFileTypes: true })
+    } catch (error) {
+      return send(403, { error: `无法读取目录: ${dir}(${String(error?.code ?? error)})` })
+    }
+    const entries = []
+    const files = []
+    let truncated = false
+    for (const entry of dirents) {
+      const hidden = entry.name.startsWith('.')
+      const full = path.join(dir, entry.name)
+      let isDir = entry.isDirectory()
+      if (entry.isSymbolicLink()) {
+        try {
+          isDir = fs.statSync(full).isDirectory()
+        } catch {
+          continue
+        }
+      }
+      if (isDir) {
+        if (entries.length >= 2000) {
+          truncated = true
+          continue
+        }
+        entries.push({ name: entry.name, path: full, hidden })
+      } else if (mode === 'file' && !hidden && CONFIG_FILE_PATTERN.test(entry.name)) {
+        files.push({ name: entry.name, path: full, hidden: false })
+      }
+    }
+    const byName = (a, b) => a.name.localeCompare(b.name, 'zh')
+    entries.sort(byName)
+    files.sort(byName)
+    // 面包屑:根 → 当前(含);每级都是跳转目标
+    const crumbs = []
+    let cursor = dir
+    for (;;) {
+      const root = path.parse(cursor).root
+      crumbs.unshift({ name: cursor === root ? cursor : path.basename(cursor), path: cursor, hidden: false })
+      if (cursor === root || crumbs.length > 64) break
+      cursor = path.dirname(cursor)
+    }
+    return send(200, {
+      mode,
+      path: dir,
+      home,
+      crumbs,
+      entries,
+      files,
+      truncated,
+      /** 部署目录下的默认配置目录(引导阶段 DATA_ROOT 可能还没定,给 null) */
+      defaultConfigDir: DATA_ROOT ? path.join(DATA_ROOT, 'configs') : null,
+    })
   }
-  if (route === 'POST /api/pick-file') {
-    const result = await pickConfigFileNative()
-    return send(200, result)
+
+  // 在选择器里新建一个子目录(对齐 DSH 的 createDirectory;只允许单层名字)
+  if (route === 'POST /api/fs/mkdir') {
+    const body = await readJsonBody(request)
+    const parent = String(body.path ?? '').trim()
+    const name = String(body.name ?? '').trim()
+    if (!path.isAbsolute(parent)) return send(400, { error: '父目录必须是绝对路径' })
+    if (name.length === 0 || name === '.' || name === '..' || /[\\/]/.test(name)) {
+      return send(400, { error: '名字不能为空,也不能包含路径分隔符' })
+    }
+    const target = path.join(parent, name)
+    try {
+      fs.mkdirSync(target)
+    } catch (error) {
+      if (error?.code === 'EEXIST') return send(400, { error: '同名目录已存在' })
+      return send(403, { error: `创建失败: ${String(error?.code ?? error)}` })
+    }
+    return send(200, { ok: true, path: target })
   }
+
   if (route === 'POST /api/onboarding') {
     const { dataRoot } = await readJsonBody(request)
     const trimmed = String(dataRoot ?? '').trim()

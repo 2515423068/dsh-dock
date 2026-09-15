@@ -137,11 +137,12 @@ export async function killTree(pid, { force = false, platform = process.platform
   const plan = killTreePlan(pid, { force, platform })
   const exec = run ?? defaultRun
   if (plan.kind === 'signal') {
-    try {
-      process.kill(plan.target, plan.signal)
-    } catch {
-      // 进程/进程组已不存在:与 kill(2) 的 ESRCH 等价,调用方按“已停止”处理
-    }
+    // 先杀进程组(顺带带走同组的子进程),**再杀进程本身**。
+    // 只发 `-pid` 是不够的:目标不一定恰好是自己进程组的组长(实测:前台启动的服务
+    // 落在调用方的进程组里,`kill(-pid)` 指向一个不存在的组 → ESRCH 被吞掉 →
+    // devrestart 报「无法确认服务进程已停止」)。
+    signalQuietly(plan.target, plan.signal)
+    signalQuietly(Math.abs(Number(pid)), plan.signal)
     return plan
   }
   try {
@@ -150,6 +151,16 @@ export async function killTree(pid, { force = false, platform = process.platform
     // taskkill 对已退出进程返回非 0:同样按“已停止”处理
   }
   return plan
+}
+
+/** 发一个信号,失败静默(ESRCH = 已经不在了,按“已停止”处理)。 */
+function signalQuietly(target, signal) {
+  if (!Number.isFinite(target) || target === 0) return
+  try {
+    process.kill(target, signal)
+  } catch {
+    // 已不存在或权限不足:调用方随后会用存活探测复核
+  }
 }
 
 function defaultRun(command, args) {

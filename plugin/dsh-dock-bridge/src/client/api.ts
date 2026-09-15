@@ -290,21 +290,38 @@ export interface ConfigCatalog {
   readonly items: readonly ConfigRow[]
 }
 
-/**
- * `POST /api/pick-directory` answer: the host's native chooser. The call
- * blocks until the user picks a directory or cancels; a cancelled or failed
- * chooser carries `path: null`, and a platform failure adds `error`.
- */
-export interface DirectoryPick {
-  readonly path: string | null
-  readonly error?: string
+/** One directory (or configuration file) row of `GET /api/fs/list`. */
+export interface FsEntry {
+  readonly name: string
+  readonly path: string
+  readonly hidden: boolean
 }
 
+/** One breadcrumb step of `GET /api/fs/list` (root → current, current included). */
+export interface FsCrumb {
+  readonly name: string
+  readonly path: string
+}
+
+/** `dir`: subdirectories only; `file`: subdirectories plus matching config files. */
+export type FsListMode = 'dir' | 'file'
+
 /**
- * `POST /api/pick-file` answer: the host's native file chooser, the very same
- * dialog family as the folder chooser (identical body shape).
+ * `GET /api/fs/list` answer: one directory level for the in-page picker.
+ * `entries` are subdirectories and `files` the matching configuration files
+ * (`mode=file` only). An empty requested path means the home directory, and
+ * `defaultConfigDir` is null while the deployment directory is unset.
  */
-export type FilePick = DirectoryPick
+export interface FsListing {
+  readonly mode: FsListMode
+  readonly path: string
+  readonly home: string
+  readonly crumbs: readonly FsCrumb[]
+  readonly entries: readonly FsEntry[]
+  readonly files?: readonly FsEntry[]
+  readonly truncated: boolean
+  readonly defaultConfigDir: string | null
+}
 
 /**
  * One configuration file read by `POST /api/configs/inspect`. `file` is the

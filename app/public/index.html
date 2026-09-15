@@ -579,6 +579,19 @@ select, .ver-select, .dd-trigger {
 }
 .ver-select { width: auto; max-width: 210px; }
 .logpath { font-size: 11.5px; line-height: 16px; color: var(--dsw-label-tertiary); font-family: var(--dsw-font-code); margin-bottom: 8px; word-break: break-all; }
+.pick-crumbs { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-bottom: 10px; font-size: 12.5px; line-height: 20px; }
+.pick-crumb { background: none; border: 0; padding: 0 4px; height: 20px; color: var(--dsw-link); cursor: pointer; font-size: 12.5px; border-radius: 6px; }
+.pick-crumb:hover { background: var(--dsw-chip-hover); }
+.pick-crumb.is-current { color: var(--dsw-label-primary); font-weight: 500; }
+.pick-sep { color: var(--dsw-label-tertiary); }
+.pick-list { max-height: 320px; overflow: auto; border: 0.5px solid var(--dsw-border-l4); border-radius: 10px; }
+.pick-row { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; font-size: 13.5px; line-height: 20px; }
+.pick-row:hover { background: var(--dsw-chip-hover); }
+.pick-row.is-selected { background: var(--dsw-state-neutral-bg); box-shadow: inset 0 0 0 1px var(--dsw-link); }
+.pick-row.is-file { color: var(--dsw-label-secondary); }
+.pick-row.is-hidden { opacity: 0.55; }
+.pick-icon { width: 16px; flex: 0 0 auto; text-align: center; }
+.pick-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── 开发保护开关 ── */
 .switch-wrap { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; line-height: 20px; color: var(--dsw-label-tertiary); user-select: none; }
@@ -1485,7 +1498,7 @@ async function renderConfigPanel() {
   panel.innerHTML = `
     <div class="panel"><h2>配置</h2>
       <div class="row">
-        <button onclick="pickConfigDir(this)" title="选择配置文件的存放目录">选择文件夹…</button>
+        <button onclick="pickConfigDir()" title="选择配置文件的存放目录">选择文件夹…</button>
         <span class="logpath" id="cfg-dir" title="${escapeHtml(data.dir)}">${escapeHtml(data.dir)}</span>
       </div>
       <div class="row" style="margin-top:8px">
@@ -1552,20 +1565,21 @@ async function toggleConfigAutoSave(enabled) {
   } catch (error) { toast(`操作失败: ${error}`, true) }
 }
 
-/** 打开系统目录选择器;选好后自动填进地址栏并立即生效。 */
-async function pickConfigDir(button) {
-  if (button) { button.disabled = true; button.textContent = '选择中…' }
-  try {
-    const result = await api('/api/pick-directory', { method: 'POST' })
-    if (!result?.path) return toast('已取消选择')
-    await api('/api/settings', { method: 'POST', body: { configDir: result.path } })
-    toast(`配置目录已设为 ${result.path}`)
-    renderConfigPanel()
-  } catch (error) {
-    toast(`选择目录失败: ${error}`, true)
-  } finally {
-    if (button) { button.disabled = false; button.textContent = '选择文件夹…' }
-  }
+/** 打开页面内目录选择器;选好后立即生效。 */
+function pickConfigDir() {
+  openPathPicker({
+    mode: 'dir',
+    title: '选择配置目录',
+    startPath: $('#cfg-dir')?.getAttribute('title') ?? '',
+    onPick: async (target) => {
+      closeModal()
+      try {
+        await api('/api/settings', { method: 'POST', body: { configDir: target } })
+        toast(`配置目录已设为 ${target}`)
+        renderConfigPanel()
+      } catch (error) { toast(`保存失败: ${error}`, true) }
+    },
+  })
 }
 
 async function saveConfigNow() {
@@ -1585,17 +1599,151 @@ function createFromConfigPrompt(encodedFile, currentVersion, installed) {
   openRestoreModal({ file }, file, currentVersion, installed)
 }
 
-/** 用系统文件对话框(与「选择文件夹」同一个对话框)挑一个配置文件,直接进入创建流程。 */
+/** 挑一个配置文件并进入创建流程(与「选择文件夹」用的是同一个页面内选择器)。 */
 async function createFromPickedFile() {
-  try {
-    const picked = await api('/api/pick-file', { method: 'POST' })
-    if (!picked?.path) return toast(picked?.error ?? '已取消选择')
-    const info = await api('/api/configs/inspect', { method: 'POST', body: { path: picked.path } })
-    const catalog = await api('/api/versions/catalog').catch(() => ({ installed: [] }))
-    openRestoreModal({ path: info.item.path }, `${info.item.name}(${info.item.file})`, info.item.version, catalog.installed ?? [])
-  } catch (error) {
-    toast(`无法读取该配置文件: ${error}`, true)
+  openPathPicker({
+    mode: 'file',
+    title: '选择配置文件',
+    startPath: '',
+    onPick: async (target) => {
+      try {
+        const info = await api('/api/configs/inspect', { method: 'POST', body: { path: target } })
+        const catalog = await api('/api/versions/catalog').catch(() => ({ installed: [] }))
+        openRestoreModal({ path: info.item.path }, `${info.item.name}(${info.item.file})`, info.item.version, catalog.installed ?? [])
+      } catch (error) {
+        closeModal()
+        toast(`无法读取该配置文件: ${error}`, true)
+      }
+    },
+  })
+}
+
+// ── 页面内选择器(选目录 / 选配置文件是同一个界面)─────────────────────────────
+// 形状对齐 DSH 的 directoryPicker browse 能力:面包屑 + 单层列举 + 新建目录 + 选定。
+// 这样两端(WebUI 与 DSH 里的插件卡)不再依赖系统对话框,也不会拉起任何子进程。
+let pickerState
+
+/** mode='dir':点「选择当前文件夹」;mode='file':选中一个配置文件后点「选择」。 */
+function openPathPicker({ mode, title, startPath, onPick }) {
+  pickerState = { mode, onPick, first: true }
+  let start = startPath ?? ''
+  if (start.length === 0) {
+    try { start = localStorage.getItem(`dshdock-picker-${mode}`) ?? '' } catch {}
   }
+  openModal(title, '<div id="pick-body"><div class="empty">加载中…</div></div>')
+  void pickerGo(start)
+}
+
+/** 起始路径可能还不存在(例如部署目录尚未创建):逐级回退到最近的上级目录。 */
+function pickerFallbacks(target) {
+  const candidates = [target]
+  let cursor = target
+  for (let index = 0; index < 12; index += 1) {
+    const parent = cursor.replace(/[\\/][^\\/]*$/, '')
+    if (parent === cursor || parent.length === 0) break
+    cursor = parent
+    candidates.push(parent)
+  }
+  return candidates
+}
+
+/** 供内联 onclick 使用:属性里传编码值(避免引号/特殊字符破坏 HTML),这里还原成真实路径。 */
+function pickerGoAttr(encodedTarget) {
+  return pickerGo(decodeURIComponent(encodedTarget))
+}
+
+async function pickerGo(target) {
+  const state = pickerState
+  if (state === undefined) return
+  if (state.crumbs === undefined) $('#pick-body').innerHTML = '<div class="empty">加载中…</div>'
+  const candidates = state.first ? pickerFallbacks(target) : [target]
+  state.first = false
+  let failure
+  for (const candidate of candidates) {
+    try {
+      const data = await api(`/api/fs/list?mode=${state.mode}&path=${encodeURIComponent(candidate)}`)
+      Object.assign(state, {
+        path: data.path, home: data.home, crumbs: data.crumbs, entries: data.entries,
+        files: data.files, truncated: data.truncated, defaultConfigDir: data.defaultConfigDir, selected: undefined,
+        notice: candidates.length > 1 ? '起始路径还不存在,已定位到最近的上级目录;可用「新建文件夹」创建它。' : undefined,
+      })
+      try { localStorage.setItem(`dshdock-picker-${state.mode}`, data.path) } catch {}
+      renderPicker()
+      return
+    } catch (error) { failure = error }
+  }
+  $('#pick-body').innerHTML = `<div class="error-text">${escapeHtml(failure)}</div>`
+}
+
+function renderPicker() {
+  const state = pickerState
+  if (state === undefined) return
+  const crumbs = state.crumbs.map((crumb, index) => (index === state.crumbs.length - 1
+    ? `<span class="pick-crumb is-current">${escapeHtml(crumb.name)}</span>`
+    : `<button class="pick-crumb" onclick="pickerGoAttr('${escapeHtml(encodeURIComponent(crumb.path))}')">${escapeHtml(crumb.name)}</button>`)).join('<span class="pick-sep">/</span>')
+  const row = (entry, kind) => `
+    <div class="pick-row ${kind === 'file' ? 'is-file' : 'is-dir'}${entry.hidden ? ' is-hidden' : ''}" onclick="pickerAct('${encodeURIComponent(entry.path)}', '${kind}', this)">
+      <span class="pick-icon">${kind === 'file' ? '📄' : '📁'}</span><span class="pick-name">${escapeHtml(entry.name)}</span>
+    </div>`
+  const rows = [
+    ...state.entries.map((entry) => row(entry, 'dir')),
+    ...(state.files ?? []).map((entry) => row(entry, 'file')),
+  ].join('')
+  const quick = [
+    { label: '主目录', path: state.home },
+    ...(state.defaultConfigDir ? [{ label: '默认配置目录', path: state.defaultConfigDir }] : []),
+  ]
+  $('#pick-body').innerHTML = `
+    <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      ${quick.map((item) => `<button onclick="pickerGoAttr('${escapeHtml(encodeURIComponent(item.path))}')">${escapeHtml(item.label)}</button>`).join('')}
+    </div>
+    <div class="pick-crumbs">${crumbs}</div>
+    <div class="pick-list">${rows || '<div class="empty">(没有子目录)</div>'}</div>
+    ${state.notice ? `<div class="muted" style="margin-top:6px">${escapeHtml(state.notice)}</div>` : ''}
+    ${state.truncated ? '<div class="muted" style="margin-top:6px">子目录过多,只显示前 2000 个</div>' : ''}
+    <div class="row" style="margin-top:12px;gap:8px">
+      ${state.mode === 'dir' ? '<button onclick="pickerMkdir()">新建文件夹</button>' : ''}
+      <span style="flex:1"></span>
+      ${state.mode === 'dir'
+        ? '<button class="primary" onclick="pickerConfirm()">选择当前文件夹</button>'
+        : '<button class="primary" id="pick-ok" disabled onclick="pickerConfirm()">选择</button>'}
+      <button onclick="closeModal()">取消</button>
+    </div>`
+}
+
+function pickerAct(encodedPath, kind, element) {
+  const state = pickerState
+  if (state === undefined) return
+  const target = decodeURIComponent(encodedPath)
+  if (kind === 'dir') return void pickerGo(target)
+  state.selected = target
+  document.querySelectorAll('#pick-body .pick-row').forEach((el) => el.classList.remove('is-selected'))
+  element.classList.add('is-selected')
+  const ok = $('#pick-ok')
+  if (ok) ok.disabled = false
+}
+
+async function pickerMkdir() {
+  const state = pickerState
+  if (state === undefined) return
+  const name = prompt('新文件夹名字:')
+  if (name === null || name.trim().length === 0) return
+  try {
+    const created = await api('/api/fs/mkdir', { method: 'POST', body: { path: state.path, name: name.trim() } })
+    await pickerGo(created.path)
+  } catch (error) {
+    toast(`新建失败: ${error}`, true)
+  }
+}
+
+function pickerConfirm() {
+  const state = pickerState
+  if (state === undefined) return
+  const target = state.mode === 'dir' ? state.path : state.selected
+  if (target === undefined) return toast('先选中一个文件', true)
+  const pick = state.onPick
+  pickerState = undefined
+  void pick(target)
 }
 
 function openRestoreModal(target, label, currentVersion, installed) {
@@ -2144,18 +2292,13 @@ function renderOnboarding(suggestion) {
       <div id="ob-error" class="error-text"></div>
     </div>`
 }
-async function browseDirectory() {
-  const btn = event?.target
-  if (btn) { btn.disabled = true; btn.textContent = '选择中...' }
-  try {
-    const r = await api('/api/pick-directory', { method: 'POST' })
-    if (r.path) $('#ob-path').value = r.path
-    else if (r.error) $('#ob-error').textContent = r.error
-  } catch (error) {
-    $('#ob-error').textContent = String(error)
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '浏览...' }
-  }
+function browseDirectory() {
+  openPathPicker({
+    mode: 'dir',
+    title: '选择部署目录',
+    startPath: $('#ob-path').value.trim(),
+    onPick: (target) => { closeModal(); $('#ob-path').value = target },
+  })
 }
 async function submitOnboarding() {
   const value = $('#ob-path').value.trim()

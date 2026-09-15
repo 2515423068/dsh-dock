@@ -917,3 +917,115 @@
   display: flex;
   align-items: center;
 }
+
+/* ── 页面内路径选择器(选配置目录 / 选配置文件共用同一个界面)── */
+.pickDialog {
+  width: min(560px, 100%);
+}
+
+.pickQuick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.pickSpacer {
+  flex: 1;
+}
+
+.pickCrumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  line-height: 20px;
+}
+
+.pickCrumb {
+  background: none;
+  border: 0;
+  padding: 0 4px;
+  height: 20px;
+  color: var(--dsw-alias-link);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-family: inherit;
+  border-radius: 6px;
+}
+
+.pickCrumb:hover {
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.pickCrumbCurrent {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.pickSep {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.pickList {
+  max-height: 320px;
+  overflow: auto;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: 10px;
+}
+
+.pickRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+.pickRow:hover {
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.pickRowSelected {
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-link);
+}
+
+.pickRowFile {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.pickRowHidden {
+  opacity: 0.55;
+}
+
+.pickIcon {
+  width: 16px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.pickName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pickMkdir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}

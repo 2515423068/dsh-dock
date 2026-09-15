@@ -23,8 +23,8 @@ const REST_ALLOWLIST = [
   '/api/external',
   '/api/configs',
   '/api/configs/inspect',
-  '/api/pick-directory',
-  '/api/pick-file',
+  '/api/fs/list',
+  '/api/fs/mkdir',
 ]
 
 /** Endpoints that mutate a container and therefore need the self guard. */
@@ -66,24 +66,29 @@ export function createPageHandler({ request, baseUrl, profileDir, selfId }) {
         }
         case 'dock.rest': {
           const method = typeof body.method === 'string' ? body.method : 'GET'
-          const pathname = typeof body.path === 'string' ? body.path : ''
+          const target = typeof body.path === 'string' ? body.path : ''
+          // 允许列表按不带查询串的路径匹配(/api/fs/list?mode=… 的查询照原样转发)。
+          const queryAt = target.indexOf('?')
+          const pathname = queryAt === -1 ? target : target.slice(0, queryAt)
           if (!REST_ALLOWLIST.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
             return fail({ code: 'forbidden', message: `路径不在允许列表内: ${pathname}`, details: {} })
           }
           const guard = selfGuard(pathname, method, body.body ?? {}, selfId)
           if (guard !== null) return fail(guard)
           // 保存配置要把整个 DSH_HOME 打包成单个配置文件,大 profile 远超默认 15s;
-          // 目录/文件选择器会阻塞到用户操作,同样放宽。
+          // 页面内选择器的列举(GET)与新建目录(POST)是交互式请求,同样放宽。
           // 其余接口沿用短超时(删除/停止另有各自的宽限)。
+          const slowInteractive = (method === 'POST' && (pathname === '/api/configs' || pathname === '/api/fs/mkdir'))
+            || (method === 'GET' && pathname === '/api/fs/list')
           const timeoutMs = method === 'DELETE'
             ? 60000
             : method === 'POST' && /\/stop$/.test(pathname)
               ? 30000
-              : method === 'POST' && (pathname === '/api/configs' || pathname === '/api/pick-directory' || pathname === '/api/pick-file')
+              : slowInteractive
                 ? 300000
                 : 15000
           try {
-            const answer = await request(method, pathname, {
+            const answer = await request(method, target, {
               body: body.body,
               timeoutMs,
               signal,

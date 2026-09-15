@@ -53,6 +53,36 @@ window.__ModuleLoader__.load({
 				window.localStorage.setItem(protectChoiceKey(id), "1");
 			} catch {}
 		}
+		/** Last directory the picker visited for one mode (browser-local; '' = home). */
+		function readPickerPath(mode) {
+			try {
+				return window.localStorage.getItem(`dshdock-picker-${mode}`) ?? "";
+			} catch {
+				return "";
+			}
+		}
+		/** Remember the picker's last visited directory for one mode. */
+		function writePickerPath(mode, path) {
+			try {
+				window.localStorage.setItem(`dshdock-picker-${mode}`, path);
+			} catch {}
+		}
+		/**
+		* The requested path first, then its ancestors: a starting path may not exist
+		* yet (a configuration directory before it is created), and the picker opens
+		* at the nearest directory that does.
+		*/
+		function ancestorCandidates(target) {
+			const candidates = [target];
+			let cursor = target;
+			for (let index = 0; index < 12; index += 1) {
+				const parent = cursor.replace(/[\\/][^\\/]*$/, "");
+				if (parent === cursor || parent.length === 0) break;
+				cursor = parent;
+				candidates.push(parent);
+			}
+			return candidates;
+		}
 		/**
 		* The section's whole data/operation surface.
 		* @param call - channel caller provided by the plugin apply closure.
@@ -496,6 +526,8 @@ window.__ModuleLoader__.load({
 			}, [mutate, rest]);
 			const settingsRef = (0, react.useRef)();
 			settingsRef.current = settings;
+			const configsRef = (0, react.useRef)();
+			configsRef.current = configs;
 			const saveConfigSettings = (0, react.useCallback)(async (patch) => {
 				const current = settingsRef.current;
 				if (current === void 0) return false;
@@ -517,35 +549,49 @@ window.__ModuleLoader__.load({
 				refreshConfigs
 			]);
 			/**
-			* 打开宿主机的系统目录选择对话框(POST /api/pick-directory,阻塞直到用户选择或
-			* 取消)。取消时服务端回 `path: null`;平台失败回 `{path: null, error}`,按失败处理。
+			* 列举一层目录给页面内选择器用(GET /api/fs/list)。`fallback` 打开时才开:
+			* 起始路径可能还不存在,逐级回退到最近的已存在上级目录;用户导航时为 false,
+			* 让失效路径直接报错而不是悄悄跳走。
 			*/
-			const pickDirectory = (0, react.useCallback)(async () => {
-				try {
-					const answer = await mutate("configPick", () => rest("POST", "/api/pick-directory", void 0, "打开目录选择器失败"));
+			const browseDirectory = (0, react.useCallback)(async (mode, target, fallback = false) => {
+				const candidates = fallback ? ancestorCandidates(target) : [target];
+				let failure;
+				for (let index = 0; index < candidates.length; index += 1) try {
+					const listing = await rest("GET", `/api/fs/list?mode=${mode}&path=${encodeURIComponent(candidates[index])}`, void 0, "目录读取失败");
+					writePickerPath(mode, listing.path);
 					return {
-						path: typeof answer?.path === "string" && answer.path.length > 0 ? answer.path : null,
-						...typeof answer?.error === "string" && answer.error.length > 0 ? { error: answer.error } : {}
+						listing,
+						fellBack: index > 0
 					};
+				} catch (error) {
+					failure = asOpError(error);
+				}
+				return {
+					fellBack: false,
+					...failure !== void 0 ? { failure } : {}
+				};
+			}, [rest]);
+			/** 在当前目录下新建一个子目录(POST /api/fs/mkdir);失败返回 undefined。 */
+			const makeDirectory = (0, react.useCallback)(async (parent, name) => {
+				try {
+					const created = await rest("POST", "/api/fs/mkdir", {
+						path: parent,
+						name
+					}, "新建文件夹失败");
+					return typeof created?.path === "string" && created.path.length > 0 ? created.path : void 0;
 				} catch {
 					return;
 				}
-			}, [mutate, rest]);
+			}, [rest]);
 			/**
-			* 打开宿主机的系统文件选择对话框(POST /api/pick-file;与目录选择器同一个对话框,
-			* 同样阻塞到用户选择或取消)。取消回 `path: null`,平台失败回 `{path: null, error}`。
+			* 选择器的起始路径:选目录用当前解析出的配置目录(设置里的值优先,否则用服务端
+			* 解析出的默认目录);选文件用上次访问的目录。空串交给服务端解析为 home。
 			*/
-			const pickFile = (0, react.useCallback)(async () => {
-				try {
-					const answer = await mutate("configFilePick", () => rest("POST", "/api/pick-file", void 0, "打开文件选择器失败"));
-					return {
-						path: typeof answer?.path === "string" && answer.path.length > 0 ? answer.path : null,
-						...typeof answer?.error === "string" && answer.error.length > 0 ? { error: answer.error } : {}
-					};
-				} catch {
-					return;
-				}
-			}, [mutate, rest]);
+			const pickerStartPath = (0, react.useCallback)((mode) => {
+				if (mode !== "dir") return readPickerPath(mode);
+				const configured = settingsRef.current?.configDir ?? "";
+				return configured.length > 0 ? configured : configsRef.current?.dir ?? "";
+			}, []);
 			/** 读一个配置文件的元信息(不复制、不落地);文件无效或路径不存在时返回 undefined。 */
 			const inspectConfig = (0, react.useCallback)(async (target) => {
 				try {
@@ -666,8 +712,9 @@ window.__ModuleLoader__.load({
 				refreshConfigs,
 				checkExternal,
 				saveConfigSettings,
-				pickDirectory,
-				pickFile,
+				browseDirectory,
+				makeDirectory,
+				pickerStartPath,
 				inspectConfig,
 				saveConfigNow,
 				createFromConfig,
@@ -697,7 +744,7 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 		//#region \0dshdock-css:/home/hao/DSHProgram/DSHBox/plugin/dsh-dock-bridge/src/client/DockSection.module.css.mjs
-		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_pathText{min-width:0;font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-secondary);white-space:nowrap;text-overflow:ellipsis;flex:200px;font-size:12px;line-height:20px;overflow:hidden}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_mono{font-family:var(--ds-font-family-code);word-break:break-all;font-size:12px}.yFwJXq_warnNote{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:12px;display:flex}.yFwJXq_riskList{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:12px;line-height:18px;display:flex}.yFwJXq_riskItem{overflow-wrap:anywhere}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}";
+		const css = ".yFwJXq_section{max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:12px;display:flex}.yFwJXq_title{margin:0;font-size:18px;font-weight:600}.yFwJXq_intro{color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px}.yFwJXq_tabs{border-bottom:.5px solid var(--dsw-alias-border-l2);align-items:flex-end;gap:22px;margin-top:2px;display:flex}.yFwJXq_tab{color:var(--dsw-alias-label-tertiary);font:inherit;cursor:pointer;background:0 0;border:0;padding:7px 1px 9px;font-size:13px;line-height:20px;position:relative}.yFwJXq_tab:hover,.yFwJXq_tab[data-active=true]{color:var(--dsw-alias-label-primary)}.yFwJXq_tab[data-active=true]:after,.yFwJXq_tab:focus-visible:after{background:var(--dsw-alias-label-primary);content:\"\";border-radius:2px 2px 0 0;height:2px;position:absolute;bottom:-1px;left:0;right:0}.yFwJXq_tab:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;border-radius:2px}.yFwJXq_tabPanel{min-width:0;padding-top:2px}.yFwJXq_card{border:.5px solid var(--dsw-alias-border-l4);background:0 0;border-radius:16px;flex-direction:column;gap:10px;padding:14px 16px;display:flex}.yFwJXq_cardHead{align-items:center;gap:8px;display:flex}.yFwJXq_cardTitle{letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);margin:0;font-size:13px;font-weight:600}.yFwJXq_cardActions{align-items:center;gap:6px;margin-left:auto;display:flex}.yFwJXq_cardBody{flex-direction:column;gap:6px;display:flex}.yFwJXq_rows{flex-direction:column;gap:12px;margin:0;padding:0;list-style:none;display:flex}.yFwJXq_row{border:.5px solid var(--dsw-alias-border-l4);border-radius:16px;flex-direction:column;align-items:stretch;padding:14px 16px;display:flex}.yFwJXq_rowHead{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_rowTitle{text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:500;line-height:22px;overflow:hidden}.yFwJXq_rowMeta{color:var(--dsw-alias-label-tertiary);margin-bottom:10px;font-size:13px;line-height:20px}.yFwJXq_verSelect,.yFwJXq_ddTrigger{box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-layer-2);height:30px;color:var(--dsw-alias-label-primary);vertical-align:middle;border-radius:8px;padding:0 8px;font-size:12.5px;line-height:18px}.yFwJXq_logPath{color:var(--dsw-alias-label-tertiary);font-size:11.5px;line-height:16px;font-family:var(--ds-font-family-code);word-break:break-all;margin-bottom:8px}.yFwJXq_rowUrl{min-width:0;margin-bottom:10px;overflow:hidden}.yFwJXq_rowActions{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_table{border-collapse:collapse;width:100%;font-size:13px;line-height:20px}.yFwJXq_table th{text-align:left;color:var(--dsw-alias-label-tertiary);border-bottom:.5px solid var(--dsw-alias-border-l2);padding:10px;font-size:12px;font-weight:500;line-height:18px}.yFwJXq_table td{border-bottom:.5px solid var(--dsw-alias-border-l1);vertical-align:middle;padding:10px}.yFwJXq_table tbody tr:last-child td{border-bottom:none}.yFwJXq_cellAction{white-space:nowrap}.yFwJXq_mutedCell{color:var(--dsw-alias-label-tertiary);font-size:12.5px;line-height:20px}.yFwJXq_dot{flex:none}.yFwJXq_statusLabel{height:24px;color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-layer-2);white-space:nowrap;border-radius:12px;align-items:center;padding:0 10px;font-size:12px;line-height:18px;display:inline-flex}.yFwJXq_statusLabel[data-status=running]{color:var(--dsw-alias-state-success-primary);background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent)}.yFwJXq_statusLabel[data-status=starting]{color:var(--dsw-alias-state-warn-label);background:color-mix(in srgb, var(--dsw-alias-state-warn-label) 12%, transparent)}.yFwJXq_statusLabel[data-status=failed]{color:var(--dsw-alias-state-error-primary);background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.yFwJXq_selfBadge{white-space:nowrap;background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-radius:999px;flex:none;padding:2px 10px;font-size:12px;font-weight:600;line-height:18px}.yFwJXq_builtinBadge{white-space:nowrap;background:var(--dsw-alias-border-l3);color:var(--dsw-alias-label-secondary);border-radius:999px;padding:1px 8px;font-size:11px;font-weight:500;line-height:17px}.yFwJXq_link{color:var(--dsw-alias-link);word-break:break-all;font-size:12.5px;font-weight:500;line-height:20px;text-decoration:none}.yFwJXq_link:hover{text-underline-offset:3px;text-decoration:underline dotted}.yFwJXq_guide{border:.5px solid var(--dsw-alias-state-warn-primary);border-radius:12px;flex-direction:column;gap:8px;padding:12px 14px;display:flex}.yFwJXq_guideTitle{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:13px;font-weight:600;display:flex}.yFwJXq_guideBody{color:var(--dsw-alias-label-secondary);white-space:pre-line;margin:0;font-size:12px}.yFwJXq_baseUrlRow{flex-wrap:wrap;align-items:center;gap:6px;display:flex}.yFwJXq_baseUrlNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_errorNote{background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);color:var(--dsw-alias-state-error-primary);border-radius:10px;flex-direction:column;gap:4px;padding:8px 12px;font-size:12px;display:flex}.yFwJXq_errorLine{overflow-wrap:anywhere;margin:0}.yFwJXq_taskInline{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);border-radius:10px;flex-direction:column;gap:2px;padding:6px 12px;font-size:12px;display:flex}.yFwJXq_taskHead{align-items:center;gap:6px;display:flex}.yFwJXq_taskLine{color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;margin:0;font-size:11px;overflow:hidden}.yFwJXq_taskFailed{color:var(--dsw-alias-state-error-primary)}.yFwJXq_outputTail{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:160px;margin:0;padding:8px 10px;font-size:11px;line-height:1.5;overflow:auto}.yFwJXq_subTitle{margin:6px 0 0;font-size:15px;font-weight:500;line-height:22px}.yFwJXq_rowLine{flex-wrap:wrap;align-items:center;gap:10px;display:flex}.yFwJXq_labelCol{width:120px;color:var(--dsw-alias-label-tertiary);flex:none;font-size:12.5px;line-height:20px}.yFwJXq_pathText{min-width:0;font-family:var(--ds-font-family-code);color:var(--dsw-alias-label-secondary);white-space:nowrap;text-overflow:ellipsis;flex:200px;font-size:12px;line-height:20px;overflow:hidden}.yFwJXq_chipRow{flex-wrap:wrap;gap:6px;display:inline-flex}.yFwJXq_hintIcon{vertical-align:middle;color:var(--dsw-alias-label-tertiary);cursor:help;border-radius:4px;margin-left:2px;display:inline-flex}.yFwJXq_hintIcon:hover{color:var(--dsw-alias-label-primary)}.yFwJXq_hintIcon:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}.yFwJXq_rangeInput{width:150px}.yFwJXq_saveRow{margin-top:10px;display:flex}.yFwJXq_formGrid{flex-direction:column;gap:8px;padding-top:2px;display:flex}.yFwJXq_formRow{grid-template-columns:160px 1fr;align-items:center;gap:10px;display:grid}.yFwJXq_formLabel{color:var(--dsw-alias-label-secondary);font-size:12px}.yFwJXq_inlineForm{border:.5px solid var(--dsw-alias-border-l3);border-radius:12px;flex-direction:column;gap:8px;padding:10px 12px;display:flex}.yFwJXq_inlineFormRow{flex-wrap:wrap;align-items:center;gap:8px;display:flex}.yFwJXq_inlineFormActions{justify-content:flex-end;align-items:center;gap:6px;display:flex}.yFwJXq_grow{flex:160px;min-width:140px}.yFwJXq_narrow{width:120px}.yFwJXq_checkboxRow{color:var(--dsw-alias-label-primary);align-items:center;gap:6px;font-size:12px;display:flex}.yFwJXq_empty{text-align:center;color:var(--dsw-alias-label-tertiary);margin:0;padding:30px 0;font-size:13.5px;line-height:22px}.yFwJXq_footerNote{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px}.yFwJXq_mono{font-family:var(--ds-font-family-code);word-break:break-all;font-size:12px}.yFwJXq_warnNote{color:var(--dsw-alias-state-warn-label);align-items:center;gap:6px;margin:0;font-size:12px;display:flex}.yFwJXq_riskList{color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;margin:0;padding-left:18px;font-size:12px;line-height:18px;display:flex}.yFwJXq_riskItem{overflow-wrap:anywhere}.yFwJXq_stoppedDot{background:var(--dsw-alias-border-l3);border-radius:50%;flex:none;width:10px;height:10px}.yFwJXq_spin{animation:1s linear infinite yFwJXq_dshdock-spin}@keyframes yFwJXq_dshdock-spin{to{transform:rotate(360deg)}}.yFwJXq_providerRow{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px;padding:8px 10px;display:flex}.yFwJXq_providerName{font-size:13.5px;font-weight:500;line-height:20px}.yFwJXq_providerActions{gap:6px;margin-left:auto;display:flex}.yFwJXq_dotOk,.yFwJXq_dotMiss{border-radius:50%;flex:none;width:8px;height:8px}.yFwJXq_dotOk{background:var(--dsw-alias-state-success)}.yFwJXq_dotMiss{background:var(--dsw-alias-state-error)}.yFwJXq_modelRow{grid-template-columns:minmax(0,1.6fr) minmax(0,1.2fr) 110px 110px auto;align-items:center;gap:6px;margin-bottom:6px;display:grid}.yFwJXq_dd{width:100%;max-width:100%;display:block;position:relative}.yFwJXq_ddName{white-space:nowrap;flex:none}.yFwJXq_ddProv{white-space:nowrap;text-overflow:ellipsis;min-width:0;color:var(--dsw-alias-label-tertiary);overflow:hidden}.yFwJXq_ddTrigger{cursor:pointer;align-items:center;gap:10px;width:100%;max-width:100%;display:flex}.yFwJXq_ddLabel{white-space:nowrap;text-overflow:ellipsis;text-align:left;flex:auto;min-width:0;overflow:hidden}.yFwJXq_ddCaret{color:var(--dsw-alias-label-tertiary);flex:none}.yFwJXq_ddPanel{z-index:40;box-sizing:border-box;border:.5px solid var(--dsw-alias-border-l4);background:var(--dsw-alias-bg-module-platform);border-radius:12px;width:100%;max-width:100%;max-height:340px;padding:4px;position:absolute;top:calc(100% + 4px);left:0;overflow:hidden auto;box-shadow:0 8px 24px #0000001f}.yFwJXq_ddItem,.yFwJXq_ddItemActive{cursor:pointer;border-radius:8px;align-items:center;gap:8px;min-width:0;padding:6px 8px;font-size:13px;line-height:20px;display:flex}.yFwJXq_ddItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_ddItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_ddItemMuted{color:var(--dsw-alias-label-tertiary);padding:6px 8px;font-size:13px}.yFwJXq_ddItem b,.yFwJXq_ddItemActive b,.yFwJXq_ddMeta{white-space:nowrap;text-overflow:ellipsis;min-width:0;overflow:hidden}.yFwJXq_ddX{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:12px;line-height:22px}.yFwJXq_ddX:hover{color:var(--dsw-alias-state-error)}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_detailFrame{min-height:316px}.yFwJXq_modelField{align-items:center;gap:10px;margin-bottom:8px;display:flex}.yFwJXq_capInput{max-width:110px}.yFwJXq_checkLine{color:var(--dsw-alias-label-tertiary);align-items:center;gap:6px;font-size:12.5px;display:flex}.yFwJXq_modelList{border:.5px solid var(--dsw-alias-border-l4);border-radius:12px;max-height:260px;margin:8px 0 12px;padding:0;list-style:none;overflow:auto}.yFwJXq_modelItem,.yFwJXq_modelItemActive{width:100%;color:inherit;font:inherit;text-align:left;cursor:pointer;background:0 0;border:none;align-items:center;gap:8px;padding:7px 10px;font-size:13px;line-height:20px;display:flex}.yFwJXq_modelItem:hover{background:var(--dsw-alias-bg-module-platform)}.yFwJXq_modelItemActive{background:var(--dsw-alias-bg-module-platform);box-shadow:inset 2px 0 0 var(--dsw-alias-brand-primary)}.yFwJXq_modelItemMuted{color:var(--dsw-alias-label-tertiary);padding:7px 10px;font-size:13px}.yFwJXq_ddTag{color:var(--dsw-alias-label-tertiary);background:var(--dsw-alias-bg-module-platform);border-radius:8px;flex:none;padding:0 6px;font-size:11px;line-height:18px}.yFwJXq_ddStar,.yFwJXq_ddStarOn{width:22px;height:22px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;border-radius:6px;flex:none;padding:0;font-size:13px;line-height:22px}.yFwJXq_ddStar:hover,.yFwJXq_ddStarOn{color:var(--dsw-alias-state-warn)}.yFwJXq_modelWarn{color:var(--dsw-alias-state-error);flex:none;font-size:11.5px}.yFwJXq_switchLine{align-items:center;display:flex}.yFwJXq_pickDialog{width:min(560px,100%)}.yFwJXq_pickQuick{flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:6px;display:flex}.yFwJXq_pickSpacer{flex:1}.yFwJXq_pickCrumbs{flex-wrap:wrap;align-items:center;gap:2px;margin-bottom:10px;font-size:12.5px;line-height:20px;display:flex}.yFwJXq_pickCrumb{height:20px;color:var(--dsw-alias-link);cursor:pointer;background:0 0;border:0;border-radius:6px;padding:0 4px;font-family:inherit;font-size:12.5px}.yFwJXq_pickCrumb:hover{background:var(--dsw-alias-bg-layer-2)}.yFwJXq_pickCrumbCurrent{color:var(--dsw-alias-label-primary);font-weight:500}.yFwJXq_pickSep{color:var(--dsw-alias-label-tertiary)}.yFwJXq_pickList{border:.5px solid var(--dsw-alias-border-l4);border-radius:10px;max-height:320px;overflow:auto}.yFwJXq_pickRow{box-sizing:border-box;width:100%;color:inherit;text-align:left;cursor:pointer;background:0 0;border:0;align-items:center;gap:8px;padding:7px 12px;font-family:inherit;font-size:13.5px;line-height:20px;display:flex}.yFwJXq_pickRow:hover{background:var(--dsw-alias-bg-layer-2)}.yFwJXq_pickRowSelected{background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 0 0 1px var(--dsw-alias-link)}.yFwJXq_pickRowFile{color:var(--dsw-alias-label-secondary)}.yFwJXq_pickRowHidden{opacity:.55}.yFwJXq_pickIcon{text-align:center;flex:none;width:16px}.yFwJXq_pickName{text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.yFwJXq_pickMkdir{align-items:center;gap:8px;margin-top:10px;display:flex}";
 		const tagId = "dsh-dock-bridge/DockSection.module.css";
 		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
 			const tag = document.createElement("style");
@@ -707,103 +754,118 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var DockSection_module_css_default = {
-			"mono": "yFwJXq_mono",
-			"rowMeta": "yFwJXq_rowMeta",
-			"grow": "yFwJXq_grow",
-			"ddTag": "yFwJXq_ddTag",
-			"row": "yFwJXq_row",
-			"cellAction": "yFwJXq_cellAction",
-			"dshdock-spin": "yFwJXq_dshdock-spin",
-			"dd": "yFwJXq_dd",
-			"formRow": "yFwJXq_formRow",
-			"cardBody": "yFwJXq_cardBody",
-			"ddProv": "yFwJXq_ddProv",
-			"inlineForm": "yFwJXq_inlineForm",
-			"ddStarOn": "yFwJXq_ddStarOn",
-			"taskInline": "yFwJXq_taskInline",
-			"modelWarn": "yFwJXq_modelWarn",
-			"ddItemActive": "yFwJXq_ddItemActive",
-			"statusLabel": "yFwJXq_statusLabel",
-			"outputTail": "yFwJXq_outputTail",
-			"inlineFormActions": "yFwJXq_inlineFormActions",
-			"labelCol": "yFwJXq_labelCol",
-			"baseUrlNote": "yFwJXq_baseUrlNote",
-			"errorLine": "yFwJXq_errorLine",
-			"taskLine": "yFwJXq_taskLine",
-			"pathText": "yFwJXq_pathText",
-			"ddName": "yFwJXq_ddName",
-			"mutedCell": "yFwJXq_mutedCell",
-			"cardActions": "yFwJXq_cardActions",
-			"logPath": "yFwJXq_logPath",
-			"saveRow": "yFwJXq_saveRow",
-			"checkboxRow": "yFwJXq_checkboxRow",
-			"footerNote": "yFwJXq_footerNote",
-			"intro": "yFwJXq_intro",
-			"dotOk": "yFwJXq_dotOk",
-			"modelItemActive": "yFwJXq_modelItemActive",
-			"modelList": "yFwJXq_modelList",
-			"guide": "yFwJXq_guide",
-			"table": "yFwJXq_table",
-			"title": "yFwJXq_title",
-			"tab": "yFwJXq_tab",
-			"rowUrl": "yFwJXq_rowUrl",
-			"card": "yFwJXq_card",
-			"subTitle": "yFwJXq_subTitle",
-			"rowActions": "yFwJXq_rowActions",
-			"modelItemMuted": "yFwJXq_modelItemMuted",
-			"ddItemMuted": "yFwJXq_ddItemMuted",
-			"ddCaret": "yFwJXq_ddCaret",
-			"dot": "yFwJXq_dot",
-			"rowLine": "yFwJXq_rowLine",
-			"switchLine": "yFwJXq_switchLine",
-			"spin": "yFwJXq_spin",
-			"rowHead": "yFwJXq_rowHead",
-			"ddX": "yFwJXq_ddX",
-			"section": "yFwJXq_section",
-			"link": "yFwJXq_link",
-			"warnNote": "yFwJXq_warnNote",
-			"detailFrame": "yFwJXq_detailFrame",
-			"stoppedDot": "yFwJXq_stoppedDot",
-			"cardHead": "yFwJXq_cardHead",
-			"errorNote": "yFwJXq_errorNote",
-			"taskHead": "yFwJXq_taskHead",
-			"inlineFormRow": "yFwJXq_inlineFormRow",
-			"riskList": "yFwJXq_riskList",
-			"providerRow": "yFwJXq_providerRow",
-			"builtinBadge": "yFwJXq_builtinBadge",
 			"providerName": "yFwJXq_providerName",
-			"empty": "yFwJXq_empty",
-			"ddMeta": "yFwJXq_ddMeta",
-			"guideBody": "yFwJXq_guideBody",
-			"dotMiss": "yFwJXq_dotMiss",
-			"baseUrlRow": "yFwJXq_baseUrlRow",
-			"ddPanel": "yFwJXq_ddPanel",
-			"ddItem": "yFwJXq_ddItem",
-			"modelItem": "yFwJXq_modelItem",
-			"modelRow": "yFwJXq_modelRow",
-			"selfBadge": "yFwJXq_selfBadge",
-			"ddTrigger": "yFwJXq_ddTrigger",
 			"taskFailed": "yFwJXq_taskFailed",
-			"capInput": "yFwJXq_capInput",
-			"tabPanel": "yFwJXq_tabPanel",
-			"rangeInput": "yFwJXq_rangeInput",
-			"tabs": "yFwJXq_tabs",
-			"providerActions": "yFwJXq_providerActions",
 			"narrow": "yFwJXq_narrow",
-			"formLabel": "yFwJXq_formLabel",
-			"hintIcon": "yFwJXq_hintIcon",
+			"saveRow": "yFwJXq_saveRow",
+			"riskList": "yFwJXq_riskList",
+			"statusLabel": "yFwJXq_statusLabel",
+			"inlineFormRow": "yFwJXq_inlineFormRow",
+			"detailFrame": "yFwJXq_detailFrame",
+			"modelList": "yFwJXq_modelList",
+			"checkboxRow": "yFwJXq_checkboxRow",
+			"warnNote": "yFwJXq_warnNote",
+			"pickDialog": "yFwJXq_pickDialog",
 			"formGrid": "yFwJXq_formGrid",
+			"modelItemActive": "yFwJXq_modelItemActive",
+			"pickCrumbCurrent": "yFwJXq_pickCrumbCurrent",
+			"dotMiss": "yFwJXq_dotMiss",
 			"rows": "yFwJXq_rows",
-			"rowTitle": "yFwJXq_rowTitle",
-			"cardTitle": "yFwJXq_cardTitle",
-			"checkLine": "yFwJXq_checkLine",
-			"guideTitle": "yFwJXq_guideTitle",
-			"chipRow": "yFwJXq_chipRow",
+			"section": "yFwJXq_section",
+			"ddTrigger": "yFwJXq_ddTrigger",
+			"ddX": "yFwJXq_ddX",
+			"modelItem": "yFwJXq_modelItem",
+			"pickRow": "yFwJXq_pickRow",
+			"pickRowSelected": "yFwJXq_pickRowSelected",
+			"pickMkdir": "yFwJXq_pickMkdir",
+			"tabs": "yFwJXq_tabs",
 			"verSelect": "yFwJXq_verSelect",
-			"ddLabel": "yFwJXq_ddLabel",
+			"cardTitle": "yFwJXq_cardTitle",
+			"cardBody": "yFwJXq_cardBody",
+			"tabPanel": "yFwJXq_tabPanel",
+			"inlineForm": "yFwJXq_inlineForm",
+			"spin": "yFwJXq_spin",
+			"modelItemMuted": "yFwJXq_modelItemMuted",
+			"ddTag": "yFwJXq_ddTag",
+			"pickSep": "yFwJXq_pickSep",
+			"pickList": "yFwJXq_pickList",
+			"row": "yFwJXq_row",
+			"checkLine": "yFwJXq_checkLine",
+			"pickIcon": "yFwJXq_pickIcon",
+			"mutedCell": "yFwJXq_mutedCell",
+			"taskHead": "yFwJXq_taskHead",
+			"rowUrl": "yFwJXq_rowUrl",
+			"selfBadge": "yFwJXq_selfBadge",
+			"formRow": "yFwJXq_formRow",
+			"stoppedDot": "yFwJXq_stoppedDot",
+			"dshdock-spin": "yFwJXq_dshdock-spin",
+			"ddProv": "yFwJXq_ddProv",
+			"ddMeta": "yFwJXq_ddMeta",
+			"dotOk": "yFwJXq_dotOk",
+			"link": "yFwJXq_link",
+			"pathText": "yFwJXq_pathText",
+			"rangeInput": "yFwJXq_rangeInput",
+			"ddName": "yFwJXq_ddName",
+			"pickRowHidden": "yFwJXq_pickRowHidden",
+			"providerActions": "yFwJXq_providerActions",
+			"pickCrumbs": "yFwJXq_pickCrumbs",
+			"logPath": "yFwJXq_logPath",
+			"title": "yFwJXq_title",
+			"cardActions": "yFwJXq_cardActions",
+			"ddPanel": "yFwJXq_ddPanel",
+			"capInput": "yFwJXq_capInput",
+			"cellAction": "yFwJXq_cellAction",
+			"rowLine": "yFwJXq_rowLine",
+			"subTitle": "yFwJXq_subTitle",
+			"grow": "yFwJXq_grow",
+			"card": "yFwJXq_card",
+			"ddItemMuted": "yFwJXq_ddItemMuted",
+			"pickQuick": "yFwJXq_pickQuick",
+			"table": "yFwJXq_table",
+			"builtinBadge": "yFwJXq_builtinBadge",
+			"inlineFormActions": "yFwJXq_inlineFormActions",
 			"modelField": "yFwJXq_modelField",
+			"ddCaret": "yFwJXq_ddCaret",
+			"switchLine": "yFwJXq_switchLine",
+			"tab": "yFwJXq_tab",
+			"dd": "yFwJXq_dd",
+			"footerNote": "yFwJXq_footerNote",
+			"ddItemActive": "yFwJXq_ddItemActive",
+			"rowTitle": "yFwJXq_rowTitle",
 			"riskItem": "yFwJXq_riskItem",
-			"ddStar": "yFwJXq_ddStar"
+			"pickCrumb": "yFwJXq_pickCrumb",
+			"pickRowFile": "yFwJXq_pickRowFile",
+			"taskLine": "yFwJXq_taskLine",
+			"ddStar": "yFwJXq_ddStar",
+			"pickName": "yFwJXq_pickName",
+			"guideTitle": "yFwJXq_guideTitle",
+			"errorNote": "yFwJXq_errorNote",
+			"intro": "yFwJXq_intro",
+			"baseUrlNote": "yFwJXq_baseUrlNote",
+			"taskInline": "yFwJXq_taskInline",
+			"mono": "yFwJXq_mono",
+			"ddItem": "yFwJXq_ddItem",
+			"ddStarOn": "yFwJXq_ddStarOn",
+			"hintIcon": "yFwJXq_hintIcon",
+			"cardHead": "yFwJXq_cardHead",
+			"modelWarn": "yFwJXq_modelWarn",
+			"pickSpacer": "yFwJXq_pickSpacer",
+			"providerRow": "yFwJXq_providerRow",
+			"rowMeta": "yFwJXq_rowMeta",
+			"rowActions": "yFwJXq_rowActions",
+			"guide": "yFwJXq_guide",
+			"empty": "yFwJXq_empty",
+			"modelRow": "yFwJXq_modelRow",
+			"rowHead": "yFwJXq_rowHead",
+			"errorLine": "yFwJXq_errorLine",
+			"outputTail": "yFwJXq_outputTail",
+			"chipRow": "yFwJXq_chipRow",
+			"formLabel": "yFwJXq_formLabel",
+			"labelCol": "yFwJXq_labelCol",
+			"ddLabel": "yFwJXq_ddLabel",
+			"guideBody": "yFwJXq_guideBody",
+			"baseUrlRow": "yFwJXq_baseUrlRow",
+			"dot": "yFwJXq_dot"
 		};
 		//#endregion
 		//#region src/client/parts.tsx
@@ -1401,11 +1463,250 @@ window.__ModuleLoader__.load({
 			});
 		}
 		//#endregion
+		//#region src/client/PathPicker.tsx
+		/**
+		* 页面内路径选择器:「选择配置目录」与「从配置文件创建…」共用同一界面,与 WebUI
+		* 的页面内选择器同构 —— 快捷入口 + 面包屑 + 单层列举(目录在前,file 模式再列配置
+		* 文件)+ 可选新建文件夹 + 选定。不拉起任何系统对话框,也不产生子进程。
+		*/
+		/**
+		* 选目录 / 选配置文件共用的页面内选择器。
+		* @param mode - `dir` 选定当前文件夹;`file` 需先选中一个配置文件。
+		* @param startPath - 打开时的起始路径(空串 = 主目录)。
+		* @param onPick - 确认后的目标绝对路径;调用方负责收尾(保存目录 / 读取配置文件)。
+		* @param onClose - 取消或关闭。
+		*/
+		function PathPickerDialog({ t, store, mode, startPath, onPick, onClose }) {
+			const [listing, setListing] = (0, react.useState)();
+			const [failure, setFailure] = (0, react.useState)();
+			const [fellBack, setFellBack] = (0, react.useState)(false);
+			const [selected, setSelected] = (0, react.useState)();
+			const [mkdirOpen, setMkdirOpen] = (0, react.useState)(false);
+			const [mkdirName, setMkdirName] = (0, react.useState)("");
+			const [mkdirFailed, setMkdirFailed] = (0, react.useState)(false);
+			const [busy, setBusy] = (0, react.useState)(false);
+			const started = (0, react.useRef)(false);
+			/** 列举一层;fallback 只在打开时开,用最近存在的上级目录兜住不存在的起始路径。 */
+			const go = async (target, fallback = false) => {
+				setBusy(true);
+				setFailure(void 0);
+				setSelected(void 0);
+				const answer = await store.browseDirectory(mode, target, fallback);
+				setBusy(false);
+				if (answer.listing === void 0) {
+					setFailure(answer.failure);
+					return;
+				}
+				setListing(answer.listing);
+				setFellBack(answer.fellBack);
+				setMkdirOpen(false);
+				setMkdirName("");
+				setMkdirFailed(false);
+			};
+			(0, react.useEffect)(() => {
+				if (started.current) return;
+				started.current = true;
+				go(startPath, true);
+			}, []);
+			const crumbs = listing?.crumbs ?? [];
+			const rows = listing === void 0 ? [] : [...listing.entries.map((entry) => ({
+				entry,
+				kind: "dir"
+			})), ...(listing.files ?? []).map((entry) => ({
+				entry,
+				kind: "file"
+			}))];
+			const defaultDir = listing?.defaultConfigDir ?? "";
+			const confirm = () => {
+				if (listing === void 0) return;
+				if (mode === "dir") onPick(listing.path);
+				else if (selected !== void 0) onPick(selected);
+			};
+			const submitMkdir = async () => {
+				const parent = listing?.path;
+				const name = mkdirName.trim();
+				if (parent === void 0 || name.length === 0) return;
+				setMkdirFailed(false);
+				const created = await store.makeDirectory(parent, name);
+				if (created === void 0) {
+					setMkdirFailed(true);
+					return;
+				}
+				await go(created);
+			};
+			return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(_deepseek_ai_dsh_client_ui_primitives.Modal, {
+				open: true,
+				onClose,
+				title: mode === "dir" ? t("picker.titleDir") : t("picker.titleFile"),
+				closeLabel: t("cancel"),
+				className: DockSection_module_css_default.pickDialog,
+				footer: /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+					mode === "dir" && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						variant: "outline",
+						disabled: busy || listing === void 0,
+						onClick: () => {
+							setMkdirFailed(false);
+							setMkdirOpen(true);
+						},
+						children: t("picker.newFolder")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", { className: DockSection_module_css_default.pickSpacer }),
+					mode === "dir" ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						variant: "primary",
+						disabled: busy || listing === void 0,
+						onClick: confirm,
+						children: t("picker.chooseCurrent")
+					}) : /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						variant: "primary",
+						disabled: selected === void 0,
+						onClick: confirm,
+						children: t("picker.choose")
+					}),
+					/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+						size: "sm",
+						variant: "outline",
+						onClick: onClose,
+						children: t("cancel")
+					})
+				] }),
+				children: [
+					listing === void 0 && failure === void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.empty,
+						children: t("picker.loading")
+					}),
+					failure !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(ErrorNote, {
+						title: t("picker.readFailed"),
+						detail: failure.title
+					}),
+					listing !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.pickQuick,
+							children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "outline",
+								disabled: busy,
+								onClick: () => {
+									go(listing.home);
+								},
+								children: t("picker.home")
+							}), defaultDir.length > 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "outline",
+								disabled: busy,
+								onClick: () => {
+									go(defaultDir);
+								},
+								children: t("picker.defaultDir")
+							})]
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsx)("div", {
+							className: DockSection_module_css_default.pickCrumbs,
+							children: crumbs.map((crumb, index) => index === crumbs.length - 1 ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.pickCrumbCurrent,
+								children: crumb.name
+							}, crumb.path) : /* @__PURE__ */ (0, react_jsx_runtime.jsxs)(react.Fragment, { children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: DockSection_module_css_default.pickCrumb,
+								disabled: busy,
+								onClick: () => {
+									go(crumb.path);
+								},
+								children: crumb.name
+							}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+								className: DockSection_module_css_default.pickSep,
+								children: "/"
+							})] }, crumb.path))
+						}),
+						/* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+							className: DockSection_module_css_default.pickList,
+							children: [rows.length === 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+								className: DockSection_module_css_default.empty,
+								children: t("picker.empty")
+							}), rows.map(({ entry, kind }) => {
+								const classes = [DockSection_module_css_default.pickRow];
+								if (kind === "file") classes.push(DockSection_module_css_default.pickRowFile);
+								if (entry.hidden) classes.push(DockSection_module_css_default.pickRowHidden);
+								if (kind === "file" && selected === entry.path) classes.push(DockSection_module_css_default.pickRowSelected);
+								return /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("button", {
+									type: "button",
+									className: classes.join(" "),
+									disabled: busy,
+									onClick: () => {
+										if (kind === "dir") go(entry.path);
+										else setSelected(entry.path);
+									},
+									children: [/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: DockSection_module_css_default.pickIcon,
+										"aria-hidden": "true",
+										children: kind === "file" ? "📄" : "📁"
+									}), /* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
+										className: DockSection_module_css_default.pickName,
+										children: entry.name
+									})]
+								}, `${kind}:${entry.path}`);
+							})]
+						})
+					] }),
+					mkdirOpen && /* @__PURE__ */ (0, react_jsx_runtime.jsxs)("div", {
+						className: DockSection_module_css_default.pickMkdir,
+						children: [
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Input, {
+								className: DockSection_module_css_default.grow,
+								value: mkdirName,
+								placeholder: t("picker.mkdirPlaceholder"),
+								autoFocus: true,
+								onChange: (event) => {
+									setMkdirName(event.target.value);
+								},
+								onKeyDown: (event) => {
+									if (event.key === "Enter") submitMkdir();
+								}
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "primary",
+								disabled: busy || mkdirName.trim().length === 0,
+								onClick: () => {
+									submitMkdir();
+								},
+								children: t("picker.mkdirConfirm")
+							}),
+							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
+								size: "sm",
+								variant: "outline",
+								onClick: () => {
+									setMkdirOpen(false);
+									setMkdirName("");
+									setMkdirFailed(false);
+								},
+								children: t("cancel")
+							})
+						]
+					}),
+					fellBack && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: t("picker.fallback")
+					}),
+					listing?.truncated === true && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: t("picker.truncated")
+					}),
+					mkdirFailed && /* @__PURE__ */ (0, react_jsx_runtime.jsx)("p", {
+						className: DockSection_module_css_default.footerNote,
+						children: t("picker.mkdirFailed")
+					})
+				]
+			});
+		}
+		//#endregion
 		//#region src/client/ExternalCard.tsx
 		/**
 		* "外部 DSH 与配置" 卡片:上半部是**只读**的外部 DSH 检测(官方 ~/.dsh、npx/全局
 		* 安装、源码检出、正在运行的实例),唯一可做的动作是「保存为配置」;下半部是配置
-		* (自动保存开关、目录[可调用宿主机文件夹选择器]、保存配置 → 生成自包含配置文件、
+		* (自动保存开关、目录[页面内选择器]、保存配置 → 生成自包含配置文件、
 		* 配置文件列表 + 从配置创建容器 / 删除)。检测只读:不改动任何外部实例,保存一律
 		* **只复制、绝不软链**。
 		*/
@@ -1805,11 +2106,12 @@ window.__ModuleLoader__.load({
 				]
 			});
 		}
-		/** 配置卡:开关 / 目录(含文件夹选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
+		/** 配置卡:开关 / 目录(含页面内选择器)+ 从配置文件创建 + 保存配置 + 配置文件列表。 */
 		function ConfigCard({ t, store }) {
 			const [enabled, setEnabled] = (0, react.useState)(false);
 			const [saveFor, setSaveFor] = (0, react.useState)("");
 			const [note, setNote] = (0, react.useState)();
+			const [pickerFor, setPickerFor] = (0, react.useState)();
 			const [restoreFor, setRestoreFor] = (0, react.useState)();
 			const [restoreName, setRestoreName] = (0, react.useState)("");
 			const [restoreVersion, setRestoreVersion] = (0, react.useState)("");
@@ -1829,36 +2131,18 @@ window.__ModuleLoader__.load({
 				const saved = await store.saveConfigSettings({ configAutoSave: next });
 				setNote(saved ? next ? t("config.autoSaveOn") : t("config.autoSaveOff") : t("error.operationFailed"));
 			};
-			/**
-			* 打开宿主机的文件夹选择器:选中后立即保存(路径只读,不能手输);取消/失败给出提示。
-			*/
-			const pickDir = async () => {
+			/** 页面内选择器选定目录后立即保存(路径只读,不能手输)。 */
+			const applyPickedDir = async (path) => {
+				setPickerFor(void 0);
 				setNote(void 0);
-				const picked = await store.pickDirectory();
-				if (picked === void 0) {
-					setNote(t("error.operationFailed"));
-					return;
-				}
-				if (picked.path === null) {
-					setNote(picked.error !== void 0 ? picked.error : t("config.dirPickCancelled"));
-					return;
-				}
-				const saved = await store.saveConfigSettings({ configDir: picked.path });
-				setNote(saved ? t("config.dirSet", { path: picked.path }) : t("error.operationFailed"));
+				const saved = await store.saveConfigSettings({ configDir: path });
+				setNote(saved ? t("config.dirSet", { path }) : t("error.operationFailed"));
 			};
-			/** 用系统文件对话框挑一个配置文件,读元信息后进入「从配置创建」表单。 */
-			const pickConfigFile = async () => {
+			/** 页面内选择器选定配置文件后读取元信息,进入「从配置创建」表单。 */
+			const applyPickedFile = async (path) => {
+				setPickerFor(void 0);
 				setNote(void 0);
-				const picked = await store.pickFile();
-				if (picked === void 0) {
-					setNote(t("error.operationFailed"));
-					return;
-				}
-				if (picked.path === null) {
-					setNote(picked.error !== void 0 ? picked.error : t("config.createFromFileCancelled"));
-					return;
-				}
-				const item = await store.inspectConfig({ path: picked.path });
+				const item = await store.inspectConfig({ path });
 				if (item === void 0) {
 					setNote(t("error.operationFailed"));
 					return;
@@ -1881,7 +2165,7 @@ window.__ModuleLoader__.load({
 				setRestoreName(defaultContainerName(row.name));
 				setRestoreVersion(defaultVersion(row.version, installedVersions));
 			};
-			/** 系统对话框选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
+			/** 选择器选中的配置文件:目标指向磁盘路径,版本回退规则与列表行一致。 */
 			const openPicked = (item) => {
 				setNote(void 0);
 				setRestoreFor({
@@ -1938,11 +2222,12 @@ window.__ModuleLoader__.load({
 						/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 							size: "sm",
 							title: t("config.createFromFileTitle"),
-							disabled: store.isBusy("configFilePick") || store.isBusy("configInspect"),
+							disabled: store.isBusy("configInspect"),
 							onClick: () => {
-								pickConfigFile();
+								setNote(void 0);
+								setPickerFor("file");
 							},
-							children: store.isBusy("configFilePick") || store.isBusy("configInspect") ? t("config.createFromFilePicking") : t("config.createFromFile")
+							children: store.isBusy("configInspect") ? t("config.createFromFilePicking") : t("config.createFromFile")
 						})
 					]
 				}),
@@ -1996,11 +2281,11 @@ window.__ModuleLoader__.load({
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Button, {
 								size: "sm",
 								title: t("config.dirTitle"),
-								disabled: store.isBusy("configPick"),
 								onClick: () => {
-									pickDir();
+									setNote(void 0);
+									setPickerFor("dir");
 								},
-								children: store.isBusy("configPick") ? t("config.dirPicking") : t("config.dirPick")
+								children: t("config.dirPick")
 							}),
 							/* @__PURE__ */ (0, react_jsx_runtime.jsx)("span", {
 								className: DockSection_module_css_default.pathText,
@@ -2153,7 +2438,19 @@ window.__ModuleLoader__.load({
 						onClose: () => {
 							setDeleteFor(void 0);
 						}
-					})
+					}),
+					pickerFor !== void 0 && /* @__PURE__ */ (0, react_jsx_runtime.jsx)(PathPickerDialog, {
+						t,
+						store,
+						mode: pickerFor,
+						startPath: store.pickerStartPath(pickerFor),
+						onPick: (path) => {
+							pickerFor === "dir" ? applyPickedDir(path) : applyPickedFile(path);
+						},
+						onClose: () => {
+							setPickerFor(void 0);
+						}
+					}, pickerFor)
 				]
 			});
 		}
@@ -3394,9 +3691,7 @@ window.__ModuleLoader__.load({
 			"config.dir": "配置目录",
 			"config.dirPick": "选择文件夹…",
 			"config.dirTitle": "选择配置文件的存放目录",
-			"config.dirPicking": "选择中…",
 			"config.dirSet": "配置目录已设为 {path}",
-			"config.dirPickCancelled": "已取消选择",
 			"config.autoSaveOn": "已开启自动保存",
 			"config.autoSaveOff": "已关闭自动保存",
 			"config.saveNow": "保存配置",
@@ -3418,7 +3713,6 @@ window.__ModuleLoader__.load({
 			"config.createFromFile": "从配置文件创建…",
 			"config.createFromFileTitle": "选择一个 .dshcfg 文件,用它创建一个新容器",
 			"config.createFromFilePicking": "读取中…",
-			"config.createFromFileCancelled": "已取消选择",
 			"config.delete": "删除",
 			"config.deleteConfirm": "删除配置文件 {name}?文件会被移除,不可恢复(源容器不受影响)。",
 			"config.createHint": "恢复 = 复制,配置文件本身不动。",
@@ -3429,6 +3723,21 @@ window.__ModuleLoader__.load({
 			"config.reason.created": "创建时自动",
 			"config.reason.preDelete": "删除前自动",
 			"config.reason.preUpdate": "更新前自动",
+			"picker.titleDir": "选择配置目录",
+			"picker.titleFile": "选择配置文件",
+			"picker.home": "主目录",
+			"picker.defaultDir": "默认配置目录",
+			"picker.loading": "加载中…",
+			"picker.empty": "(没有子目录)",
+			"picker.newFolder": "新建文件夹",
+			"picker.mkdirPlaceholder": "新文件夹名字",
+			"picker.mkdirConfirm": "创建",
+			"picker.mkdirFailed": "新建文件夹失败",
+			"picker.chooseCurrent": "选择当前文件夹",
+			"picker.choose": "选择",
+			"picker.readFailed": "无法读取该目录",
+			"picker.fallback": "起始路径还不存在,已定位到最近的上级目录;可用「新建文件夹」创建它。",
+			"picker.truncated": "子目录过多,只显示前 2000 个",
 			"settings.title": "设置",
 			"settings.intro": "DSH Dock 服务端设置(网络 / 端口池 / 启动行为)与本插件的服务地址。",
 			"settings.network": "网络",
@@ -3654,9 +3963,7 @@ window.__ModuleLoader__.load({
 			"config.dir": "Config directory",
 			"config.dirPick": "Choose folder…",
 			"config.dirTitle": "Choose where configuration files are stored",
-			"config.dirPicking": "Choosing…",
 			"config.dirSet": "Config directory set to {path}",
-			"config.dirPickCancelled": "Selection cancelled",
 			"config.autoSaveOn": "Auto-save on",
 			"config.autoSaveOff": "Auto-save off",
 			"config.saveNow": "Save config",
@@ -3678,7 +3985,6 @@ window.__ModuleLoader__.load({
 			"config.createFromFile": "Create from config file…",
 			"config.createFromFileTitle": "Pick a .dshcfg file and create a new container from it",
 			"config.createFromFilePicking": "Reading…",
-			"config.createFromFileCancelled": "Selection cancelled",
 			"config.delete": "Delete",
 			"config.deleteConfirm": "Delete configuration file {name}? The file is removed and cannot be recovered (the source container is unaffected).",
 			"config.createHint": "Restoring copies it; the file itself is untouched.",
@@ -3689,6 +3995,21 @@ window.__ModuleLoader__.load({
 			"config.reason.created": "auto on create",
 			"config.reason.preDelete": "auto before delete",
 			"config.reason.preUpdate": "auto before update",
+			"picker.titleDir": "Choose configuration directory",
+			"picker.titleFile": "Choose configuration file",
+			"picker.home": "Home",
+			"picker.defaultDir": "Default config directory",
+			"picker.loading": "Loading…",
+			"picker.empty": "(no subdirectories)",
+			"picker.newFolder": "New folder",
+			"picker.mkdirPlaceholder": "New folder name",
+			"picker.mkdirConfirm": "Create",
+			"picker.mkdirFailed": "Could not create the folder",
+			"picker.chooseCurrent": "Choose this folder",
+			"picker.choose": "Choose",
+			"picker.readFailed": "Could not read this directory",
+			"picker.fallback": "The starting path does not exist yet; showing the nearest parent directory. Use \"New folder\" to create it.",
+			"picker.truncated": "Too many subdirectories; showing the first 2000",
 			"settings.title": "Settings",
 			"settings.intro": "DSH Dock service settings (network / port pool / startup behavior) and this plugin's service address.",
 			"settings.network": "Network",

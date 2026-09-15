@@ -8,8 +8,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type {
-  ConfigCatalog, ConfigImported, ConfigInspect, ConfigInspectItem, ConfigSaved, ContainerRow, DirectoryPick,
-  DockSettings, DockStatus, DockTask, ExternalCheck, ExternalView, FilePick, ModelConfigView, OpError,
+  ConfigCatalog, ConfigImported, ConfigInspect, ConfigInspectItem, ConfigSaved, ContainerRow,
+  DockSettings, DockStatus, DockTask, ExternalCheck, ExternalView, FsListing, FsListMode, ModelConfigView, OpError,
   ProfileTemplate, RawVersionCatalog, RestAnswer, VersionCatalog,
 } from './api.ts'
 
@@ -69,6 +69,52 @@ export function markProtectChoice(id: string): void {
     // Private mode and the like: without storage the default stays one-shot
     // per session via the attempted ref instead.
   }
+}
+
+/** Which picker a browse belongs to; both controls share the one in-page picker. */
+export type PathPickerMode = FsListMode
+
+/** One `GET /api/fs/list` attempt: the listing, or the last failure when none listed. */
+export interface FsBrowse {
+  readonly listing?: FsListing
+  /** True when the requested path was missing and the nearest ancestor listed instead. */
+  readonly fellBack: boolean
+  readonly failure?: OpError
+}
+
+/** Last directory the picker visited for one mode (browser-local; '' = home). */
+function readPickerPath(mode: PathPickerMode): string {
+  try {
+    return window.localStorage.getItem(`dshdock-picker-${mode}`) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Remember the picker's last visited directory for one mode. */
+function writePickerPath(mode: PathPickerMode, path: string): void {
+  try {
+    window.localStorage.setItem(`dshdock-picker-${mode}`, path)
+  } catch {
+    // Private mode and the like: the picker simply opens at home next time.
+  }
+}
+
+/**
+ * The requested path first, then its ancestors: a starting path may not exist
+ * yet (a configuration directory before it is created), and the picker opens
+ * at the nearest directory that does.
+ */
+function ancestorCandidates(target: string): string[] {
+  const candidates = [target]
+  let cursor = target
+  for (let index = 0; index < 12; index += 1) {
+    const parent = cursor.replace(/[\\/][^\\/]*$/, '')
+    if (parent === cursor || parent.length === 0) break
+    cursor = parent
+    candidates.push(parent)
+  }
+  return candidates
 }
 
 /**
@@ -459,6 +505,8 @@ export function useDock(call: DockCall): DockStore {
   // 会按空串覆盖,因此提交前必须与当前设置合并,避免只改配置开关却清掉网络配置。
   const settingsRef = useRef<DockSettings>()
   settingsRef.current = settings
+  const configsRef = useRef<ConfigCatalog>()
+  configsRef.current = configs
   const saveConfigSettings = useCallback(async (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir'>>) => {
     const current = settingsRef.current
     if (current === undefined) return false
@@ -473,38 +521,45 @@ export function useDock(call: DockCall): DockStore {
   }, [mutate, rest, refreshSettings, refreshConfigs])
 
   /**
-   * 打开宿主机的系统目录选择对话框(POST /api/pick-directory,阻塞直到用户选择或
-   * 取消)。取消时服务端回 `path: null`;平台失败回 `{path: null, error}`,按失败处理。
+   * 列举一层目录给页面内选择器用(GET /api/fs/list)。`fallback` 打开时才开:
+   * 起始路径可能还不存在,逐级回退到最近的已存在上级目录;用户导航时为 false,
+   * 让失效路径直接报错而不是悄悄跳走。
    */
-  const pickDirectory = useCallback(async (): Promise<DirectoryPick | undefined> => {
-    try {
-      const answer = await mutate('configPick', () =>
-        rest<DirectoryPick>('POST', '/api/pick-directory', undefined, '打开目录选择器失败'))
-      return {
-        path: typeof answer?.path === 'string' && answer.path.length > 0 ? answer.path : null,
-        ...(typeof answer?.error === 'string' && answer.error.length > 0 ? { error: answer.error } : {}),
+  const browseDirectory = useCallback(async (mode: PathPickerMode, target: string, fallback = false): Promise<FsBrowse> => {
+    const candidates = fallback ? ancestorCandidates(target) : [target]
+    let failure: OpError | undefined
+    for (let index = 0; index < candidates.length; index += 1) {
+      try {
+        const listing = await rest<FsListing>(
+          'GET', `/api/fs/list?mode=${mode}&path=${encodeURIComponent(candidates[index])}`, undefined, '目录读取失败')
+        writePickerPath(mode, listing.path)
+        return { listing, fellBack: index > 0 }
+      } catch (error) {
+        failure = asOpError(error)
       }
+    }
+    return { fellBack: false, ...(failure !== undefined ? { failure } : {}) }
+  }, [rest])
+
+  /** 在当前目录下新建一个子目录(POST /api/fs/mkdir);失败返回 undefined。 */
+  const makeDirectory = useCallback(async (parent: string, name: string): Promise<string | undefined> => {
+    try {
+      const created = await rest<{ path?: string }>('POST', '/api/fs/mkdir', { path: parent, name }, '新建文件夹失败')
+      return typeof created?.path === 'string' && created.path.length > 0 ? created.path : undefined
     } catch {
       return undefined
     }
-  }, [mutate, rest])
+  }, [rest])
 
   /**
-   * 打开宿主机的系统文件选择对话框(POST /api/pick-file;与目录选择器同一个对话框,
-   * 同样阻塞到用户选择或取消)。取消回 `path: null`,平台失败回 `{path: null, error}`。
+   * 选择器的起始路径:选目录用当前解析出的配置目录(设置里的值优先,否则用服务端
+   * 解析出的默认目录);选文件用上次访问的目录。空串交给服务端解析为 home。
    */
-  const pickFile = useCallback(async (): Promise<FilePick | undefined> => {
-    try {
-      const answer = await mutate('configFilePick', () =>
-        rest<FilePick>('POST', '/api/pick-file', undefined, '打开文件选择器失败'))
-      return {
-        path: typeof answer?.path === 'string' && answer.path.length > 0 ? answer.path : null,
-        ...(typeof answer?.error === 'string' && answer.error.length > 0 ? { error: answer.error } : {}),
-      }
-    } catch {
-      return undefined
-    }
-  }, [mutate, rest])
+  const pickerStartPath = useCallback((mode: PathPickerMode): string => {
+    if (mode !== 'dir') return readPickerPath(mode)
+    const configured = settingsRef.current?.configDir ?? ''
+    return configured.length > 0 ? configured : configsRef.current?.dir ?? ''
+  }, [])
 
   /** 读一个配置文件的元信息(不复制、不落地);文件无效或路径不存在时返回 undefined。 */
   const inspectConfig = useCallback(async (target: { file?: string; path?: string }): Promise<ConfigInspectItem | undefined> => {
@@ -619,8 +674,9 @@ export function useDock(call: DockCall): DockStore {
     refreshConfigs,
     checkExternal,
     saveConfigSettings,
-    pickDirectory,
-    pickFile,
+    browseDirectory,
+    makeDirectory,
+    pickerStartPath,
     inspectConfig,
     saveConfigNow,
     createFromConfig,
@@ -688,10 +744,12 @@ export interface DockStore {
   checkExternal: (path: string) => Promise<ExternalCheck | undefined>
   /** Persist the configuration groups of `/api/settings` (merged with current values). */
   saveConfigSettings: (patch: Partial<Pick<DockSettings, 'configAutoSave' | 'configDir'>>) => Promise<boolean>
-  /** Open the host's native folder chooser; undefined on failure (see `opErrorFor`), `path: null` when cancelled. */
-  pickDirectory: () => Promise<DirectoryPick | undefined>
-  /** Open the host's native file chooser (same dialog family); undefined on failure, `path: null` when cancelled. */
-  pickFile: () => Promise<FilePick | undefined>
+  /** Enumerate one directory level for the in-page picker; `fallback` walks up from a missing start. */
+  browseDirectory: (mode: PathPickerMode, target: string, fallback?: boolean) => Promise<FsBrowse>
+  /** Create one subdirectory inside `parent`; its path on success, undefined on failure. */
+  makeDirectory: (parent: string, name: string) => Promise<string | undefined>
+  /** Where the picker opens for this mode: the config directory, or the last visited one ('' = home). */
+  pickerStartPath: (mode: PathPickerMode) => string
   /** Read one configuration file's metadata without copying it; undefined when unreadable/invalid. */
   inspectConfig: (target: { file?: string; path?: string }) => Promise<ConfigInspectItem | undefined>
   /** Save a configuration file for one container, or for every container when omitted. */

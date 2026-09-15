@@ -115,6 +115,27 @@ test('killTree: POSIX 对不存在的进程组静默(等价 ESRCH)', async () =>
   await killTree(999_999, { platform: 'linux' })
 })
 
+test('killTree: 目标不是进程组长时也要能杀掉(真实复现 devrestart 卡住的 bug)', async () => {
+  // 故意不用 detached:子进程落在本测试进程的进程组里,`kill(-child.pid)` 指向不存在的组
+  const { spawn } = await import('node:child_process')
+  const child = spawn('sleep', ['30'], { stdio: 'ignore' })
+  await new Promise((resolve) => child.once('spawn', resolve))
+  const alive = () => {
+    try {
+      process.kill(child.pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  assert.equal(alive(), true)
+  await killTree(child.pid, { force: true, platform: 'linux' })
+  const deadline = Date.now() + 3000
+  while (Date.now() < deadline && alive()) await new Promise((r) => setTimeout(r, 50))
+  assert.equal(alive(), false, 'killTree 必须把进程本身也杀掉,而不只是尝试杀进程组')
+  try { child.kill('SIGKILL') } catch {}
+})
+
 test('aliveProbeTarget: POSIX 返回负进程组,Windows 返回 pid', () => {
   const record = { pid: 100, pgid: 100 }
   assert.equal(aliveProbeTarget(record, 'linux'), -100)

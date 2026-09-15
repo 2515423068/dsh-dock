@@ -19,3 +19,4 @@
 # ── 杂项 ──
 *.log
 .DS_Store
+/.playwright-cli/
